@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import {
+  EvidenceCollector,
+  buildMetrics,
+  relevantErrors,
+} from '../src/evidence.js';
+import type { Evidence, StepResult } from '../src/protocol.js';
+
+const failed: StepResult = {
+  index: 4,
+  action: 'assert_url',
+  status: 'failed',
+  startedAt: 10_000,
+  endedAt: 11_000,
+  durationMs: 1000,
+  failure: { kind: 'assertion', reason: 'wrong URL' },
+};
+
+describe('evidence reduction', () => {
+  it('prefers nearby HTTP failures over old errors', () => {
+    const events: Evidence[] = [
+      {
+        type: 'console',
+        level: 'error',
+        message: 'old',
+        at: 1000,
+        stepIndex: 0,
+      },
+      {
+        type: 'http',
+        method: 'POST',
+        path: '/api/login',
+        status: 500,
+        at: 10_200,
+        stepIndex: 4,
+      },
+      { type: 'request', method: 'GET', path: '/', at: 10_100, stepIndex: 4 },
+    ];
+    expect(relevantErrors(events, failed)).toEqual([
+      { type: 'http', method: 'POST', path: '/api/login', status: 500 },
+    ]);
+  });
+
+  it('redacts protected values from browser messages and counts evidence', () => {
+    const collector = new EvidenceCollector();
+    collector.protect('my-"secret');
+    collector.setStep(2);
+    collector.record({
+      type: 'console',
+      level: 'error',
+      message: 'bad my-"secret',
+    });
+    expect(collector.events[0]).toMatchObject({
+      message: 'bad [REDACTED]',
+      stepIndex: 2,
+    });
+    expect(buildMetrics([failed], collector.events, 50, 0, 0)).toMatchObject({
+      consoleErrorCount: 1,
+      compressionRatio: 0,
+    });
+  });
+});
