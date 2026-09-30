@@ -55,6 +55,7 @@ function stores(): {
   saved: {
     record?: RunRecord;
     plan?: BrowserPlan;
+    steps?: StepResult[];
     evidence?: Evidence[];
     result?: RunResult;
   };
@@ -62,13 +63,14 @@ function stores(): {
   const saved: {
     record?: RunRecord;
     plan?: BrowserPlan;
+    steps?: StepResult[];
     evidence?: Evidence[];
     result?: RunResult;
   } = {};
   const runs: RunStore = {
     async prepare() {},
-    async save(record, plan, _steps: StepResult[], evidence, result) {
-      Object.assign(saved, { record, plan, evidence, result });
+    async save(record, plan, steps: StepResult[], evidence, result) {
+      Object.assign(saved, { record, plan, steps, evidence, result });
     },
     async load() {
       throw new Error('unused');
@@ -162,5 +164,41 @@ describe('workflow executor', () => {
       artifactCount: 1,
       stepCount: 3,
     });
+  });
+
+  it('continues only when a failing step permits it', async () => {
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://local/login',
+        steps: [
+          {
+            action: 'fill',
+            target: { kind: 'label', label: 'Email' },
+            valueRef: 'EMAIL',
+          },
+          {
+            action: 'assert_url',
+            contains: '/dashboard',
+            continueOnFailure: true,
+          },
+          { action: 'navigate', url: 'http://local/dashboard' },
+          { action: 'assert_url', contains: '/dashboard' },
+        ],
+      },
+      {
+        browser: new FakeBrowser(),
+        runs: storage.runs,
+        artifacts: storage.artifacts,
+        values: new EnvironmentValueResolver({ EMAIL: 'test@example.test' }),
+      },
+    );
+    expect(result).toMatchObject({ success: false, failedStep: 1 });
+    expect(storage.saved.steps?.map((step) => step.status)).toEqual([
+      'passed',
+      'failed',
+      'passed',
+      'passed',
+    ]);
   });
 });

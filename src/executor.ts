@@ -98,6 +98,19 @@ export async function executePlan(
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
   const traceAllowed = !plan.steps.some((step) => step.action === 'fill');
+  const captureFailure = async (): Promise<void> => {
+    try {
+      artifacts.push(
+        await deps.artifacts.save(
+          runId,
+          'screenshot',
+          await deps.browser.screenshot(),
+        ),
+      );
+    } catch {
+      // A screenshot is best effort when a page has crashed.
+    }
+  };
   await deps.runs.prepare(runId);
   await deps.browser.start((event) => evidence.record(event), traceAllowed);
   try {
@@ -137,29 +150,20 @@ export async function executePlan(
       { action: 'navigate', url: plan.startUrl },
       -1,
     );
-    if (initial.status === 'failed') firstFailure = initial;
-    else {
+    if (initial.status === 'failed') {
+      firstFailure = initial;
+      await captureFailure();
+    } else {
       for (const [index, step] of plan.steps.entries()) {
         const result = await execute(step, index);
         steps.push(result);
         if (result.status === 'failed') {
-          if (!firstFailure) firstFailure = result;
+          if (!firstFailure) {
+            firstFailure = result;
+            await captureFailure();
+          }
           if (!step.continueOnFailure) break;
         }
-      }
-    }
-
-    if (firstFailure) {
-      try {
-        artifacts.push(
-          await deps.artifacts.save(
-            runId,
-            'screenshot',
-            await deps.browser.screenshot(),
-          ),
-        );
-      } catch {
-        /* a screenshot is best effort when a page has crashed */
       }
     }
   } finally {
