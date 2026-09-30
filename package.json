@@ -10,6 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
+    "test:e2e": "tsx test/integration.ts",
     "cli": "tsx src/cli.ts",
     "fixture": "tsx test/fixture/server.ts"
   },

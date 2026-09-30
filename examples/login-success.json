@@ -1,0 +1,41 @@
+{
+  "startUrl": "http://127.0.0.1:3000/login",
+  "steps": [
+    {
+      "action": "fill",
+      "target": { "kind": "label", "label": "Email" },
+      "valueRef": "TEST_EMAIL"
+    },
+    {
+      "action": "fill",
+      "target": { "kind": "label", "label": "Password" },
+      "valueRef": "TEST_PASSWORD"
+    },
+    {
+      "action": "click",
+      "target": { "kind": "role", "role": "button", "name": "Sign in" }
+    },
+    {
+      "action": "wait_for",
+      "target": {
+        "kind": "role",
+        "role": "heading",
+        "name": "Welcome to the dashboard"
+      }
+    },
+    { "action": "assert_url", "contains": "/dashboard" },
+    {
+      "action": "assert_text",
+      "target": {
+        "kind": "role",
+        "role": "heading",
+        "name": "Welcome to the dashboard"
+      },
+      "contains": "Welcome"
+    },
+    {
+      "action": "assert_visible",
+      "target": { "kind": "testId", "testId": "ready" }
+    }
+  ]
+}

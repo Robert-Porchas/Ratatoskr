@@ -1,0 +1,86 @@
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+
+function html(fail: boolean): string {
+  return `<!doctype html><html><head><title>Bridge test login</title></head><body>
+    <h1>Sign in</h1>
+    <form id="login"><label>Email <input type="email" name="email" /></label>
+    <label>Password <input type="password" name="password" /></label>
+    <button type="submit">Sign in</button></form><p role="alert" id="error" hidden></p>
+    <script>
+    document.querySelector('#login').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const response = await fetch('/api/login${fail ? '?fail=1' : ''}', { method: 'POST' });
+      if (!response.ok) {
+        console.error('Login request failed with status ' + response.status);
+        const alert = document.querySelector('#error');
+        alert.textContent = 'Unable to sign in';
+        alert.hidden = false;
+        return;
+      }
+      location.href = '/dashboard';
+    });
+    </script></body></html>`;
+}
+
+function respond(request: IncomingMessage, response: ServerResponse): void {
+  const url = new URL(request.url ?? '/', 'http://localhost');
+  response.setHeader('Content-Type', 'text/html; charset=utf-8');
+  if (request.method === 'POST' && url.pathname === '/api/login') {
+    response.statusCode = url.searchParams.has('fail') ? 500 : 200;
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify({ ok: response.statusCode === 200 }));
+    return;
+  }
+  switch (url.pathname) {
+    case '/login':
+      response.end(html(false));
+      return;
+    case '/login-failure':
+      response.end(html(true));
+      return;
+    case '/dashboard':
+      response.end(
+        '<h1>Welcome to the dashboard</h1><p data-testid="ready">Ready</p>',
+      );
+      return;
+    case '/delayed':
+      response.end(
+        '<h1>Loading</h1><script>setTimeout(() => document.body.insertAdjacentHTML("beforeend", "<button>Delayed</button>"), 1500)</script>',
+      );
+      return;
+    case '/console-error':
+      response.end(
+        '<h1>Console error</h1><script>console.error("Fixture console error")</script>',
+      );
+      return;
+    case '/page-error':
+      response.end(
+        '<h1>Page error</h1><script>throw new Error("Fixture page error")</script>',
+      );
+      return;
+    case '/unexpected':
+      response.end('<h1>Unexpected destination</h1>');
+      return;
+    default:
+      response.statusCode = 404;
+      response.end('<h1>Missing</h1>');
+  }
+}
+
+export function createFixtureServer() {
+  return createServer(respond);
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(`file://${process.argv[1]}`).href
+) {
+  const port = Number(process.env.PORT ?? 3000);
+  createFixtureServer().listen(port, '127.0.0.1', () =>
+    process.stdout.write(`Fixture listening on http://127.0.0.1:${port}\n`),
+  );
+}

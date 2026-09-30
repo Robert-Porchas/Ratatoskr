@@ -1,0 +1,21 @@
+{
+  "startUrl": "http://127.0.0.1:3000/login-failure",
+  "steps": [
+    {
+      "action": "fill",
+      "target": { "kind": "label", "label": "Email" },
+      "valueRef": "TEST_EMAIL"
+    },
+    {
+      "action": "fill",
+      "target": { "kind": "label", "label": "Password" },
+      "valueRef": "TEST_PASSWORD"
+    },
+    {
+      "action": "click",
+      "target": { "kind": "role", "role": "button", "name": "Sign in" }
+    },
+    { "action": "wait_for", "target": { "kind": "role", "role": "alert" } },
+    { "action": "assert_url", "contains": "/dashboard" }
+  ]
+}
