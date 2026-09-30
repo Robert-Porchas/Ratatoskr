@@ -60,6 +60,7 @@ function artifactSummary(artifact: ArtifactReference): Record<string, unknown> {
     mimeType: artifact.mimeType,
     sizeBytes: artifact.sizeBytes,
     createdAt: artifact.createdAt,
+    ...(artifact.fileName ? { fileName: artifact.fileName } : {}),
   };
 }
 

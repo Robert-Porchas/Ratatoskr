@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createFixtureServer } from './fixture/server.js';
@@ -9,6 +9,7 @@ import { PlaywrightBrowserAdapter } from '../src/playwright-adapter.js';
 import { FilesystemArtifactStore, FilesystemRunStore } from '../src/storage.js';
 import { EnvironmentValueResolver } from '../src/values.js';
 import type { BrowserPlan } from '../src/protocol.js';
+import { DirectoryUploadResolver } from '../src/uploads.js';
 
 const server = createFixtureServer();
 const root = await mkdtemp(join(tmpdir(), 'bridge-e2e-'));
@@ -151,6 +152,61 @@ try {
     orderNumber: 'ORD-NV-42',
     receiptUrl: '/receipt/42',
   });
+  const uploadDirectory = join(root, 'uploads');
+  await mkdir(uploadDirectory);
+  await writeFile(join(uploadDirectory, 'fixture.txt'), 'UPLOAD_OK');
+  const upload = await executePlan(
+    {
+      startUrl: `${base}/upload`,
+      steps: [
+        {
+          action: 'upload_file',
+          target: { kind: 'label', label: 'File' },
+          fileName: 'fixture.txt',
+        },
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Verify upload' },
+        },
+        {
+          action: 'assert_text',
+          target: { kind: 'testId', testId: 'upload-result' },
+          contains: 'fixture.txt:UPLOAD_OK',
+        },
+      ],
+    },
+    {
+      browser: new PlaywrightBrowserAdapter(),
+      runs,
+      artifacts,
+      values,
+      uploads: new DirectoryUploadResolver(uploadDirectory),
+    },
+  );
+  assert.equal(upload.success, true, JSON.stringify(upload));
+  const download = await executePlan(
+    {
+      startUrl: `${base}/download`,
+      steps: [
+        {
+          action: 'expect_download',
+          target: { kind: 'role', role: 'button', name: 'Export receipt' },
+        },
+      ],
+    },
+    { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+  );
+  assert.equal(download.success, true, JSON.stringify(download));
+  if (download.success) {
+    assert.equal(download.downloads?.length, 1);
+    const artifact = await artifacts.find(download.downloads[0]!);
+    assert.equal(artifact.fileName, 'receipt.txt');
+    assert.equal(artifact.mimeType, 'text/plain');
+    assert.equal(
+      (await artifacts.read(artifact.id, 1024)).toString(),
+      'RECEIPT-42',
+    );
+  }
   const missing = await executePlan(
     {
       startUrl: `${base}/missing`,

@@ -37,6 +37,10 @@ class FakeBrowser implements BrowserAdapter {
   async selectOption(): Promise<void> {}
   async setChecked(): Promise<void> {}
   async hover(): Promise<void> {}
+  async upload(): Promise<void> {}
+  async download(): Promise<{ fileName: string; mimeType: string }> {
+    return { fileName: 'file.txt', mimeType: 'text/plain' };
+  }
   async waitFor(): Promise<void> {}
   async text(): Promise<string> {
     return 'Welcome';
@@ -119,6 +123,13 @@ function stores(): {
     async get(): Promise<ArtifactReference> {
       throw new Error('unused');
     },
+    async find(): Promise<ArtifactReference> {
+      throw new Error('unused');
+    },
+    async read(): Promise<Buffer> {
+      throw new Error('unused');
+    },
+    async discard() {},
     async copyTo(): Promise<ArtifactReference> {
       throw new Error('unused');
     },

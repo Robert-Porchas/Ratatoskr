@@ -1,5 +1,13 @@
 import { constants } from 'node:fs';
-import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  copyFile,
+  mkdir,
+  readFile,
+  realpath,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ArtifactNotFoundError } from './errors.js';
@@ -52,8 +60,12 @@ export interface ArtifactStore {
     type: ArtifactType,
     id: string,
     path: string,
+    details?: { fileName?: string; mimeType?: string },
   ): Promise<ArtifactReference>;
   get(runId: string, artifactId: string): Promise<ArtifactReference>;
+  find(artifactId: string): Promise<ArtifactReference>;
+  read(artifactId: string, maxBytes: number): Promise<Buffer>;
+  discard(runId: string, type: ArtifactType, id: string): Promise<void>;
   copyTo(
     runId: string,
     artifactId: string,
@@ -149,7 +161,11 @@ export class FilesystemArtifactStore implements ArtifactStore {
     return join(this.root, 'runs', runId, 'artifacts');
   }
   private extension(type: ArtifactType): string {
-    return type === 'screenshot' ? '.png' : '.zip';
+    return type === 'screenshot' ? '.png' : type === 'trace' ? '.zip' : '.bin';
+  }
+  private indexPath(id: string): string {
+    safeId(id);
+    return join(this.root, 'artifacts', `${id}.json`);
   }
   private metadataPath(runId: string, id: string): string {
     safeId(id);
@@ -173,6 +189,7 @@ export class FilesystemArtifactStore implements ArtifactStore {
     type: ArtifactType,
     id: string,
     path: string,
+    details: { fileName?: string; mimeType?: string } = {},
   ): Promise<ArtifactReference> {
     const expected = join(
       this.directory(runId),
@@ -186,14 +203,23 @@ export class FilesystemArtifactStore implements ArtifactStore {
       runId,
       type,
       path,
-      mimeType: type === 'screenshot' ? 'image/png' : 'application/zip',
+      mimeType:
+        details.mimeType ??
+        (type === 'screenshot'
+          ? 'image/png'
+          : type === 'trace'
+            ? 'application/zip'
+            : 'application/octet-stream'),
       sizeBytes: info.size,
       createdAt: new Date().toISOString(),
+      ...(details.fileName ? { fileName: details.fileName } : {}),
     };
     await writeFile(
       this.metadataPath(runId, id),
       JSON.stringify(artifact, null, 2),
     );
+    await mkdir(join(this.root, 'artifacts'), { recursive: true });
+    await writeFile(this.indexPath(id), JSON.stringify({ runId }));
     return artifact;
   }
 
@@ -209,13 +235,55 @@ export class FilesystemArtifactStore implements ArtifactStore {
 
   async get(runId: string, artifactId: string): Promise<ArtifactReference> {
     try {
-      return JSON.parse(
+      const stored = JSON.parse(
         await readFile(this.metadataPath(runId, artifactId), 'utf8'),
       ) as ArtifactReference;
+      if (
+        stored.id !== artifactId ||
+        stored.runId !== runId ||
+        !['screenshot', 'trace', 'download'].includes(stored.type)
+      )
+        throw new ArtifactNotFoundError(artifactId);
+      const expected = join(
+        this.directory(runId),
+        `${artifactId}${this.extension(stored.type)}`,
+      );
+      if ((await realpath(expected)) !== resolve(expected))
+        throw new ArtifactNotFoundError(artifactId);
+      return { ...stored, path: expected };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT')
         throw new ArtifactNotFoundError(artifactId);
       throw error;
+    }
+  }
+
+  async find(artifactId: string): Promise<ArtifactReference> {
+    try {
+      const index = JSON.parse(
+        await readFile(this.indexPath(artifactId), 'utf8'),
+      ) as { runId: string };
+      return this.get(index.runId, artifactId);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+        throw new ArtifactNotFoundError(artifactId);
+      throw error;
+    }
+  }
+
+  async read(artifactId: string, maxBytes: number): Promise<Buffer> {
+    const artifact = await this.find(artifactId);
+    if (artifact.sizeBytes > maxBytes)
+      throw new Error('Artifact is too large for inline delivery');
+    return readFile(artifact.path);
+  }
+
+  async discard(runId: string, type: ArtifactType, id: string): Promise<void> {
+    safeId(id);
+    try {
+      await unlink(join(this.directory(runId), `${id}${this.extension(type)}`));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }
 

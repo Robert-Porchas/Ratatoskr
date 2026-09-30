@@ -19,12 +19,14 @@ import type {
 } from './protocol.js';
 import type { ArtifactStore, RunStore } from './storage.js';
 import type { ValueResolver } from './values.js';
+import type { UploadResolver } from './uploads.js';
 
 export interface ExecutionDependencies {
   browser: BrowserAdapter;
   runs: RunStore;
   artifacts: ArtifactStore;
   values: ValueResolver;
+  uploads?: UploadResolver;
 }
 
 async function executeStep(
@@ -33,6 +35,10 @@ async function executeStep(
   values: ValueResolver,
   evidence: EvidenceCollector,
   timeout: number,
+  runId: string,
+  artifacts: ArtifactStore,
+  createdArtifacts: ArtifactReference[],
+  uploads: UploadResolver | undefined,
 ): Promise<string | undefined> {
   switch (step.action) {
     case 'navigate':
@@ -62,6 +68,41 @@ async function executeStep(
     case 'hover':
       await browser.hover(step.target, timeout);
       return;
+    case 'upload_file':
+      if (!uploads)
+        throw new BridgeError(
+          'browser_execution',
+          'Upload directory is not configured',
+        );
+      await browser.upload(
+        step.target,
+        await uploads.resolve(step.fileName),
+        timeout,
+      );
+      return;
+    case 'expect_download': {
+      const reserved = await artifacts.reservePath(runId, 'download');
+      try {
+        const details = await browser.download(
+          step.target,
+          reserved.path,
+          timeout,
+        );
+        createdArtifacts.push(
+          await artifacts.register(
+            runId,
+            'download',
+            reserved.id,
+            reserved.path,
+            details,
+          ),
+        );
+      } catch (error) {
+        await artifacts.discard(runId, 'download', reserved.id);
+        throw error;
+      }
+      return;
+    }
     case 'wait_for':
       await browser.waitFor(step.target, timeout);
       return;
@@ -148,7 +189,9 @@ export async function executePlan(
   const extractions: Record<string, string> = {};
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
-  const traceAllowed = !plan.steps.some((step) => step.action === 'fill');
+  const traceAllowed = !plan.steps.some(
+    (step) => step.action === 'fill' || step.action === 'upload_file',
+  );
   const deadline = startedAt + (plan.timeoutMs ?? 120_000);
   const captureFailure = async (): Promise<void> => {
     try {
@@ -182,6 +225,10 @@ export async function executePlan(
           deps.values,
           evidence,
           Math.min(step.timeoutMs ?? 5000, remaining),
+          runId,
+          deps.artifacts,
+          artifacts,
+          deps.uploads,
         );
         if (
           value !== undefined &&
@@ -281,6 +328,13 @@ export async function executePlan(
               outputs: Object.fromEntries(
                 plan.outputs.map((name) => [name, extractions[name] ?? '']),
               ),
+            }
+          : {}),
+        ...(artifacts.some((artifact) => artifact.type === 'download')
+          ? {
+              downloads: artifacts
+                .filter((artifact) => artifact.type === 'download')
+                .map((artifact) => artifact.id),
             }
           : {}),
       };

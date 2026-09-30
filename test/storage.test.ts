@@ -56,10 +56,16 @@ describe('filesystem storage', () => {
       expect((await artifacts.get(runId, artifact.id)).mimeType).toBe(
         'image/png',
       );
+      expect((await artifacts.find(artifact.id)).runId).toBe(runId);
+      expect((await artifacts.read(artifact.id, 100)).toString()).toBe(
+        'png bytes',
+      );
+      await expect(artifacts.read(artifact.id, 2)).rejects.toThrow('too large');
       const destination = join(root, 'retrieved.png');
       await artifacts.copyTo(runId, artifact.id, destination);
       expect(await readFile(destination, 'utf8')).toBe('png bytes');
       await expect(artifacts.get(runId, '../escape')).rejects.toThrow();
+      await expect(artifacts.find('../escape')).rejects.toThrow();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

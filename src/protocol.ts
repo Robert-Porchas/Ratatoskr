@@ -110,6 +110,17 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
     attribute: z.string().regex(/^[A-Za-z_:][A-Za-z0-9_:.-]*$/),
     ...options,
   }),
+  z.strictObject({
+    action: z.literal('upload_file'),
+    target: targetSchema,
+    fileName: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/),
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('expect_download'),
+    target: targetSchema,
+    ...options,
+  }),
 ]);
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 
@@ -162,7 +173,7 @@ export const BrowserPlanSchema = z
 export type BrowserPlan = z.infer<typeof BrowserPlanSchema>;
 
 export type RunIdentifier = string;
-export type ArtifactType = 'screenshot' | 'trace';
+export type ArtifactType = 'screenshot' | 'trace' | 'download';
 export interface ArtifactReference {
   id: string;
   runId: RunIdentifier;
@@ -171,6 +182,7 @@ export interface ArtifactReference {
   mimeType: string;
   sizeBytes: number;
   createdAt: string;
+  fileName?: string;
 }
 
 export type Evidence =
@@ -236,7 +248,12 @@ export type RelevantError =
   | { type: 'console' | 'page_error'; message: string };
 
 export type RunResult =
-  | { success: true; runId: RunIdentifier; outputs?: Record<string, string> }
+  | {
+      success: true;
+      runId: RunIdentifier;
+      outputs?: Record<string, string>;
+      downloads?: string[];
+    }
   | {
       success: false;
       runId: RunIdentifier;

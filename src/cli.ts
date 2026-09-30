@@ -6,6 +6,7 @@ import { executePlan } from './executor.js';
 import { FilesystemArtifactStore, FilesystemRunStore } from './storage.js';
 import { EnvironmentValueResolver } from './values.js';
 import { InvalidPlanError } from './errors.js';
+import { DirectoryUploadResolver } from './uploads.js';
 import {
   inspectRun,
   InspectionCategorySchema,
@@ -36,6 +37,9 @@ async function main(args: string[]): Promise<void> {
       runs,
       artifacts,
       values: new EnvironmentValueResolver(),
+      uploads: new DirectoryUploadResolver(
+        process.env.BROWSER_BRIDGE_UPLOAD_DIR,
+      ),
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.success) process.exitCode = 1;

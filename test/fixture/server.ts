@@ -52,6 +52,15 @@ function respond(request: IncomingMessage, response: ServerResponse): void {
     response.end(JSON.stringify({ ok: response.statusCode === 200 }));
     return;
   }
+  if (url.pathname === '/download-file') {
+    response.setHeader('Content-Type', 'text/plain');
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="receipt.txt"',
+    );
+    response.end('RECEIPT-42');
+    return;
+  }
   switch (url.pathname) {
     case '/login':
       response.end(html(false));
@@ -66,6 +75,16 @@ function respond(request: IncomingMessage, response: ServerResponse): void {
       return;
     case '/form':
       response.end(formHtml());
+      return;
+    case '/upload':
+      response.end(
+        '<label for="file">File</label><input id="file" type="file"><button id="verify">Verify upload</button><p data-testid="upload-result"></p><script>document.querySelector("#verify").onclick = async () => { const file = document.querySelector("#file").files[0]; document.querySelector("[data-testid=upload-result]").textContent = file ? file.name + ":" + await file.text() : "NO FILE"; };</script>',
+      );
+      return;
+    case '/download':
+      response.end(
+        '<button id="export" onclick="location.href=\'/download-file\'">Export receipt</button>',
+      );
       return;
     case '/delayed-assert':
       response.end(

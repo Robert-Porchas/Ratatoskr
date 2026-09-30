@@ -19,6 +19,16 @@ export interface BrowserAdapter {
     timeoutMs: number,
   ): Promise<void>;
   hover(target: BrowserTarget, timeoutMs: number): Promise<void>;
+  upload(
+    target: BrowserTarget,
+    filePath: string,
+    timeoutMs: number,
+  ): Promise<void>;
+  download(
+    target: BrowserTarget,
+    destination: string,
+    timeoutMs: number,
+  ): Promise<{ fileName: string; mimeType: string }>;
   waitFor(target: BrowserTarget, timeoutMs: number): Promise<void>;
   text(target: BrowserTarget, timeoutMs: number): Promise<string>;
   attribute(

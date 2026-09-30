@@ -8,6 +8,7 @@ import {
 import type { BrowserOption, BrowserTarget } from './protocol.js';
 import type { BrowserAdapter } from './browser.js';
 import type { EvidenceInput } from './evidence.js';
+import { basename, extname } from 'node:path';
 
 function safeUrl(value: string): string {
   try {
@@ -32,6 +33,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private page: Page | undefined;
   private tracing = false;
   private readonly filledValues = new Set<string>();
+  private readonly responseMime = new Map<string, string>();
 
   async start(
     emit: (event: EvidenceInput) => void,
@@ -52,6 +54,9 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       }),
     );
     this.page.on('response', (response) => {
+      const mime = response.headers()['content-type'];
+      if (mime)
+        this.responseMime.set(response.url(), mime.split(';', 1)[0] ?? mime);
       if (response.status() >= 400)
         emit({
           type: 'http',
@@ -93,6 +98,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       this.browser = undefined;
       this.tracing = false;
       this.filledValues.clear();
+      this.responseMime.clear();
     }
   }
 
@@ -164,6 +170,39 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   }
   async hover(target: BrowserTarget, timeoutMs: number): Promise<void> {
     await this.locator(target).hover({ timeout: timeoutMs });
+  }
+  async upload(
+    target: BrowserTarget,
+    filePath: string,
+    timeoutMs: number,
+  ): Promise<void> {
+    await this.locator(target).setInputFiles(filePath, { timeout: timeoutMs });
+  }
+  async download(
+    target: BrowserTarget,
+    destination: string,
+    timeoutMs: number,
+  ): Promise<{ fileName: string; mimeType: string }> {
+    const page = this.getPage();
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: timeoutMs }),
+      this.locator(target).click({ timeout: timeoutMs }),
+    ]);
+    await download.saveAs(destination);
+    const fileName = basename(download.suggestedFilename());
+    const extension = extname(fileName).toLowerCase();
+    const fallback =
+      extension === '.txt'
+        ? 'text/plain'
+        : extension === '.csv'
+          ? 'text/csv'
+          : extension === '.pdf'
+            ? 'application/pdf'
+            : 'application/octet-stream';
+    return {
+      fileName,
+      mimeType: this.responseMime.get(download.url()) ?? fallback,
+    };
   }
   async waitFor(target: BrowserTarget, timeoutMs: number): Promise<void> {
     await this.locator(target).waitFor({
