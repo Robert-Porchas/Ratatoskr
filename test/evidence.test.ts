@@ -35,6 +35,13 @@ describe('evidence reduction', () => {
         stepIndex: 4,
       },
       { type: 'request', method: 'GET', path: '/', at: 10_100, stepIndex: 4 },
+      {
+        type: 'console',
+        level: 'error',
+        message: 'Failed to load resource: status 500',
+        at: 10_250,
+        stepIndex: 4,
+      },
     ];
     expect(relevantErrors(events, failed)).toEqual([
       { type: 'http', method: 'POST', path: '/api/login', status: 500 },

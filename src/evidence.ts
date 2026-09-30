@@ -80,6 +80,12 @@ export function relevantErrors(
   failedStep: StepResult,
   limit = 3,
 ): RelevantError[] {
+  const nearbyHttp = events.some(
+    (event) =>
+      event.type === 'http' &&
+      event.at >= failedStep.startedAt - 2000 &&
+      event.at <= failedStep.endedAt + 2000,
+  );
   const severity: Record<RelevantError['type'], number> = {
     http: 4,
     request_failed: 3,
@@ -90,6 +96,12 @@ export function relevantErrors(
     .flatMap((event) => {
       const reduced = compact(event);
       if (!reduced) return [];
+      if (
+        nearbyHttp &&
+        event.type === 'console' &&
+        event.message.startsWith('Failed to load resource:')
+      )
+        return [];
       const inWindow =
         event.at >= failedStep.startedAt - 2000 &&
         event.at <= failedStep.endedAt + 2000;
@@ -123,6 +135,7 @@ export function buildMetrics(
   durationMs: number,
   reducedResponseBytes: number,
   artifactCount: number,
+  startupFailed = false,
 ): RunMetrics {
   const rawEvidenceBytes = Buffer.byteLength(
     events.map((event) => JSON.stringify(event)).join('\n'),
@@ -132,11 +145,13 @@ export function buildMetrics(
     durationMs,
     browserActionCount:
       1 + steps.filter((step) => !step.action.startsWith('assert_')).length,
-    failureCount: steps.filter((step) => step.status === 'failed').length,
+    failureCount:
+      steps.filter((step) => step.status === 'failed').length +
+      Number(startupFailed),
     networkRequestCount: events.filter((event) => event.type === 'request')
       .length,
     failedRequestCount: events.filter(
-      (event) => event.type === 'request_failed',
+      (event) => event.type === 'request_failed' || event.type === 'http',
     ).length,
     consoleMessageCount: events.filter((event) => event.type === 'console')
       .length,

@@ -218,6 +218,7 @@ export async function executePlan(
       endedAt - startedAt,
       responseBytes,
       artifacts.length,
+      firstFailure?.index === -1,
     ),
     artifacts,
   };
