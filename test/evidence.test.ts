@@ -50,6 +50,7 @@ describe('evidence reduction', () => {
 
   it('redacts protected values from browser messages and counts evidence', () => {
     const collector = new EvidenceCollector();
+    collector.protect('my-');
     collector.protect('my-"secret');
     collector.setStep(2);
     collector.record({

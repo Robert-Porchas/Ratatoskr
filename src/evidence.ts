@@ -26,7 +26,7 @@ export class EvidenceCollector {
 
   redact(value: string): string {
     let redacted = value;
-    for (const secret of this.secrets)
+    for (const secret of [...this.secrets].sort((a, b) => b.length - a.length))
       redacted = redacted.replaceAll(secret, '[REDACTED]');
     return redacted;
   }

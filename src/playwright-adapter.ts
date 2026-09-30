@@ -31,6 +31,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private context: BrowserContext | undefined;
   private page: Page | undefined;
   private tracing = false;
+  private readonly filledValues = new Set<string>();
 
   async start(
     emit: (event: EvidenceInput) => void,
@@ -91,6 +92,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       this.context = undefined;
       this.browser = undefined;
       this.tracing = false;
+      this.filledValues.clear();
     }
   }
 
@@ -129,6 +131,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     value: string,
     timeoutMs: number,
   ): Promise<void> {
+    if (value) this.filledValues.add(value);
     await this.locator(target).fill(value, { timeout: timeoutMs });
   }
   async press(
@@ -165,7 +168,10 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     const page = this.getPage();
     return page.screenshot({
       fullPage: true,
-      mask: [page.locator('input, textarea, [contenteditable="true"]')],
+      mask: [
+        page.locator('input, textarea, [contenteditable="true"]'),
+        ...[...this.filledValues].map((value) => page.getByText(value)),
+      ],
       maskColor: '#000000',
     });
   }
