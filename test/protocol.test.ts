@@ -96,6 +96,42 @@ describe('browser plan', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('accepts bounded dialog and popup expectations only on click', () => {
+    const base = { startUrl: 'http://local/' };
+    const target = { kind: 'role', role: 'button', name: 'Continue' };
+    expect(
+      BrowserPlanSchema.safeParse({
+        ...base,
+        steps: [
+          {
+            action: 'click',
+            target,
+            expectPopup: true,
+            dialog: { type: 'prompt', action: 'accept', valueRef: 'TEST_CODE' },
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      BrowserPlanSchema.safeParse({
+        ...base,
+        steps: [
+          {
+            action: 'click',
+            target,
+            dialog: { type: 'prompt', action: 'evaluate', script: 'evil()' },
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      BrowserPlanSchema.safeParse({
+        ...base,
+        steps: [{ action: 'navigate', url: 'javascript:alert(1)' }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('environment resolver', () => {

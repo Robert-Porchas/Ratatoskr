@@ -34,6 +34,12 @@ const extraction = {
   saveAs: valueName,
   maxChars: z.number().int().min(1).max(1000).optional(),
 };
+const dialogExpectation = z.strictObject({
+  type: z.enum(['alert', 'confirm', 'prompt']),
+  action: z.enum(['accept', 'dismiss']),
+  valueRef: valueName.optional(),
+});
+export type DialogExpectation = z.infer<typeof dialogExpectation>;
 
 export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
@@ -43,6 +49,8 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('click'),
     target: targetSchema,
+    dialog: dialogExpectation.optional(),
+    expectPopup: z.boolean().optional(),
     ...options,
   }),
   z.strictObject({
@@ -222,7 +230,21 @@ export type Evidence =
       stepIndex: number | null;
       message: string;
     }
-  | { type: 'navigation'; at: number; stepIndex: number | null; url: string };
+  | { type: 'navigation'; at: number; stepIndex: number | null; url: string }
+  | {
+      type: 'dialog';
+      at: number;
+      stepIndex: number | null;
+      dialogType: string;
+      expected: boolean;
+    }
+  | {
+      type: 'popup';
+      at: number;
+      stepIndex: number | null;
+      url: string;
+      expected: boolean;
+    };
 
 export type FailureKind =
   | 'element_not_found'
@@ -245,7 +267,7 @@ export interface StepResult {
 export type RelevantError =
   | { type: 'http'; method: string; path: string; status: number }
   | { type: 'request_failed'; method: string; path: string; error: string }
-  | { type: 'console' | 'page_error'; message: string };
+  | { type: 'console' | 'page_error' | 'dialog' | 'popup'; message: string };
 
 export type RunResult =
   | {

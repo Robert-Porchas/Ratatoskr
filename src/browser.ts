@@ -1,11 +1,22 @@
-import type { BrowserOption, BrowserTarget } from './protocol.js';
+import type {
+  BrowserOption,
+  BrowserTarget,
+  DialogExpectation,
+} from './protocol.js';
 import type { EvidenceInput } from './evidence.js';
 
 export interface BrowserAdapter {
   start(emit: (event: EvidenceInput) => void, trace: boolean): Promise<void>;
   stop(tracePath?: string): Promise<void>;
   navigate(url: string, timeoutMs: number): Promise<void>;
-  click(target: BrowserTarget, timeoutMs: number): Promise<void>;
+  click(
+    target: BrowserTarget,
+    timeoutMs: number,
+    options?: {
+      expectPopup?: boolean;
+      dialog?: DialogExpectation & { value?: string };
+    },
+  ): Promise<void>;
   fill(target: BrowserTarget, value: string, timeoutMs: number): Promise<void>;
   press(target: BrowserTarget, key: string, timeoutMs: number): Promise<void>;
   selectOption(

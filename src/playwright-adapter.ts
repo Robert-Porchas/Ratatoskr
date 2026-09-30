@@ -4,11 +4,17 @@ import {
   type BrowserContext,
   type Locator,
   type Page,
+  type Dialog,
 } from 'playwright';
-import type { BrowserOption, BrowserTarget } from './protocol.js';
+import type {
+  BrowserOption,
+  BrowserTarget,
+  DialogExpectation,
+} from './protocol.js';
 import type { BrowserAdapter } from './browser.js';
 import type { EvidenceInput } from './evidence.js';
 import { basename, extname } from 'node:path';
+import { BridgeError } from './errors.js';
 
 function safeUrl(value: string): string {
   try {
@@ -34,26 +40,42 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private tracing = false;
   private readonly filledValues = new Set<string>();
   private readonly responseMime = new Map<string, string>();
+  private emit: ((event: EvidenceInput) => void) | undefined;
+  private unexpectedIssue: string | undefined;
+  private activeClick:
+    | {
+        dialog?: DialogExpectation & { value?: string };
+        expectPopup?: boolean;
+        dialogSeen: boolean;
+        popupSeen: boolean;
+        issue?: string;
+      }
+    | undefined;
 
   async start(
     emit: (event: EvidenceInput) => void,
     trace: boolean,
   ): Promise<void> {
+    this.emit = emit;
     this.browser = await chromium.launch({ headless: true });
     this.context = await this.browser.newContext();
     if (trace) {
       await this.context.tracing.start({ screenshots: true, snapshots: true });
       this.tracing = true;
     }
-    this.page = await this.context.newPage();
-    this.page.on('request', (request) =>
+    this.attachPage(await this.context.newPage(), emit);
+  }
+
+  private attachPage(page: Page, emit: (event: EvidenceInput) => void): void {
+    this.page = page;
+    page.on('request', (request) =>
       emit({
         type: 'request',
         method: request.method(),
         path: safePath(request.url()),
       }),
     );
-    this.page.on('response', (response) => {
+    page.on('response', (response) => {
       const mime = response.headers()['content-type'];
       if (mime)
         this.responseMime.set(response.url(), mime.split(';', 1)[0] ?? mime);
@@ -65,7 +87,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
           status: response.status(),
         });
     });
-    this.page.on('requestfailed', (request) =>
+    page.on('requestfailed', (request) =>
       emit({
         type: 'request_failed',
         method: request.method(),
@@ -73,16 +95,52 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
         error: request.failure()?.errorText ?? 'request failed',
       }),
     );
-    this.page.on('console', (message) =>
+    page.on('console', (message) =>
       emit({ type: 'console', level: message.type(), message: message.text() }),
     );
-    this.page.on('pageerror', (error) =>
+    page.on('pageerror', (error) =>
       emit({ type: 'page_error', message: error.message }),
     );
-    this.page.on('framenavigated', (frame) => {
-      if (frame === this.page?.mainFrame())
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame())
         emit({ type: 'navigation', url: safeUrl(frame.url()) });
     });
+    page.on('dialog', (dialog) => {
+      const expected = this.activeClick?.dialog?.type === dialog.type();
+      emit({ type: 'dialog', dialogType: dialog.type(), expected });
+      if (expected && this.activeClick) this.activeClick.dialogSeen = true;
+      else {
+        this.unexpectedIssue = `Unexpected ${dialog.type()} dialog`;
+        if (this.activeClick) this.activeClick.issue = this.unexpectedIssue;
+      }
+      void this.settleDialog(
+        dialog,
+        expected ? this.activeClick?.dialog : undefined,
+      );
+    });
+    page.on('popup', (popup) => {
+      const expected = this.activeClick?.expectPopup === true;
+      emit({ type: 'popup', url: safeUrl(popup.url()), expected });
+      if (expected && this.activeClick) this.activeClick.popupSeen = true;
+      else {
+        this.unexpectedIssue = 'Unexpected popup opened';
+        if (this.activeClick) this.activeClick.issue = this.unexpectedIssue;
+        void popup.close().catch(() => undefined);
+      }
+    });
+  }
+
+  private async settleDialog(
+    dialog: Dialog,
+    policy?: DialogExpectation & { value?: string },
+  ): Promise<void> {
+    try {
+      if (policy?.action === 'accept') await dialog.accept(policy.value);
+      else await dialog.dismiss();
+    } catch {
+      if (this.activeClick)
+        this.activeClick.issue = 'Could not handle JavaScript dialog';
+    }
   }
 
   async stop(tracePath?: string): Promise<void> {
@@ -99,10 +157,15 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       this.tracing = false;
       this.filledValues.clear();
       this.responseMime.clear();
+      this.activeClick = undefined;
+      this.unexpectedIssue = undefined;
+      this.emit = undefined;
     }
   }
 
   private getPage(): Page {
+    if (this.unexpectedIssue)
+      throw new BridgeError('browser_execution', this.unexpectedIssue);
     if (!this.page) throw new Error('Browser has not started');
     return this.page;
   }
@@ -129,8 +192,37 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   async navigate(url: string, timeoutMs: number): Promise<void> {
     await this.getPage().goto(url, { timeout: timeoutMs });
   }
-  async click(target: BrowserTarget, timeoutMs: number): Promise<void> {
-    await this.locator(target).click({ timeout: timeoutMs });
+  async click(
+    target: BrowserTarget,
+    timeoutMs: number,
+    options?: {
+      expectPopup?: boolean;
+      dialog?: DialogExpectation & { value?: string };
+    },
+  ): Promise<void> {
+    const page = this.getPage();
+    this.activeClick = { ...options, dialogSeen: false, popupSeen: false };
+    try {
+      if (options?.expectPopup) {
+        const [opened] = await Promise.all([
+          page.waitForEvent('popup', { timeout: timeoutMs }),
+          this.locator(target).click({ timeout: timeoutMs }),
+        ]);
+        await opened.waitForLoadState('domcontentloaded', {
+          timeout: timeoutMs,
+        });
+        if (this.emit) this.attachPage(opened, this.emit);
+      } else await this.locator(target).click({ timeout: timeoutMs });
+      if (this.activeClick.issue)
+        throw new BridgeError('browser_execution', this.activeClick.issue);
+      if (options?.dialog && !this.activeClick.dialogSeen)
+        throw new BridgeError(
+          'browser_execution',
+          `Expected ${options.dialog.type} dialog did not open`,
+        );
+    } finally {
+      this.activeClick = undefined;
+    }
   }
   async fill(
     target: BrowserTarget,

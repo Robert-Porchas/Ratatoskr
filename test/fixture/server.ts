@@ -86,6 +86,16 @@ function respond(request: IncomingMessage, response: ServerResponse): void {
         '<button id="export" onclick="location.href=\'/download-file\'">Export receipt</button>',
       );
       return;
+    case '/dialog':
+      response.end(
+        '<button id="confirm" onclick="document.querySelector(\'#result\').textContent = confirm(\'Proceed?\') ? \'CONFIRMED\' : \'DENIED\'">Confirm</button><button id="prompt" onclick="document.querySelector(\'#result\').textContent = prompt(\'Code?\')">Prompt</button><button id="unexpected" onclick="alert(\'Unexpected\')">Unexpected</button><p id="result"></p>',
+      );
+      return;
+    case '/popup':
+      response.end(
+        '<button id="open" onclick="window.open(\'/dashboard\', \'_blank\')">Open dashboard</button>',
+      );
+      return;
     case '/delayed-assert':
       response.end(
         '<h1 id="status">Loading</h1><script>setTimeout(() => { document.querySelector("#status").textContent = "Ready"; }, 300)</script>',

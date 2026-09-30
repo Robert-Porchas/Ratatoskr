@@ -44,9 +44,24 @@ async function executeStep(
     case 'navigate':
       await browser.navigate(step.url, timeout);
       return;
-    case 'click':
-      await browser.click(step.target, timeout);
+    case 'click': {
+      const dialogValue = step.dialog?.valueRef
+        ? values.resolve(step.dialog.valueRef)
+        : undefined;
+      if (dialogValue) evidence.protect(dialogValue);
+      await browser.click(step.target, timeout, {
+        ...(step.expectPopup ? { expectPopup: true } : {}),
+        ...(step.dialog
+          ? {
+              dialog: {
+                ...step.dialog,
+                ...(dialogValue ? { value: dialogValue } : {}),
+              },
+            }
+          : {}),
+      });
       return;
+    }
     case 'fill': {
       const value = values.resolve(step.valueRef);
       evidence.protect(value);
@@ -190,7 +205,10 @@ export async function executePlan(
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
   const traceAllowed = !plan.steps.some(
-    (step) => step.action === 'fill' || step.action === 'upload_file',
+    (step) =>
+      step.action === 'fill' ||
+      step.action === 'upload_file' ||
+      (step.action === 'click' && Boolean(step.dialog?.valueRef)),
   );
   const deadline = startedAt + (plan.timeoutMs ?? 120_000);
   const captureFailure = async (): Promise<void> => {

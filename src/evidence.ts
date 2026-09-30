@@ -69,6 +69,14 @@ function compact(event: Evidence): RelevantError | null {
       return event.level === 'error'
         ? { type: 'console', message: event.message.slice(0, 200) }
         : null;
+    case 'dialog':
+      return event.expected
+        ? null
+        : { type: 'dialog', message: `Unexpected ${event.dialogType} dialog` };
+    case 'popup':
+      return event.expected
+        ? null
+        : { type: 'popup', message: 'Unexpected popup opened' };
     default:
       return null;
   }
@@ -91,6 +99,8 @@ export function relevantErrors(
     request_failed: 3,
     page_error: 2,
     console: 1,
+    dialog: 3,
+    popup: 3,
   };
   return events
     .flatMap((event) => {

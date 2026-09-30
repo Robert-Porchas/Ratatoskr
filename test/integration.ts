@@ -207,6 +207,86 @@ try {
       'RECEIPT-42',
     );
   }
+  const dialog = await executePlan(
+    {
+      startUrl: `${base}/dialog`,
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Confirm' },
+          dialog: { type: 'confirm', action: 'accept' },
+        },
+        {
+          action: 'assert_text',
+          target: { kind: 'css', selector: '#result' },
+          contains: 'CONFIRMED',
+        },
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Prompt' },
+          dialog: { type: 'prompt', action: 'accept', valueRef: 'TEST_CODE' },
+        },
+        {
+          action: 'assert_text',
+          target: { kind: 'css', selector: '#result' },
+          contains: 'CODE_',
+        },
+      ],
+    },
+    {
+      browser: new PlaywrightBrowserAdapter(),
+      runs,
+      artifacts,
+      values: new EnvironmentValueResolver({ TEST_CODE: 'CODE_OK' }),
+    },
+  );
+  assert.equal(dialog.success, true, JSON.stringify(dialog));
+  assert(!JSON.stringify(await runs.load(dialog.runId)).includes('CODE_OK'));
+  const unexpectedDialog = await executePlan(
+    {
+      startUrl: `${base}/dialog`,
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Unexpected' },
+        },
+      ],
+    },
+    { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+  );
+  assert.equal(unexpectedDialog.success, false);
+  if (!unexpectedDialog.success)
+    assert.match(unexpectedDialog.reason, /Unexpected alert dialog/);
+  const popup = await executePlan(
+    {
+      startUrl: `${base}/popup`,
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Open dashboard' },
+          expectPopup: true,
+        },
+        { action: 'assert_url', contains: '/dashboard' },
+      ],
+    },
+    { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+  );
+  assert.equal(popup.success, true, JSON.stringify(popup));
+  const unexpectedPopup = await executePlan(
+    {
+      startUrl: `${base}/popup`,
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Open dashboard' },
+        },
+      ],
+    },
+    { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+  );
+  assert.equal(unexpectedPopup.success, false);
+  if (!unexpectedPopup.success)
+    assert.match(unexpectedPopup.reason, /Unexpected popup/);
   const missing = await executePlan(
     {
       startUrl: `${base}/missing`,
