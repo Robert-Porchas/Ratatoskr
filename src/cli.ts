@@ -6,6 +6,11 @@ import { executePlan } from './executor.js';
 import { FilesystemArtifactStore, FilesystemRunStore } from './storage.js';
 import { EnvironmentValueResolver } from './values.js';
 import { InvalidPlanError } from './errors.js';
+import {
+  inspectRun,
+  InspectionCategorySchema,
+  type InspectionCategory,
+} from './inspection.js';
 
 const dataDirectory = resolve(
   process.env.BROWSER_BRIDGE_DATA_DIR ?? '.browser-bridge',
@@ -37,40 +42,18 @@ async function main(args: string[]): Promise<void> {
     return;
   }
   if (command === 'inspect' && first) {
-    const run = await runs.load(first);
-    const categories = new Set((second ?? '').split(',').filter(Boolean));
-    const all = categories.has('all');
-    const selected = {
-      run: run.record,
-      result: run.result,
-      ...(all || categories.has('steps') ? { steps: run.steps } : {}),
-      ...(all || categories.has('console')
-        ? { console: run.evidence.filter((event) => event.type === 'console') }
-        : {}),
-      ...(all || categories.has('network')
-        ? {
-            network: run.evidence.filter(
-              (event) =>
-                event.type === 'http' || event.type === 'request_failed',
-            ),
-          }
-        : {}),
-      ...(all || categories.has('navigation')
-        ? {
-            navigation: run.evidence.filter(
-              (event) => event.type === 'navigation',
-            ),
-          }
-        : {}),
-      ...(all || categories.has('page_errors')
-        ? {
-            pageErrors: run.evidence.filter(
-              (event) => event.type === 'page_error',
-            ),
-          }
-        : {}),
+    const aliases: Record<string, InspectionCategory> = {
+      console: 'console_errors',
+      network: 'failed_requests',
     };
-    process.stdout.write(`${JSON.stringify(selected, null, 2)}\n`);
+    const requested = second
+      ? second.split(',').map((value) => aliases[value] ?? value)
+      : ['summary', 'metrics', 'artifacts'];
+    const include = requested.includes('all')
+      ? InspectionCategorySchema.options
+      : requested.map((value) => InspectionCategorySchema.parse(value));
+    const inspected = await inspectRun(first, { include }, runs);
+    process.stdout.write(`${JSON.stringify(inspected, null, 2)}\n`);
     return;
   }
   if (command === 'artifact' && first && second) {
