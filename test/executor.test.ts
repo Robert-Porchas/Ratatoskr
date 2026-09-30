@@ -49,6 +49,14 @@ class FakeBrowser implements BrowserAdapter {
   }
 }
 
+class MissingTargetBrowser extends FakeBrowser {
+  override async waitFor(): Promise<void> {
+    const error = new Error('Playwright call log');
+    error.name = 'TimeoutError';
+    throw error;
+  }
+}
+
 function stores(): {
   runs: RunStore;
   artifacts: ArtifactStore;
@@ -200,5 +208,35 @@ describe('workflow executor', () => {
       'passed',
       'passed',
     ]);
+  });
+
+  it('classifies a missing waited-for target without exposing a raw call log', async () => {
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://local/login',
+        steps: [
+          {
+            action: 'fill',
+            target: { kind: 'label', label: 'Email' },
+            valueRef: 'EMAIL',
+          },
+          { action: 'wait_for', target: { kind: 'text', text: 'Missing' } },
+        ],
+      },
+      {
+        browser: new MissingTargetBrowser(),
+        runs: storage.runs,
+        artifacts: storage.artifacts,
+        values: new EnvironmentValueResolver({ EMAIL: 'test@example.test' }),
+      },
+    );
+    expect(result).toMatchObject({
+      success: false,
+      failedStep: 1,
+      reason: 'Target did not become visible',
+    });
+    expect(storage.saved.steps?.[1]?.failure?.kind).toBe('element_not_found');
+    expect(JSON.stringify(result)).not.toContain('Playwright call log');
   });
 });

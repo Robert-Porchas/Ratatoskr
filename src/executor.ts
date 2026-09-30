@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { BrowserAdapter } from './browser.js';
-import { BridgeError } from './errors.js';
+import {
+  BridgeError,
+  BrowserAssertionError,
+  BrowserExecutionError,
+  ElementNotFoundError,
+  NavigationError,
+  StepTimeoutError,
+} from './errors.js';
 import { EvidenceCollector, buildMetrics, relevantErrors } from './evidence.js';
 import type {
   BrowserPlan,
@@ -49,8 +56,7 @@ async function executeStep(
     case 'assert_url': {
       const actual = await browser.currentUrl();
       if (!actual.includes(step.contains))
-        throw new BridgeError(
-          'assertion',
+        throw new BrowserAssertionError(
           `Expected URL to contain ${step.contains}`,
         );
       return;
@@ -58,15 +64,14 @@ async function executeStep(
     case 'assert_text': {
       const actual = await browser.text(step.target, timeout);
       if (!actual.includes(step.contains))
-        throw new BridgeError(
-          'assertion',
+        throw new BrowserAssertionError(
           `Expected text to contain ${step.contains}`,
         );
       return;
     }
     case 'assert_visible': {
       if (!(await browser.isVisible(step.target, timeout)))
-        throw new BridgeError('assertion', 'Expected target to be visible');
+        throw new BrowserAssertionError('Expected target to be visible');
       return;
     }
   }
@@ -78,12 +83,18 @@ function failureFor(
 ): NonNullable<StepResult['failure']> {
   if (error instanceof BridgeError)
     return { kind: error.kind, reason: error.message };
-  if (error instanceof Error && error.name === 'TimeoutError')
-    return { kind: 'timeout', reason: `Timed out during ${action}` };
-  return {
-    kind: action === 'navigate' ? 'navigation' : 'browser_execution',
-    reason: `Browser operation failed during ${action}`,
-  };
+  if (error instanceof Error && error.name === 'TimeoutError') {
+    const classified =
+      action === 'wait_for'
+        ? new ElementNotFoundError()
+        : new StepTimeoutError(action);
+    return { kind: classified.kind, reason: classified.message };
+  }
+  const classified =
+    action === 'navigate'
+      ? new NavigationError()
+      : new BrowserExecutionError(action);
+  return { kind: classified.kind, reason: classified.message };
 }
 
 /** Execute a validated plan. Returned results contain only reduced evidence. */

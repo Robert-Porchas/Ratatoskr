@@ -5,6 +5,7 @@ import { PlaywrightBrowserAdapter } from './playwright-adapter.js';
 import { executePlan } from './executor.js';
 import { FilesystemArtifactStore, FilesystemRunStore } from './storage.js';
 import { EnvironmentValueResolver } from './values.js';
+import { InvalidPlanError } from './errors.js';
 
 const dataDirectory = resolve(
   process.env.BROWSER_BRIDGE_DATA_DIR ?? '.browser-bridge',
@@ -15,9 +16,16 @@ const artifacts = new FilesystemArtifactStore(dataDirectory);
 async function main(args: string[]): Promise<void> {
   const [command, first, second, third, fourth] = args;
   if (command === 'run' && first) {
-    const plan = BrowserPlanSchema.parse(
+    const parsed = BrowserPlanSchema.safeParse(
       JSON.parse(await readFile(resolve(first), 'utf8')),
     );
+    if (!parsed.success)
+      throw new InvalidPlanError(
+        parsed.error.issues
+          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+          .join('; '),
+      );
+    const plan = parsed.data;
     const result = await executePlan(plan, {
       browser: new PlaywrightBrowserAdapter(),
       runs,
