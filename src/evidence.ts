@@ -117,6 +117,7 @@ export function relevantErrors(
 }
 
 export function buildMetrics(
+  plannedStepCount: number,
   steps: StepResult[],
   events: Evidence[],
   durationMs: number,
@@ -127,11 +128,10 @@ export function buildMetrics(
     events.map((event) => JSON.stringify(event)).join('\n'),
   );
   return {
-    stepCount: steps.length,
+    stepCount: plannedStepCount,
     durationMs,
-    browserActionCount: steps.filter(
-      (step) => !step.action.startsWith('assert_'),
-    ).length,
+    browserActionCount:
+      1 + steps.filter((step) => !step.action.startsWith('assert_')).length,
     failureCount: steps.filter((step) => step.status === 'failed').length,
     networkRequestCount: events.filter((event) => event.type === 'request')
       .length,

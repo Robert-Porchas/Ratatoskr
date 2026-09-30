@@ -1,3 +1,4 @@
+import { constants } from 'node:fs';
 import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -25,9 +26,7 @@ export interface RunStore {
     evidence: Evidence[],
     result: RunResult,
   ): Promise<void>;
-  load(
-    runId: string,
-  ): Promise<{
+  load(runId: string): Promise<{
     record: RunRecord;
     plan: BrowserPlan;
     steps: StepResult[];
@@ -100,9 +99,7 @@ export class FilesystemRunStore implements RunStore {
     ]);
   }
 
-  async load(
-    runId: string,
-  ): Promise<{
+  async load(runId: string): Promise<{
     record: RunRecord;
     plan: BrowserPlan;
     steps: StepResult[];
@@ -212,7 +209,7 @@ export class FilesystemArtifactStore implements ArtifactStore {
     destination: string,
   ): Promise<ArtifactReference> {
     const artifact = await this.get(runId, artifactId);
-    await copyFile(artifact.path, destination);
+    await copyFile(artifact.path, destination, constants.COPYFILE_EXCL);
     return artifact;
   }
 }

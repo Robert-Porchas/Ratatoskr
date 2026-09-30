@@ -162,6 +162,11 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     return safeUrl(this.getPage().url());
   }
   async screenshot(): Promise<Buffer> {
-    return this.getPage().screenshot({ fullPage: true });
+    const page = this.getPage();
+    return page.screenshot({
+      fullPage: true,
+      mask: [page.locator('input, textarea, [contenteditable="true"]')],
+      maskColor: '#000000',
+    });
   }
 }

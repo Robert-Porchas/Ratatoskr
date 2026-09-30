@@ -54,9 +54,11 @@ describe('evidence reduction', () => {
       message: 'bad [REDACTED]',
       stepIndex: 2,
     });
-    expect(buildMetrics([failed], collector.events, 50, 0, 0)).toMatchObject({
-      consoleErrorCount: 1,
-      compressionRatio: 0,
-    });
+    expect(buildMetrics(1, [failed], collector.events, 50, 0, 0)).toMatchObject(
+      {
+        consoleErrorCount: 1,
+        compressionRatio: 0,
+      },
+    );
   });
 });
