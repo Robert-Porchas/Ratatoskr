@@ -34,10 +34,24 @@ class FakeBrowser implements BrowserAdapter {
   }
   async fill(): Promise<void> {}
   async press(): Promise<void> {}
+  async selectOption(): Promise<void> {}
+  async setChecked(): Promise<void> {}
+  async hover(): Promise<void> {}
   async waitFor(): Promise<void> {}
   async text(): Promise<string> {
     return 'Welcome';
   }
+  async attribute(): Promise<string | null> {
+    return '/receipt';
+  }
+  async waitForUrlContains(contains: string): Promise<void> {
+    if (!this.url.includes(contains)) {
+      const error = new Error('Timeout');
+      error.name = 'TimeoutError';
+      throw error;
+    }
+  }
+  async waitForTextContains(): Promise<void> {}
   async isVisible(): Promise<boolean> {
     return true;
   }

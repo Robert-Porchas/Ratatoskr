@@ -15,12 +15,13 @@ export const InspectionCategorySchema = z.enum([
   'page_errors',
   'navigation',
   'artifacts',
+  'extracted_values',
   'metrics',
 ]);
 export type InspectionCategory = z.infer<typeof InspectionCategorySchema>;
 
 export const InspectionOptionsSchema = z.strictObject({
-  include: z.array(InspectionCategorySchema).min(1).max(8).default(['summary']),
+  include: z.array(InspectionCategorySchema).min(1).max(9).default(['summary']),
   maxItemsPerCategory: z.number().int().min(1).max(25).default(10),
   offset: z.number().int().min(0).max(10_000).default(0),
 });
@@ -68,6 +69,7 @@ function section(
   steps: StepResult[],
   evidence: Evidence[],
   result: unknown,
+  extractions: Record<string, string>,
   offset: number,
   limit: number,
 ): InspectionSection {
@@ -131,6 +133,14 @@ function section(
       );
     case 'artifacts':
       return page(record.artifacts.map(artifactSummary), offset, limit);
+    case 'extracted_values':
+      return page(
+        Object.entries(extractions)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([name, value]) => ({ name, value: value.slice(0, 1000) })),
+        offset,
+        limit,
+      );
   }
 }
 
@@ -150,6 +160,7 @@ export async function inspectRun(
       run.steps,
       run.evidence,
       run.result,
+      run.extractions,
       parsed.offset,
       parsed.maxItemsPerCategory,
     );

@@ -26,6 +26,23 @@ function html(fail: boolean): string {
     </script></body></html>`;
 }
 
+function formHtml(): string {
+  return `<!doctype html><html><body>
+    <label for="state">State</label><select id="state"><option value="ca">California</option><option value="nv">Nevada</option></select>
+    <label for="agree">Agree</label><input type="checkbox" id="agree">
+    <label for="subscribe">Subscribe</label><input type="checkbox" id="subscribe" checked>
+    <button id="menu">Menu</button><a id="menu-link" href="/receipt/42" hidden>Receipt menu</a>
+    <button id="save">Save item</button>
+    <p data-testid="order-number"></p><a data-testid="receipt" href="/receipt/42">Receipt</a>
+    <script>
+      document.querySelector('#menu').addEventListener('mouseenter', () => { document.querySelector('#menu-link').hidden = false; });
+      document.querySelector('#save').addEventListener('click', () => {
+        const valid = document.querySelector('select').value === 'nv' && document.querySelector('#agree').checked && !document.querySelector('#subscribe').checked;
+        document.querySelector('[data-testid="order-number"]').textContent = valid ? 'ORD-NV-42' : 'INVALID FORM';
+      });
+    </script></body></html>`;
+}
+
 function respond(request: IncomingMessage, response: ServerResponse): void {
   const url = new URL(request.url ?? '/', 'http://localhost');
   response.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -45,6 +62,19 @@ function respond(request: IncomingMessage, response: ServerResponse): void {
     case '/dashboard':
       response.end(
         '<h1>Welcome to the dashboard</h1><p data-testid="ready">Ready</p>',
+      );
+      return;
+    case '/form':
+      response.end(formHtml());
+      return;
+    case '/delayed-assert':
+      response.end(
+        '<h1 id="status">Loading</h1><script>setTimeout(() => { document.querySelector("#status").textContent = "Ready"; }, 300)</script>',
+      );
+      return;
+    case '/delayed-url':
+      response.end(
+        '<h1>Redirecting</h1><script>setTimeout(() => { location.href = "/dashboard"; }, 300)</script>',
       );
       return;
     case '/delayed':

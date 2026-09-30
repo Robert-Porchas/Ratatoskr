@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const nonEmpty = z.string().min(1);
+const valueName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 const httpUrl = z
   .url()
   .refine((value) => /^https?:\/\//.test(value), 'Expected an HTTP(S) URL');
@@ -21,6 +22,19 @@ const options = {
   continueOnFailure: z.boolean().optional(),
 };
 
+export const BrowserOptionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('value'), value: nonEmpty }),
+  z.strictObject({ kind: z.literal('label'), label: nonEmpty }),
+  z.strictObject({ kind: z.literal('index'), index: z.number().int().min(0) }),
+]);
+export type BrowserOption = z.infer<typeof BrowserOptionSchema>;
+
+const extraction = {
+  target: targetSchema,
+  saveAs: valueName,
+  maxChars: z.number().int().min(1).max(1000).optional(),
+};
+
 export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
 
@@ -34,7 +48,7 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('fill'),
     target: targetSchema,
-    valueRef: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+    valueRef: valueName,
     ...options,
   }),
   z.strictObject({
@@ -64,13 +78,87 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
     target: targetSchema,
     ...options,
   }),
+  z.strictObject({
+    action: z.literal('select_option'),
+    target: targetSchema,
+    option: BrowserOptionSchema,
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('check'),
+    target: targetSchema,
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('uncheck'),
+    target: targetSchema,
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('hover'),
+    target: targetSchema,
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('extract_text'),
+    ...extraction,
+    ...options,
+  }),
+  z.strictObject({
+    action: z.literal('extract_attribute'),
+    ...extraction,
+    attribute: z.string().regex(/^[A-Za-z_:][A-Za-z0-9_:.-]*$/),
+    ...options,
+  }),
 ]);
 export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 
-export const BrowserPlanSchema = z.strictObject({
-  startUrl: httpUrl,
-  steps: z.array(BrowserStepSchema).min(1).max(100),
-});
+export const BrowserPlanSchema = z
+  .strictObject({
+    startUrl: httpUrl,
+    steps: z.array(BrowserStepSchema).min(1).max(100),
+    outputs: z.array(valueName).max(5).optional(),
+    timeoutMs: z.number().int().min(1000).max(600_000).optional(),
+  })
+  .superRefine((plan, context) => {
+    const names = new Map<string, number>();
+    for (const [index, step] of plan.steps.entries()) {
+      if (step.action !== 'extract_text' && step.action !== 'extract_attribute')
+        continue;
+      if (names.has(step.saveAs))
+        context.addIssue({
+          code: 'custom',
+          path: ['steps', index, 'saveAs'],
+          message: `Duplicate extraction name ${step.saveAs}`,
+        });
+      names.set(step.saveAs, step.maxChars ?? 200);
+    }
+    for (const name of plan.outputs ?? []) {
+      if (!names.has(name))
+        context.addIssue({
+          code: 'custom',
+          path: ['outputs'],
+          message: `Unknown extraction ${name}`,
+        });
+    }
+    if (new Set(plan.outputs ?? []).size !== (plan.outputs ?? []).length)
+      context.addIssue({
+        code: 'custom',
+        path: ['outputs'],
+        message: 'Duplicate output name',
+      });
+    if (
+      (plan.outputs ?? []).reduce(
+        (sum, name) => sum + (names.get(name) ?? 0),
+        0,
+      ) > 2000
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['outputs'],
+        message: 'Output character budget exceeds 2000',
+      });
+  });
 export type BrowserPlan = z.infer<typeof BrowserPlanSchema>;
 
 export type RunIdentifier = string;
@@ -148,7 +236,7 @@ export type RelevantError =
   | { type: 'console' | 'page_error'; message: string };
 
 export type RunResult =
-  | { success: true; runId: RunIdentifier }
+  | { success: true; runId: RunIdentifier; outputs?: Record<string, string> }
   | {
       success: false;
       runId: RunIdentifier;

@@ -62,6 +62,7 @@ const store: RunStore = {
       result,
       steps: [] as StepResult[],
       evidence: events,
+      extractions: {},
     };
   },
 };

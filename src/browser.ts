@@ -1,4 +1,4 @@
-import type { BrowserTarget } from './protocol.js';
+import type { BrowserOption, BrowserTarget } from './protocol.js';
 import type { EvidenceInput } from './evidence.js';
 
 export interface BrowserAdapter {
@@ -8,8 +8,30 @@ export interface BrowserAdapter {
   click(target: BrowserTarget, timeoutMs: number): Promise<void>;
   fill(target: BrowserTarget, value: string, timeoutMs: number): Promise<void>;
   press(target: BrowserTarget, key: string, timeoutMs: number): Promise<void>;
+  selectOption(
+    target: BrowserTarget,
+    option: BrowserOption,
+    timeoutMs: number,
+  ): Promise<void>;
+  setChecked(
+    target: BrowserTarget,
+    checked: boolean,
+    timeoutMs: number,
+  ): Promise<void>;
+  hover(target: BrowserTarget, timeoutMs: number): Promise<void>;
   waitFor(target: BrowserTarget, timeoutMs: number): Promise<void>;
   text(target: BrowserTarget, timeoutMs: number): Promise<string>;
+  attribute(
+    target: BrowserTarget,
+    name: string,
+    timeoutMs: number,
+  ): Promise<string | null>;
+  waitForUrlContains(contains: string, timeoutMs: number): Promise<void>;
+  waitForTextContains(
+    target: BrowserTarget,
+    contains: string,
+    timeoutMs: number,
+  ): Promise<void>;
   isVisible(target: BrowserTarget, timeoutMs: number): Promise<boolean>;
   currentUrl(): Promise<string>;
   screenshot(): Promise<Buffer>;

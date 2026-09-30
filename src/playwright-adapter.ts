@@ -5,7 +5,7 @@ import {
   type Locator,
   type Page,
 } from 'playwright';
-import type { BrowserTarget } from './protocol.js';
+import type { BrowserOption, BrowserTarget } from './protocol.js';
 import type { BrowserAdapter } from './browser.js';
 import type { EvidenceInput } from './evidence.js';
 
@@ -141,6 +141,30 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   ): Promise<void> {
     await this.locator(target).press(key, { timeout: timeoutMs });
   }
+  async selectOption(
+    target: BrowserTarget,
+    option: BrowserOption,
+    timeoutMs: number,
+  ): Promise<void> {
+    const selection =
+      option.kind === 'value'
+        ? { value: option.value }
+        : option.kind === 'label'
+          ? { label: option.label }
+          : { index: option.index };
+    await this.locator(target).selectOption(selection, { timeout: timeoutMs });
+  }
+  async setChecked(
+    target: BrowserTarget,
+    checked: boolean,
+    timeoutMs: number,
+  ): Promise<void> {
+    if (checked) await this.locator(target).check({ timeout: timeoutMs });
+    else await this.locator(target).uncheck({ timeout: timeoutMs });
+  }
+  async hover(target: BrowserTarget, timeoutMs: number): Promise<void> {
+    await this.locator(target).hover({ timeout: timeoutMs });
+  }
   async waitFor(target: BrowserTarget, timeoutMs: number): Promise<void> {
     await this.locator(target).waitFor({
       state: 'visible',
@@ -149,6 +173,28 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   }
   async text(target: BrowserTarget, timeoutMs: number): Promise<string> {
     return this.locator(target).innerText({ timeout: timeoutMs });
+  }
+  async attribute(
+    target: BrowserTarget,
+    name: string,
+    timeoutMs: number,
+  ): Promise<string | null> {
+    return this.locator(target).getAttribute(name, { timeout: timeoutMs });
+  }
+  async waitForUrlContains(contains: string, timeoutMs: number): Promise<void> {
+    await this.getPage().waitForURL(
+      (url) => safeUrl(url.href).includes(contains),
+      { timeout: timeoutMs },
+    );
+  }
+  async waitForTextContains(
+    target: BrowserTarget,
+    contains: string,
+    timeoutMs: number,
+  ): Promise<void> {
+    await this.locator(target)
+      .filter({ hasText: contains })
+      .waitFor({ state: 'visible', timeout: timeoutMs });
   }
   async isVisible(target: BrowserTarget, timeoutMs: number): Promise<boolean> {
     try {

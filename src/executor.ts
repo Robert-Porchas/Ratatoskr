@@ -32,8 +32,8 @@ async function executeStep(
   browser: BrowserAdapter,
   values: ValueResolver,
   evidence: EvidenceCollector,
-): Promise<void> {
-  const timeout = step.timeoutMs ?? 5000;
+  timeout: number,
+): Promise<string | undefined> {
   switch (step.action) {
     case 'navigate':
       await browser.navigate(step.url, timeout);
@@ -50,29 +50,68 @@ async function executeStep(
     case 'press':
       await browser.press(step.target, step.key, timeout);
       return;
+    case 'select_option':
+      await browser.selectOption(step.target, step.option, timeout);
+      return;
+    case 'check':
+      await browser.setChecked(step.target, true, timeout);
+      return;
+    case 'uncheck':
+      await browser.setChecked(step.target, false, timeout);
+      return;
+    case 'hover':
+      await browser.hover(step.target, timeout);
+      return;
     case 'wait_for':
       await browser.waitFor(step.target, timeout);
       return;
     case 'assert_url': {
-      const actual = await browser.currentUrl();
-      if (!actual.includes(step.contains))
-        throw new BrowserAssertionError(
-          `Expected URL to contain ${step.contains}`,
-        );
+      try {
+        await browser.waitForUrlContains(step.contains, timeout);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError')
+          throw new BrowserAssertionError(
+            `Expected URL to contain ${step.contains}`,
+          );
+        throw error;
+      }
       return;
     }
     case 'assert_text': {
-      const actual = await browser.text(step.target, timeout);
-      if (!actual.includes(step.contains))
-        throw new BrowserAssertionError(
-          `Expected text to contain ${step.contains}`,
-        );
+      try {
+        await browser.waitForTextContains(step.target, step.contains, timeout);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError')
+          throw new BrowserAssertionError(
+            `Expected text to contain ${step.contains}`,
+          );
+        throw error;
+      }
       return;
     }
     case 'assert_visible': {
       if (!(await browser.isVisible(step.target, timeout)))
         throw new BrowserAssertionError('Expected target to be visible');
       return;
+    }
+    case 'extract_text':
+      return evidence.redact(
+        (await browser.text(step.target, timeout)).slice(
+          0,
+          step.maxChars ?? 200,
+        ),
+      );
+    case 'extract_attribute': {
+      const value = await browser.attribute(
+        step.target,
+        step.attribute,
+        timeout,
+      );
+      if (value === null)
+        throw new BrowserAssertionError(
+          `Attribute ${step.attribute} was not present`,
+        );
+      return evidence.redact(value.slice(0, step.maxChars ?? 200));
     }
   }
 }
@@ -106,9 +145,11 @@ export async function executePlan(
   const startedAt = Date.now();
   const evidence = new EvidenceCollector();
   const steps: StepResult[] = [];
+  const extractions: Record<string, string> = {};
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
   const traceAllowed = !plan.steps.some((step) => step.action === 'fill');
+  const deadline = startedAt + (plan.timeoutMs ?? 120_000);
   const captureFailure = async (): Promise<void> => {
     try {
       artifacts.push(
@@ -133,7 +174,21 @@ export async function executePlan(
       const start = Date.now();
       let failure: StepResult['failure'];
       try {
-        await executeStep(step, deps.browser, deps.values, evidence);
+        const remaining = deadline - start;
+        if (remaining <= 0) throw new StepTimeoutError(step.action);
+        const value = await executeStep(
+          step,
+          deps.browser,
+          deps.values,
+          evidence,
+          Math.min(step.timeoutMs ?? 5000, remaining),
+        );
+        if (
+          value !== undefined &&
+          (step.action === 'extract_text' ||
+            step.action === 'extract_attribute')
+        )
+          extractions[step.saveAs] = value;
       } catch (error) {
         failure = failureFor(error, step.action);
       }
@@ -218,7 +273,17 @@ export async function executePlan(
             }
           : {}),
       }
-    : { success: true, runId };
+    : {
+        success: true,
+        runId,
+        ...(plan.outputs?.length
+          ? {
+              outputs: Object.fromEntries(
+                plan.outputs.map((name) => [name, extractions[name] ?? '']),
+              ),
+            }
+          : {}),
+      };
   const endedAt = Date.now();
   const responseBytes = Buffer.byteLength(JSON.stringify(result));
   const record: RunRecord = {
@@ -237,6 +302,13 @@ export async function executePlan(
     ),
     artifacts,
   };
-  await deps.runs.save(record, plan, steps, evidence.events, result);
+  await deps.runs.save(
+    record,
+    plan,
+    steps,
+    evidence.events,
+    result,
+    extractions,
+  );
   return result;
 }

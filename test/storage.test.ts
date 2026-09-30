@@ -45,10 +45,13 @@ describe('filesystem storage', () => {
           compressionRatio: 0,
         },
       };
-      await runs.save(record, plan, [], [], result);
+      await runs.save(record, plan, [], [], result, { orderNumber: 'ORD-42' });
       expect((await runs.load(runId)).record.artifacts[0]).toMatchObject({
         type: 'screenshot',
         sizeBytes: 9,
+      });
+      expect((await runs.load(runId)).extractions).toEqual({
+        orderNumber: 'ORD-42',
       });
       expect((await artifacts.get(runId, artifact.id)).mimeType).toBe(
         'image/png',

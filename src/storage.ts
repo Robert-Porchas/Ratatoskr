@@ -25,6 +25,7 @@ export interface RunStore {
     steps: StepResult[],
     evidence: Evidence[],
     result: RunResult,
+    extractions?: Record<string, string>,
   ): Promise<void>;
   load(runId: string): Promise<{
     record: RunRecord;
@@ -32,6 +33,7 @@ export interface RunStore {
     steps: StepResult[];
     evidence: Evidence[];
     result: RunResult;
+    extractions: Record<string, string>;
   }>;
 }
 
@@ -75,6 +77,7 @@ export class FilesystemRunStore implements RunStore {
     steps: StepResult[],
     evidence: Evidence[],
     result: RunResult,
+    extractions: Record<string, string> = {},
   ): Promise<void> {
     const directory = this.directory(record.id);
     await this.prepare(record.id);
@@ -96,6 +99,10 @@ export class FilesystemRunStore implements RunStore {
         join(directory, 'reduced-result.json'),
         JSON.stringify(result, null, 2),
       ),
+      writeFile(
+        join(directory, 'extractions.json'),
+        JSON.stringify(extractions, null, 2),
+      ),
     ]);
   }
 
@@ -105,15 +112,23 @@ export class FilesystemRunStore implements RunStore {
     steps: StepResult[];
     evidence: Evidence[];
     result: RunResult;
+    extractions: Record<string, string>;
   }> {
     const directory = this.directory(runId);
-    const [metadata, workflow, steps, evidence, result] = await Promise.all([
-      readFile(join(directory, 'metadata.json'), 'utf8'),
-      readFile(join(directory, 'workflow.json'), 'utf8'),
-      readFile(join(directory, 'steps.json'), 'utf8'),
-      readFile(join(directory, 'evidence.jsonl'), 'utf8'),
-      readFile(join(directory, 'reduced-result.json'), 'utf8'),
-    ]);
+    const [metadata, workflow, steps, evidence, result, extractions] =
+      await Promise.all([
+        readFile(join(directory, 'metadata.json'), 'utf8'),
+        readFile(join(directory, 'workflow.json'), 'utf8'),
+        readFile(join(directory, 'steps.json'), 'utf8'),
+        readFile(join(directory, 'evidence.jsonl'), 'utf8'),
+        readFile(join(directory, 'reduced-result.json'), 'utf8'),
+        readFile(join(directory, 'extractions.json'), 'utf8').catch(
+          (error: unknown) => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '{}';
+            throw error;
+          },
+        ),
+      ]);
     return {
       record: JSON.parse(metadata) as RunRecord,
       plan: JSON.parse(workflow) as BrowserPlan,
@@ -122,6 +137,7 @@ export class FilesystemRunStore implements RunStore {
         ? evidence.split('\n').map((line) => JSON.parse(line) as Evidence)
         : [],
       result: JSON.parse(result) as RunResult,
+      extractions: JSON.parse(extractions) as Record<string, string>,
     };
   }
 }

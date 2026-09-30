@@ -92,6 +92,65 @@ try {
     ),
   );
   assert(!JSON.stringify(stored).includes('password123'));
+  const form = await executePlan(
+    {
+      startUrl: `${base}/form`,
+      timeoutMs: 15_000,
+      steps: [
+        {
+          action: 'select_option',
+          target: { kind: 'label', label: 'State' },
+          option: { kind: 'label', label: 'Nevada' },
+        },
+        { action: 'check', target: { kind: 'label', label: 'Agree' } },
+        { action: 'uncheck', target: { kind: 'label', label: 'Subscribe' } },
+        {
+          action: 'hover',
+          target: { kind: 'role', role: 'button', name: 'Menu' },
+        },
+        {
+          action: 'assert_visible',
+          target: { kind: 'role', role: 'link', name: 'Receipt menu' },
+        },
+        {
+          action: 'click',
+          target: { kind: 'role', role: 'button', name: 'Save item' },
+        },
+        {
+          action: 'extract_text',
+          target: { kind: 'testId', testId: 'order-number' },
+          saveAs: 'orderNumber',
+          maxChars: 20,
+        },
+        {
+          action: 'extract_attribute',
+          target: { kind: 'testId', testId: 'receipt' },
+          attribute: 'href',
+          saveAs: 'receiptUrl',
+        },
+        { action: 'navigate', url: `${base}/delayed-assert` },
+        {
+          action: 'assert_text',
+          target: { kind: 'css', selector: '#status' },
+          contains: 'Ready',
+          timeoutMs: 2000,
+        },
+        { action: 'navigate', url: `${base}/delayed-url` },
+        { action: 'assert_url', contains: '/dashboard', timeoutMs: 2000 },
+      ],
+      outputs: ['orderNumber'],
+    },
+    { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+  );
+  assert.deepEqual(
+    form.success && form.outputs,
+    { orderNumber: 'ORD-NV-42' },
+    JSON.stringify(form),
+  );
+  assert.deepEqual((await runs.load(form.runId)).extractions, {
+    orderNumber: 'ORD-NV-42',
+    receiptUrl: '/receipt/42',
+  });
   const missing = await executePlan(
     {
       startUrl: `${base}/missing`,

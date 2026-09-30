@@ -59,6 +59,43 @@ describe('browser plan', () => {
       BrowserTargetSchema.safeParse({ kind: 'role', name: 'Go' }).success,
     ).toBe(false);
   });
+
+  it('requires unique bounded extraction names and explicit outputs', () => {
+    const steps = [
+      {
+        action: 'extract_text',
+        target: { kind: 'testId', testId: 'order' },
+        saveAs: 'orderNumber',
+        maxChars: 20,
+      },
+    ];
+    expect(
+      BrowserPlanSchema.safeParse({
+        startUrl: 'http://local/',
+        steps,
+        outputs: ['orderNumber'],
+      }).success,
+    ).toBe(true);
+    expect(
+      BrowserPlanSchema.safeParse({
+        startUrl: 'http://local/',
+        steps: [...steps, ...steps],
+      }).success,
+    ).toBe(false);
+    expect(
+      BrowserPlanSchema.safeParse({
+        startUrl: 'http://local/',
+        steps,
+        outputs: ['missing'],
+      }).success,
+    ).toBe(false);
+    expect(
+      BrowserPlanSchema.safeParse({
+        startUrl: 'http://local/',
+        steps: [{ ...steps[0], maxChars: 2001 }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('environment resolver', () => {
