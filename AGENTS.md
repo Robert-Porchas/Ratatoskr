@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This is a single Node.js/TypeScript package. `src/protocol.ts` defines validated plans and domain records; `src/browser.ts` defines the browser boundary, while `src/playwright-adapter.ts` implements it. Execution, evidence reduction, value resolution, and filesystem persistence live in their corresponding `src/` modules. `src/cli.ts` composes them. Unit tests are `test/*.test.ts`; the local website is `test/fixture/server.ts`, and the real-browser test is `test/integration.ts`. Example plans are in `examples/`; design notes are in `docs/architecture.md`.
+This is one TypeScript package. `src/protocol.ts` defines plans; `src/browser.ts` is the browser port, implemented by `src/playwright-adapter.ts`. `src/application.ts` composes shared services for `src/cli.ts` and `src/mcp/server.ts`. Unit tests are `test/*.test.ts`; browser/MCP integration tests are `test/integration.ts` and `test/mcp-integration.ts`. The local fixture is `test/fixture/server.ts`, examples in `examples/`, and design notes in `docs/architecture.md`.
 
 ## Build, Test, and Development Commands
 
-Run `npm install` and `npx playwright install chromium` once. Use `npm test` for Vitest unit tests, `npm run test:e2e` for the local-site Chromium test, `npm run typecheck` for strict TypeScript checks, `npm run lint` for ESLint, `npm run format:check` for Prettier, and `npm run build` to compile. Start the example site with `npm run fixture`; in another terminal, run `npm run cli -- run examples/login-success.json`. Set `TEST_EMAIL` and `TEST_PASSWORD` in that terminal first. The failure example exits with status 1 intentionally.
+Run `npm install` and `npx playwright install chromium` once. Use `npm test` (Vitest), `npm run test:e2e` (Chromium), `npm run test:mcp` (stdio client), `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run build`. Start the fixture with `npm run fixture`; then run `npm run cli -- run examples/login-success.json` with local `TEST_EMAIL` and `TEST_PASSWORD`. `npm run mcp` starts the built server; keep its stdout protocol-only.
 
 ## Coding Style & Naming Conventions
 
@@ -14,7 +14,7 @@ Use strict TypeScript, two-space indentation, single quotes, and Prettier's trai
 
 ## Testing Guidelines
 
-Add focused Vitest tests beside related behavior as `test/<area>.test.ts`. Cover schema changes, reducer rules, persistence, and secret handling with deterministic unit tests. Extend `test/integration.ts` when browser behavior or artifact handling changes. There is no numeric coverage gate; run tests, type checking, linting, and formatting before committing.
+Add Vitest tests as `test/<area>.test.ts`. Cover schemas, reduction, persistence, and secrets. Extend browser and MCP integration tests when those behaviors change. There is no coverage gate; run relevant tests, type checking, linting, and formatting before committing.
 
 ## Commit & Pull Request Guidelines
 
@@ -22,4 +22,8 @@ History uses Conventional Commit subjects such as `feat(browser): ...`, `fix(evi
 
 ## Security & Local Data
 
-Plans use environment-variable `valueRef` names, never plaintext secrets. Do not log resolved values or add generated `.browser-bridge/` runs, traces, screenshots, `dist/`, or `node_modules/` to Git. Inspect artifact redaction when changing screenshot behavior.
+Plans use `valueRef` names, never plaintext secrets. Do not log resolved values or commit generated `.browser-bridge/`, `dist/`, or `node_modules/`. Review redaction when changing screenshots.
+
+## Browser Testing with Codex
+
+When `browser_bridge` MCP is available, prefer one `run_browser_workflow` call for a known multi-step workflow. Use semantic locators. On success, do not inspect more evidence unless the task requires it. On failure, use the compact result to investigate application code first; call `inspect_browser_run` only for needed categories and `get_browser_artifact` only for a specific diagnostic artifact. Do not fetch screenshots, traces, or full logs by default. Codex constructs the BrowserPlan; the bridge does not plan autonomously.
