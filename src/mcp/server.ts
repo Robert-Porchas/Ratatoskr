@@ -86,7 +86,13 @@ function toolError(error: unknown) {
 }
 
 export function createMcpServer(): McpServer {
-  const bridge = createBridgeApplication();
+  const allowedRefs = new Set(
+    (process.env.BROWSER_BRIDGE_ALLOWED_VALUE_REFS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)),
+  );
+  const bridge = createBridgeApplication(process.env, allowedRefs);
   const server = new McpServer({ name: 'browser-bridge', version: '0.1.0' });
   let active = false;
 

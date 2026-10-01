@@ -10,6 +10,7 @@ import { EnvironmentValueResolver } from './values.js';
 /** Shared application boundary used by CLI and MCP; no transport concerns. */
 export function createBridgeApplication(
   environment: NodeJS.ProcessEnv = process.env,
+  allowedValueRefs?: ReadonlySet<string>,
 ) {
   const root = resolve(
     environment.BROWSER_BRIDGE_DATA_DIR ?? '.browser-bridge',
@@ -24,7 +25,7 @@ export function createBridgeApplication(
         browser: new PlaywrightBrowserAdapter(),
         runs,
         artifacts,
-        values: new EnvironmentValueResolver(environment),
+        values: new EnvironmentValueResolver(environment, allowedValueRefs),
         uploads: new DirectoryUploadResolver(
           environment.BROWSER_BRIDGE_UPLOAD_DIR,
         ),

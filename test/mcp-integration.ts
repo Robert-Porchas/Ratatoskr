@@ -26,6 +26,7 @@ try {
     cwd: process.cwd(),
     env: {
       BROWSER_BRIDGE_DATA_DIR: root,
+      BROWSER_BRIDGE_ALLOWED_VALUE_REFS: 'TEST_EMAIL,TEST_PASSWORD',
       TEST_EMAIL: 'demo@example.test',
       TEST_PASSWORD: 'secret-mcp-password',
     },
@@ -85,6 +86,25 @@ try {
   };
   assert.equal(success.success, true);
   assert.deepEqual(Object.keys(success).sort(), ['runId', 'success']);
+  const blockedRefCall = await client.callTool({
+    name: 'run_browser_workflow',
+    arguments: {
+      startUrl: `${base}/login`,
+      steps: [
+        {
+          action: 'fill',
+          target: { kind: 'label', label: 'Password' },
+          valueRef: 'PATH',
+        },
+      ],
+    },
+  });
+  const blockedRef = blockedRefCall.structuredContent as {
+    success: boolean;
+    reason: string;
+  };
+  assert.equal(blockedRef.success, false);
+  assert.match(blockedRef.reason, /Value reference PATH is not set/);
   const failureCall = await client.callTool({
     name: 'run_browser_workflow',
     arguments: failurePlan,

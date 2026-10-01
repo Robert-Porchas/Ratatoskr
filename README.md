@@ -54,7 +54,7 @@ Plans contain an HTTP(S) `startUrl`, up to 100 typed steps, and optional `timeou
 
 Prefer targets by role/accessibility name, label, text, or test ID; CSS is an escape hatch. `select_option` chooses a typed value, label, or index. `click` can declare an expected alert/confirm/prompt policy or `expectPopup: true` to switch to a new page. Unexpected dialogs or popups fail clearly. `upload_file` accepts only a basename found directly in `BROWSER_BRIDGE_UPLOAD_DIR`; symlinks escaping that directory are rejected. `expect_download` stores the file as an artifact and returns only its ID. No plan can enumerate files.
 
-`fill` uses `valueRef` (an environment variable name), never a plaintext value. Extraction actions require unique `saveAs` names and cap each value at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). For example:
+`fill` uses `valueRef` (an environment variable name), never a plaintext value. The MCP server resolves only names listed in `BROWSER_BRIDGE_ALLOWED_VALUE_REFS`; an unset list allows no MCP value references. The CLI retains its existing local resolver behavior. Extraction actions require unique `saveAs` names and cap each value at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). For example:
 
 ```json
 {
@@ -91,7 +91,7 @@ Build first, then the stdio server can be started manually with `npm run mcp` (i
 
 ```sh
 npm run build
-codex mcp add browser_bridge --env BROWSER_BRIDGE_DATA_DIR=/absolute/path/to/repo/.browser-bridge -- /absolute/path/to/node /absolute/path/to/repo/dist/src/mcp/server.js
+codex mcp add browser_bridge --env BROWSER_BRIDGE_DATA_DIR=/absolute/path/to/repo/.browser-bridge --env BROWSER_BRIDGE_ALLOWED_VALUE_REFS=TEST_EMAIL,TEST_PASSWORD -- /absolute/path/to/node /absolute/path/to/repo/dist/src/mcp/server.js
 codex mcp list
 ```
 
@@ -104,7 +104,7 @@ startup_timeout_sec = 20
 tool_timeout_sec = 660
 ```
 
-Set any referenced variables in the local environment that launches Codex. The MCP tools are:
+Set the allowlisted reference variables in the local environment that launches Codex; `env_vars` forwards only their names and current values to the server. The MCP tools are:
 
 - `run_browser_workflow`: accepts the same BrowserPlan as the CLI and returns a compact structured result.
 - `inspect_browser_run`: returns only requested, bounded categories for one run.

@@ -147,5 +147,13 @@ describe('environment resolver', () => {
     expect(() => resolver.resolve('MISSING')).toThrow(
       'Value reference MISSING is not set',
     );
+    const restricted = new EnvironmentValueResolver(
+      { TEST_PASSWORD: 'private', PATH: '/sensitive' },
+      new Set(['TEST_PASSWORD']),
+    );
+    expect(restricted.resolve('TEST_PASSWORD')).toBe('private');
+    expect(() => restricted.resolve('PATH')).toThrow(
+      'Value reference PATH is not set',
+    );
   });
 });
