@@ -8,7 +8,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { FilesystemRunStore } from '../src/storage.js';
 import { createFixtureServer } from './fixture/server.js';
 
-const root = await mkdtemp(join(tmpdir(), 'bridge-mcp-'));
+const root = await mkdtemp(join(tmpdir(), 'ratatoskr-mcp-'));
 const fixture = createFixtureServer();
 let client: Client | undefined;
 let transport: StdioClientTransport | undefined;
@@ -25,8 +25,8 @@ try {
     args: [new URL('../src/mcp/server.js', import.meta.url).pathname],
     cwd: process.cwd(),
     env: {
-      BROWSER_BRIDGE_DATA_DIR: root,
-      BROWSER_BRIDGE_ALLOWED_VALUE_REFS: 'TEST_EMAIL,TEST_PASSWORD',
+      RATATOSKR_DATA_DIR: root,
+      RATATOSKR_ALLOWED_VALUE_REFS: 'TEST_EMAIL,TEST_PASSWORD',
       TEST_EMAIL: 'demo@example.test',
       TEST_PASSWORD: 'secret-mcp-password',
     },
@@ -36,7 +36,7 @@ try {
     stderr.push(chunk.toString()),
   );
   transport.onerror = (error) => transportErrors.push(error);
-  client = new Client({ name: 'browser-bridge-integration', version: '0.1.0' });
+  client = new Client({ name: 'ratatoskr-integration', version: '0.1.0' });
   await client.connect(transport);
   const discovered = await client.listTools();
   assert.deepEqual(discovered.tools.map((tool) => tool.name).sort(), [

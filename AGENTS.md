@@ -22,8 +22,8 @@ History uses Conventional Commit subjects such as `feat(browser): ...`, `fix(evi
 
 ## Security & Local Data
 
-Plans use `valueRef` names, never plaintext secrets. Do not log resolved values or commit generated `.browser-bridge/`, `dist/`, or `node_modules/`. Review redaction when changing screenshots.
+Plans use `valueRef` names, never plaintext secrets. Do not log resolved values or commit generated `.ratatoskr/`, `dist/`, or `node_modules/`. Review redaction when changing screenshots.
 
 ## Browser Testing with Codex
 
-When `browser_bridge` MCP is available, prefer one `run_browser_workflow` call for a known multi-step workflow. Use semantic locators. On success, do not inspect more evidence unless the task requires it. On failure, use the compact result to investigate application code first; call `inspect_browser_run` only for needed categories and `get_browser_artifact` only for a specific diagnostic artifact. Do not fetch screenshots, traces, or full logs by default. Codex constructs the BrowserPlan; the bridge does not plan autonomously.
+When `ratatoskr` MCP is available, prefer one `run_browser_workflow` call for a known multi-step workflow. Use semantic locators. On success, do not inspect more evidence unless the task requires it. On failure, use the compact result to investigate application code first; call `inspect_browser_run` only for needed categories and `get_browser_artifact` only for a specific diagnostic artifact. Do not fetch screenshots, traces, or full logs by default. Codex constructs the BrowserPlan; Ratatoskr does not plan autonomously.

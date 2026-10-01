@@ -5,7 +5,7 @@ import {
 } from 'node:http';
 
 function html(fail: boolean): string {
-  return `<!doctype html><html><head><title>Bridge test login</title></head><body>
+  return `<!doctype html><html><head><title>Ratatoskr test login</title></head><body>
     <h1>Sign in</h1>
     <form id="login"><label>Email <input type="email" name="email" /></label>
     <label>Password <input type="password" name="password" /></label>

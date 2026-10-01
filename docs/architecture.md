@@ -1,4 +1,4 @@
-# Browser Bridge architecture
+# Ratatoskr architecture
 
 This is one TypeScript package, not a monorepo. The modules form a browser capability that can later be hosted by a desktop agent without making Playwright the domain model.
 
@@ -20,7 +20,7 @@ MCP ─┘             │                    │
 
 The executor allocates a unique run ID, starts an isolated browser/context, performs the initial navigation, and executes steps in order. Playwright auto-waits for actionability; condition assertions wait to a bounded timeout. A failure stops the plan unless that step permits continuation. Each step records timing, status, and URL. A plan-level deadline caps further steps. MCP cancellation closes the browser best-effort and persists the run as `aborted`. The MCP process permits one active workflow; additional calls receive an explicit tool error.
 
-`valueRef` resolves locally through the value resolver. Only the reference name persists. The MCP adapter restricts names to `BROWSER_BRIDGE_ALLOWED_VALUE_REFS` (empty by default); the CLI retains its local resolver behavior. An upload accepts a basename inside a configured directory, not an arbitrary plan path. A download is saved through the artifact store; no plan-supplied write path exists. Extraction values are capped, persisted separately, and returned on success only when named in `outputs`. Unexpected dialogs/popups fail; a click can declare one dialog policy or an expected popup, after which the popup becomes the active page.
+`valueRef` resolves locally through the value resolver. Only the reference name persists. The MCP adapter restricts names to `RATATOSKR_ALLOWED_VALUE_REFS` (empty by default); the CLI retains its local resolver behavior. An upload accepts a basename inside a configured directory, not an arbitrary plan path. A download is saved through the artifact store; no plan-supplied write path exists. Extraction values are capped, persisted separately, and returned on success only when named in `outputs`. Unexpected dialogs/popups fail; a click can declare one dialog policy or an expected popup, after which the popup becomes the active page.
 
 ## Evidence and progressive disclosure
 
@@ -32,6 +32,6 @@ Failure screenshots and safe traces are registered by ID. Tracing is disabled fo
 
 ## Persistence and measurement
 
-Runs live beneath `BROWSER_BRIDGE_DATA_DIR` (default `.browser-bridge/`): `runs/<runId>/metadata.json`, `workflow.json`, `steps.json`, `evidence.jsonl`, `extractions.json`, `reduced-result.json`, and `artifacts/`. Artifact metadata is also indexed by ID for MCP lookup. Metrics track step/action/error counts, duration, serialized event bytes, reduced response bytes, artifact count, and compression ratio. These are byte counts, not token counts; binary artifacts and MCP schema overhead are measured separately in integration tests.
+Runs live beneath `RATATOSKR_DATA_DIR` (default `.ratatoskr/`): `runs/<runId>/metadata.json`, `workflow.json`, `steps.json`, `evidence.jsonl`, `extractions.json`, `reduced-result.json`, and `artifacts/`. Artifact metadata is also indexed by ID for MCP lookup. Metrics track step/action/error counts, duration, serialized event bytes, reduced response bytes, artifact count, and compression ratio. These are byte counts, not token counts; binary artifacts and MCP schema overhead are measured separately in integration tests.
 
 The stdio MCP adapter uses the official SDK, exposes exactly three tools, and uses the same BrowserPlan and inspector as the CLI. Future desktop-agent integration should treat this as one capability behind a permission boundary, not as the planner or event bus. Next work should measure end-to-end Codex token savings and add domain permissions before broadening browser access.

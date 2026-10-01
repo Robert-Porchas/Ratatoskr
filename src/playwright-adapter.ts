@@ -14,7 +14,7 @@ import type {
 import type { BrowserAdapter } from './browser.js';
 import type { EvidenceInput } from './evidence.js';
 import { basename, extname } from 'node:path';
-import { BridgeError } from './errors.js';
+import { RatatoskrError } from './errors.js';
 
 function safeUrl(value: string): string {
   try {
@@ -181,7 +181,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
 
   private getPage(): Page {
     if (this.unexpectedIssue)
-      throw new BridgeError('browser_execution', this.unexpectedIssue);
+      throw new RatatoskrError('browser_execution', this.unexpectedIssue);
     if (!this.page) throw new Error('Browser has not started');
     return this.page;
   }
@@ -230,9 +230,9 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
         if (this.emit) this.attachPage(opened, this.emit);
       } else await this.locator(target).click({ timeout: timeoutMs });
       if (this.activeClick.issue)
-        throw new BridgeError('browser_execution', this.activeClick.issue);
+        throw new RatatoskrError('browser_execution', this.activeClick.issue);
       if (options?.dialog && !this.activeClick.dialogSeen)
-        throw new BridgeError(
+        throw new RatatoskrError(
           'browser_execution',
           `Expected ${options.dialog.type} dialog did not open`,
         );

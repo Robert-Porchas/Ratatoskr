@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { BrowserAdapter } from './browser.js';
 import {
-  BridgeError,
+  RatatoskrError,
   BrowserAssertionError,
   BrowserExecutionError,
   ElementNotFoundError,
@@ -86,7 +86,7 @@ async function executeStep(
       return;
     case 'upload_file':
       if (!uploads)
-        throw new BridgeError(
+        throw new RatatoskrError(
           'browser_execution',
           'Upload directory is not configured',
         );
@@ -180,7 +180,7 @@ function failureFor(
 ): NonNullable<StepResult['failure']> {
   if (aborted)
     return { kind: 'cancelled', reason: 'Browser workflow was cancelled' };
-  if (error instanceof BridgeError)
+  if (error instanceof RatatoskrError)
     return { kind: error.kind, reason: error.message };
   if (error instanceof Error && error.name === 'TimeoutError') {
     const classified =
@@ -236,11 +236,11 @@ export async function executePlan(
   deps.signal?.addEventListener('abort', onAbort, { once: true });
   try {
     if (deps.signal?.aborted)
-      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+      throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
     await deps.browser.start((event) => evidence.record(event), traceAllowed);
     browserStarted = true;
     if (deps.signal?.aborted)
-      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+      throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
     const execute = async (
       step: BrowserStep,
       index: number,
@@ -250,7 +250,10 @@ export async function executePlan(
       let failure: StepResult['failure'];
       try {
         if (deps.signal?.aborted)
-          throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+          throw new RatatoskrError(
+            'cancelled',
+            'Browser workflow was cancelled',
+          );
         const remaining = deadline - start;
         if (remaining <= 0) throw new StepTimeoutError(step.action);
         const value = await executeStep(
@@ -314,7 +317,7 @@ export async function executePlan(
       }
     }
     if (deps.signal?.aborted && !firstFailure)
-      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+      throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
   } catch (error) {
     if (!firstFailure) {
       const now = Date.now();

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
-import { createBridgeApplication } from '../application.js';
+import { createRatatoskrApplication } from '../application.js';
 import { BrowserPlanSchema } from '../protocol.js';
 import {
   InspectionOptionsSchema,
@@ -75,7 +75,7 @@ function toolError(error: unknown) {
       ? error.message
       : error instanceof Error && 'code' in error && error.code === 'ENOENT'
         ? 'Run not found'
-        : 'Browser bridge request failed; check local diagnostics';
+        : 'Ratatoskr request failed; check local diagnostics';
   process.stderr.write(
     `${JSON.stringify({ level: 'error', name: error instanceof Error ? error.name : 'UnknownError' })}\n`,
   );
@@ -87,13 +87,13 @@ function toolError(error: unknown) {
 
 export function createMcpServer(): McpServer {
   const allowedRefs = new Set(
-    (process.env.BROWSER_BRIDGE_ALLOWED_VALUE_REFS ?? '')
+    (process.env.RATATOSKR_ALLOWED_VALUE_REFS ?? '')
       .split(',')
       .map((value) => value.trim())
       .filter((value) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)),
   );
-  const bridge = createBridgeApplication(process.env, allowedRefs);
-  const server = new McpServer({ name: 'browser-bridge', version: '0.1.0' });
+  const app = createRatatoskrApplication(process.env, allowedRefs);
+  const server = new McpServer({ name: 'ratatoskr', version: '0.1.0' });
   let active = false;
 
   server.registerTool(
@@ -115,7 +115,7 @@ export function createMcpServer(): McpServer {
         };
       active = true;
       try {
-        const result = await bridge.run(plan, context.mcpReq.signal);
+        const result = await app.run(plan, context.mcpReq.signal);
         return {
           content: [
             {
@@ -146,7 +146,7 @@ export function createMcpServer(): McpServer {
     },
     async ({ runId: id, ...options }) => {
       try {
-        const result = await bridge.inspect(id, options);
+        const result = await app.inspect(id, options);
         return {
           content: [
             {
@@ -173,7 +173,7 @@ export function createMcpServer(): McpServer {
     },
     async ({ artifactId: id }) => {
       try {
-        const artifact = await bridge.artifacts.find(id);
+        const artifact = await app.artifacts.find(id);
         const metadata = {
           id: artifact.id,
           runId: artifact.runId,
@@ -184,7 +184,7 @@ export function createMcpServer(): McpServer {
           ...(artifact.fileName ? { fileName: artifact.fileName } : {}),
         };
         if (artifact.type === 'screenshot' && artifact.sizeBytes <= 5_000_000) {
-          const bytes = await bridge.artifacts.read(id, 5_000_000);
+          const bytes = await app.artifacts.read(id, 5_000_000);
           return {
             content: [
               {
@@ -204,7 +204,7 @@ export function createMcpServer(): McpServer {
           artifact.mimeType.startsWith('text/') &&
           artifact.sizeBytes <= 16_000
         ) {
-          const bytes = await bridge.artifacts.read(id, 16_000);
+          const bytes = await app.artifacts.read(id, 16_000);
           return {
             content: [{ type: 'text', text: bytes.toString('utf8') }],
             structuredContent: { ...metadata, inline: true },

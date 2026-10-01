@@ -6,9 +6,9 @@ import {
   InspectionCategorySchema,
   type InspectionCategory,
 } from './inspection.js';
-import { createBridgeApplication } from './application.js';
+import { createRatatoskrApplication } from './application.js';
 
-const bridge = createBridgeApplication();
+const app = createRatatoskrApplication();
 
 async function main(args: string[]): Promise<void> {
   const [command, first, second, third, fourth] = args;
@@ -23,7 +23,7 @@ async function main(args: string[]): Promise<void> {
           .join('; '),
       );
     const plan = parsed.data;
-    const result = await bridge.run(plan);
+    const result = await app.run(plan);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.success) process.exitCode = 1;
     return;
@@ -39,15 +39,15 @@ async function main(args: string[]): Promise<void> {
     const include = requested.includes('all')
       ? InspectionCategorySchema.options
       : requested.map((value) => InspectionCategorySchema.parse(value));
-    const inspected = await bridge.inspect(first, { include });
+    const inspected = await app.inspect(first, { include });
     process.stdout.write(`${JSON.stringify(inspected, null, 2)}\n`);
     return;
   }
   if (command === 'artifact' && first && second) {
     const artifact =
       third === '--out' && fourth
-        ? await bridge.artifacts.copyTo(first, second, resolve(fourth))
-        : await bridge.artifacts.get(first, second);
+        ? await app.artifacts.copyTo(first, second, resolve(fourth))
+        : await app.artifacts.get(first, second);
     process.stdout.write(
       `${JSON.stringify({ ...artifact, ...(third === '--out' && fourth ? { copiedTo: resolve(fourth) } : {}) }, null, 2)}\n`,
     );

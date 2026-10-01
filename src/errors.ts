@@ -1,6 +1,6 @@
 import type { FailureKind } from './protocol.js';
 
-export class BridgeError extends Error {
+export class RatatoskrError extends Error {
   constructor(
     public readonly kind: FailureKind,
     message: string,
@@ -10,31 +10,31 @@ export class BridgeError extends Error {
   }
 }
 
-export class BrowserExecutionError extends BridgeError {
+export class BrowserExecutionError extends RatatoskrError {
   constructor(action: string) {
     super('browser_execution', `Browser operation failed during ${action}`);
   }
 }
 
-export class ElementNotFoundError extends BridgeError {
+export class ElementNotFoundError extends RatatoskrError {
   constructor() {
     super('element_not_found', 'Target did not become visible');
   }
 }
 
-export class StepTimeoutError extends BridgeError {
+export class StepTimeoutError extends RatatoskrError {
   constructor(action: string) {
     super('timeout', `Timed out during ${action}`);
   }
 }
 
-export class BrowserAssertionError extends BridgeError {
+export class BrowserAssertionError extends RatatoskrError {
   constructor(message: string) {
     super('assertion', message);
   }
 }
 
-export class NavigationError extends BridgeError {
+export class NavigationError extends RatatoskrError {
   constructor() {
     super('navigation', 'Navigation failed');
   }
@@ -46,7 +46,7 @@ export class InvalidPlanError extends Error {
   }
 }
 
-export class SecretResolutionError extends BridgeError {
+export class SecretResolutionError extends RatatoskrError {
   constructor(ref: string) {
     super('secret_resolution', `Value reference ${ref} is not set`);
   }

@@ -7,7 +7,7 @@ import type { BrowserPlan, RunRecord, RunResult } from '../src/protocol.js';
 
 describe('filesystem storage', () => {
   it('round trips run data and artifact metadata', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'bridge-test-'));
+    const root = await mkdtemp(join(tmpdir(), 'ratatoskr-test-'));
     try {
       const runId = 'run_test';
       const runs = new FilesystemRunStore(root);

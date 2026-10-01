@@ -8,13 +8,11 @@ import { DirectoryUploadResolver } from './uploads.js';
 import { EnvironmentValueResolver } from './values.js';
 
 /** Shared application boundary used by CLI and MCP; no transport concerns. */
-export function createBridgeApplication(
+export function createRatatoskrApplication(
   environment: NodeJS.ProcessEnv = process.env,
   allowedValueRefs?: ReadonlySet<string>,
 ) {
-  const root = resolve(
-    environment.BROWSER_BRIDGE_DATA_DIR ?? '.browser-bridge',
-  );
+  const root = resolve(environment.RATATOSKR_DATA_DIR ?? '.ratatoskr');
   const runs = new FilesystemRunStore(root);
   const artifacts = new FilesystemArtifactStore(root);
   return {
@@ -26,9 +24,7 @@ export function createBridgeApplication(
         runs,
         artifacts,
         values: new EnvironmentValueResolver(environment, allowedValueRefs),
-        uploads: new DirectoryUploadResolver(
-          environment.BROWSER_BRIDGE_UPLOAD_DIR,
-        ),
+        uploads: new DirectoryUploadResolver(environment.RATATOSKR_UPLOAD_DIR),
         ...(signal ? { signal } : {}),
       }),
     inspect: (runId: string, options: InspectionOptions) =>

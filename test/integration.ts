@@ -12,7 +12,7 @@ import type { BrowserPlan } from '../src/protocol.js';
 import { DirectoryUploadResolver } from '../src/uploads.js';
 
 const server = createFixtureServer();
-const root = await mkdtemp(join(tmpdir(), 'bridge-e2e-'));
+const root = await mkdtemp(join(tmpdir(), 'ratatoskr-e2e-'));
 try {
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
