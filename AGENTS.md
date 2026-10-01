@@ -16,6 +16,8 @@ Use strict TypeScript, two-space indentation, single quotes, and Prettier's trai
 
 Add Vitest tests as `test/<area>.test.ts`. Cover schemas, reduction, persistence, and secrets. Extend browser and MCP integration tests when those behaviors change. There is no coverage gate; run relevant tests, type checking, linting, and formatting before committing.
 
+The browser evidence benchmark lives in `benchmarks/browser-evidence/`. Run `npm run test:benchmark` for its local browser/MCP checks and `npm run benchmark:browser` for ten offline pairs. Model mode is explicit and requires local API credentials. Keep provider token usage separate from replay byte metrics; never fabricate token counts or alter production reduction to favor a benchmark.
+
 ## Commit & Pull Request Guidelines
 
 History uses Conventional Commit subjects such as `feat(browser): ...`, `fix(evidence): ...`, and `docs: ...`. Keep commits scoped and passing relevant checks. In pull requests, summarize the behavior and architecture impact, list verification commands, and link an issue when one exists. Include screenshots only for visible fixture or output changes.

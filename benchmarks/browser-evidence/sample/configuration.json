@@ -1,0 +1,20 @@
+{
+  "driver": "replay",
+  "model": null,
+  "maxTurns": 16,
+  "maxToolCalls": 24,
+  "maxOutputTokens": 4096,
+  "timeoutMs": 120000,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "prompt": "Open the profile page, change the name to 'Ratatoskr Test', save it, and verify that the change persisted. If it fails, determine the cause and report the relevant evidence.",
+  "benchmarkVersion": "1",
+  "dirty": false,
+  "nodeVersion": "v24.19.0",
+  "platform": "linux/x64",
+  "lockfileHash": "fad7b2c04ebba956ca1f8293b00500618e4d4f2f748e9b3b07c76e5048283e6b",
+  "configurationHash": "3e40e0f7c51a2569e735f0ff701d0805c2b6952fc78f341b782a05417b7925d2",
+  "gitCommit": "b471e0f7bcab802fe73dfa22c1981216896080d1"
+}

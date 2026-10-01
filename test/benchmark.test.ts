@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import { startProfileFixture } from '../benchmarks/browser-evidence/fixture.js';
 import {
   cumulativeUsage,
@@ -46,6 +47,17 @@ function result(
 }
 
 describe('browser benchmark', () => {
+  it('reproduces the published sample summary from its individual records', async () => {
+    const base = new URL(
+      '../benchmarks/browser-evidence/sample/',
+      import.meta.url,
+    );
+    const records = parseResults(
+      await readFile(new URL('results.jsonl', base), 'utf8'),
+    );
+    const published = await readFile(new URL('summary.md', base), 'utf8');
+    expect(summarize(records)).toBe(published);
+  });
   it('serves immutable initial data and deterministic HTTP failure', async () => {
     const fixture = await startProfileFixture();
     try {

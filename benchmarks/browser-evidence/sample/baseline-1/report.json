@@ -1,0 +1,50 @@
+{
+  "report": {
+    "persisted": false,
+    "method": "POST",
+    "path": "/api/profile",
+    "status": 500,
+    "errorCode": "INTERNAL_ERROR",
+    "evidence": [
+      "{\"method\":\"POST\",\"path\":\"/api/profile\",\"status\":500}",
+      "Failed to save profile: INTERNAL_ERROR"
+    ]
+  },
+  "result": {
+    "benchmarkVersion": "1",
+    "suiteId": "offline-sample-v1",
+    "mode": "baseline",
+    "driver": "replay",
+    "run": 1,
+    "timestamp": "2026-10-01T20:55:47.135Z",
+    "gitCommit": "b471e0f7bcab802fe73dfa22c1981216896080d1",
+    "configurationHash": "3e40e0f7c51a2569e735f0ff701d0805c2b6952fc78f341b782a05417b7925d2",
+    "model": null,
+    "browserVersion": "153.0.8010.12",
+    "success": true,
+    "diagnosisCorrect": true,
+    "criteria": {
+      "openedCorrectPage": true,
+      "changedName": true,
+      "attemptedSave": true,
+      "recognizedPersistenceFailure": true,
+      "identifiedHttp500": true,
+      "identifiedInternalError": true,
+      "didNotClaimPersistence": true
+    },
+    "modelCalls": 0,
+    "toolInteractions": 6,
+    "rawEvidenceBytes": 7392,
+    "artifactBytes": 0,
+    "browserInteractions": 10,
+    "inputTokens": null,
+    "outputTokens": null,
+    "totalTokens": null,
+    "tokenSource": "unavailable",
+    "modelEvidenceBytes": null,
+    "returnedEvidenceBytes": 5012,
+    "cumulativeContextEvidenceBytes": null,
+    "toolDefinitionsBytes": 4424,
+    "durationMs": 435
+  }
+}

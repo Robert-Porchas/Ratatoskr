@@ -118,4 +118,39 @@ Try asking Codex: “Use Ratatoskr to test the login flow with the test account,
 
 Secrets are not written to workflows or normal results. Evidence text is redacted against resolved values. Screenshots mask form controls and matching text; traces are disabled for plans with fills, uploads, or prompt value references because traces can capture secrets. This cannot reliably hide secrets drawn into canvas or images, so avoid such pages. URL credentials, `file:` and `javascript:` navigation, arbitrary JavaScript, shell execution, unrestricted filesystem reads, loops, and natural-language plan execution are not supported. Ratatoskr has no domain policy or authentication yet; run it only for trusted local development workflows.
 
-The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Tool definitions are about 11.8 KB serialized, so schema overhead is still a meaningful context cost. Next work should benchmark real Codex token/round-trip savings, improve long-latency failure correlation, and add domain permissions before broader use. See [architecture](docs/architecture.md).
+The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Tool definitions are about 11.8 KB serialized, so schema overhead is still a meaningful context cost. Next work should measure real Codex-client token savings, improve long-latency failure correlation, and add domain permissions before broader use. See [architecture](docs/architecture.md).
+
+## Reproducible browser evidence benchmark
+
+Ratatoskr keeps detailed browser evidence available locally while limiting the evidence inserted into model context. This benchmark compares an identical local profile-debugging task through individual browser tools and the real Ratatoskr MCP server. It records every run and generates a median comparison, including tool-schema overhead.
+
+```sh
+npm run test:benchmark
+BENCHMARK_RUNS=10 npm run benchmark:browser
+```
+
+The default offline replay needs no API key. The optional model driver records cumulative provider usage across every turn; configure it as described in the [benchmark guide](benchmarks/browser-evidence/README.md). The [generated ten-pair sample](benchmarks/browser-evidence/sample/summary.md) measures returned evidence and interactions, with token metrics explicitly unavailable. It demonstrates this fixture/configuration rather than a universal token-saving percentage. The real provider path has not yet been validated with a live account.
+
+<!-- Generated from recorded runs; do not edit measurements. -->
+
+Configuration: replay; model: none; browser: 153.0.8010.12; commit: b471e0f7bcab802fe73dfa22c1981216896080d1.
+
+Offline scripted replay: no model was invoked. Token/context metrics are unavailable; returned evidence measures tool payloads only.
+
+| Metric                                                        | Direct browser | Ratatoskr |          Change |
+| ------------------------------------------------------------- | -------------: | --------: | --------------: |
+| Task criteria met                                             |          10/10 |     10/10 |               — |
+| Correct diagnosis                                             |          10/10 |     10/10 |               — |
+| Median input tokens                                           |            N/A |       N/A |               — |
+| Median output tokens                                          |            N/A |       N/A |               — |
+| Median total tokens                                           |            N/A |       N/A |               — |
+| Median model calls                                            |              0 |         0 |               — |
+| Median tool interactions                                      |              6 |         1 | 83.3% reduction |
+| Median browser operations (including observations/assertions) |             10 |         4 |   60% reduction |
+| Median evidence inserted into model context (bytes)           |            N/A |       N/A |               — |
+| Median returned evidence (bytes)                              |          5,012 |       551 |   89% reduction |
+| Median cumulative context evidence (bytes)                    |            N/A |       N/A |               — |
+| Median local event evidence (bytes; capture differs by mode)  |          7,392 |       660 |               — |
+| Median local binary artifacts (bytes)                         |              0 |    13,843 |               — |
+| Tool definitions (bytes)                                      |          4,424 |     9,665 |               — |
+| Median elapsed time (ms)                                      |          371.5 |   1,462.5 |               — |
