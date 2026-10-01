@@ -2,3 +2,4 @@ node_modules/
 dist/
 .ratatoskr/
 coverage/
+benchmarks/browser-evidence/results/
