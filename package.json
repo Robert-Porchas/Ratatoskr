@@ -12,9 +12,14 @@
     "test": "vitest run --passWithNoTests",
     "test:e2e": "tsx test/integration.ts",
     "test:mcp": "npm run build && node dist/test/mcp-integration.js",
+    "test:benchmark": "npm run build && node dist/test/benchmark-integration.js",
     "cli": "tsx src/cli.ts",
     "mcp": "node dist/src/mcp/server.js",
-    "fixture": "tsx test/fixture/server.ts"
+    "fixture": "tsx test/fixture/server.ts",
+    "benchmark:browser": "npm run build && node dist/benchmarks/browser-evidence/run.js",
+    "benchmark:browser:baseline": "npm run benchmark:browser -- baseline",
+    "benchmark:browser:ratatoskr": "npm run benchmark:browser -- ratatoskr",
+    "benchmark:browser:summary": "tsx benchmarks/browser-evidence/summary.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",
