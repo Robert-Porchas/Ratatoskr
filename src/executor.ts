@@ -27,6 +27,7 @@ export interface ExecutionDependencies {
   artifacts: ArtifactStore;
   values: ValueResolver;
   uploads?: UploadResolver;
+  signal?: AbortSignal;
 }
 
 async function executeStep(
@@ -175,7 +176,10 @@ async function executeStep(
 function failureFor(
   error: unknown,
   action: BrowserStep['action'],
+  aborted = false,
 ): NonNullable<StepResult['failure']> {
+  if (aborted)
+    return { kind: 'cancelled', reason: 'Browser workflow was cancelled' };
   if (error instanceof BridgeError)
     return { kind: error.kind, reason: error.message };
   if (error instanceof Error && error.name === 'TimeoutError') {
@@ -204,6 +208,7 @@ export async function executePlan(
   const extractions: Record<string, string> = {};
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
+  let browserStarted = false;
   const traceAllowed = !plan.steps.some(
     (step) =>
       step.action === 'fill' ||
@@ -224,9 +229,18 @@ export async function executePlan(
       // A screenshot is best effort when a page has crashed.
     }
   };
+  const onAbort = (): void => {
+    if (browserStarted) void deps.browser.stop().catch(() => undefined);
+  };
   await deps.runs.prepare(runId);
-  await deps.browser.start((event) => evidence.record(event), traceAllowed);
+  deps.signal?.addEventListener('abort', onAbort, { once: true });
   try {
+    if (deps.signal?.aborted)
+      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+    await deps.browser.start((event) => evidence.record(event), traceAllowed);
+    browserStarted = true;
+    if (deps.signal?.aborted)
+      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
     const execute = async (
       step: BrowserStep,
       index: number,
@@ -235,6 +249,8 @@ export async function executePlan(
       const start = Date.now();
       let failure: StepResult['failure'];
       try {
+        if (deps.signal?.aborted)
+          throw new BridgeError('cancelled', 'Browser workflow was cancelled');
         const remaining = deadline - start;
         if (remaining <= 0) throw new StepTimeoutError(step.action);
         const value = await executeStep(
@@ -255,7 +271,7 @@ export async function executePlan(
         )
           extractions[step.saveAs] = value;
       } catch (error) {
-        failure = failureFor(error, step.action);
+        failure = failureFor(error, step.action, deps.signal?.aborted);
       }
       const end = Date.now();
       let actualUrl: string | undefined;
@@ -297,21 +313,50 @@ export async function executePlan(
         }
       }
     }
+    if (deps.signal?.aborted && !firstFailure)
+      throw new BridgeError('cancelled', 'Browser workflow was cancelled');
+  } catch (error) {
+    if (!firstFailure) {
+      const now = Date.now();
+      firstFailure = {
+        index: -1,
+        action: 'navigate',
+        status: 'failed',
+        startedAt,
+        endedAt: now,
+        durationMs: now - startedAt,
+        failure: failureFor(error, 'navigate', deps.signal?.aborted),
+      };
+      if (browserStarted && !deps.signal?.aborted) await captureFailure();
+    }
   } finally {
-    const reserved =
-      firstFailure && traceAllowed
-        ? await deps.artifacts.reservePath(runId, 'trace')
-        : undefined;
-    await deps.browser.stop(reserved?.path);
-    if (reserved)
-      artifacts.push(
-        await deps.artifacts.register(
-          runId,
-          'trace',
-          reserved.id,
-          reserved.path,
-        ),
-      );
+    deps.signal?.removeEventListener('abort', onAbort);
+    let reserved: { id: string; path: string } | undefined;
+    try {
+      if (
+        firstFailure &&
+        traceAllowed &&
+        browserStarted &&
+        !deps.signal?.aborted
+      )
+        reserved = await deps.artifacts.reservePath(runId, 'trace');
+      if (browserStarted) await deps.browser.stop(reserved?.path);
+      if (reserved)
+        artifacts.push(
+          await deps.artifacts.register(
+            runId,
+            'trace',
+            reserved.id,
+            reserved.path,
+          ),
+        );
+    } catch {
+      if (browserStarted) await deps.browser.stop().catch(() => undefined);
+      if (reserved)
+        await deps.artifacts
+          .discard(runId, 'trace', reserved.id)
+          .catch(() => undefined);
+    }
   }
 
   const screenshot = artifacts.find(
@@ -362,7 +407,11 @@ export async function executePlan(
     id: runId,
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),
-    status: result.success ? 'passed' : 'failed',
+    status: result.success
+      ? 'passed'
+      : deps.signal?.aborted
+        ? 'aborted'
+        : 'failed',
     metrics: buildMetrics(
       plan.steps.length,
       steps,

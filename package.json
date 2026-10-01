@@ -11,15 +11,19 @@
     "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "tsx test/integration.ts",
+    "test:mcp": "npm run build && node dist/test/mcp-integration.js",
     "cli": "tsx src/cli.ts",
+    "mcp": "node dist/src/mcp/server.js",
     "fixture": "tsx test/fixture/server.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "^2.2.0",
     "playwright": "^1.55.0",
     "zod": "^4.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@modelcontextprotocol/client": "^2.2.0",
     "@types/node": "^24.5.0",
     "eslint": "^9.36.0",
     "prettier": "^3.6.2",

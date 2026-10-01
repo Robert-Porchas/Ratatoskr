@@ -1,23 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { BrowserPlanSchema } from './protocol.js';
-import { PlaywrightBrowserAdapter } from './playwright-adapter.js';
-import { executePlan } from './executor.js';
-import { FilesystemArtifactStore, FilesystemRunStore } from './storage.js';
-import { EnvironmentValueResolver } from './values.js';
 import { InvalidPlanError } from './errors.js';
-import { DirectoryUploadResolver } from './uploads.js';
 import {
-  inspectRun,
   InspectionCategorySchema,
   type InspectionCategory,
 } from './inspection.js';
+import { createBridgeApplication } from './application.js';
 
-const dataDirectory = resolve(
-  process.env.BROWSER_BRIDGE_DATA_DIR ?? '.browser-bridge',
-);
-const runs = new FilesystemRunStore(dataDirectory);
-const artifacts = new FilesystemArtifactStore(dataDirectory);
+const bridge = createBridgeApplication();
 
 async function main(args: string[]): Promise<void> {
   const [command, first, second, third, fourth] = args;
@@ -32,15 +23,7 @@ async function main(args: string[]): Promise<void> {
           .join('; '),
       );
     const plan = parsed.data;
-    const result = await executePlan(plan, {
-      browser: new PlaywrightBrowserAdapter(),
-      runs,
-      artifacts,
-      values: new EnvironmentValueResolver(),
-      uploads: new DirectoryUploadResolver(
-        process.env.BROWSER_BRIDGE_UPLOAD_DIR,
-      ),
-    });
+    const result = await bridge.run(plan);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.success) process.exitCode = 1;
     return;
@@ -56,15 +39,15 @@ async function main(args: string[]): Promise<void> {
     const include = requested.includes('all')
       ? InspectionCategorySchema.options
       : requested.map((value) => InspectionCategorySchema.parse(value));
-    const inspected = await inspectRun(first, { include }, runs);
+    const inspected = await bridge.inspect(first, { include });
     process.stdout.write(`${JSON.stringify(inspected, null, 2)}\n`);
     return;
   }
   if (command === 'artifact' && first && second) {
     const artifact =
       third === '--out' && fourth
-        ? await artifacts.copyTo(first, second, resolve(fourth))
-        : await artifacts.get(first, second);
+        ? await bridge.artifacts.copyTo(first, second, resolve(fourth))
+        : await bridge.artifacts.get(first, second);
     process.stdout.write(
       `${JSON.stringify({ ...artifact, ...(third === '--out' && fourth ? { copiedTo: resolve(fourth) } : {}) }, null, 2)}\n`,
     );

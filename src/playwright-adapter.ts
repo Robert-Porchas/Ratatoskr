@@ -42,6 +42,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private readonly responseMime = new Map<string, string>();
   private emit: ((event: EvidenceInput) => void) | undefined;
   private unexpectedIssue: string | undefined;
+  private stopPromise: Promise<void> | undefined;
   private activeClick:
     | {
         dialog?: DialogExpectation & { value?: string };
@@ -56,14 +57,23 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     emit: (event: EvidenceInput) => void,
     trace: boolean,
   ): Promise<void> {
+    this.stopPromise = undefined;
     this.emit = emit;
-    this.browser = await chromium.launch({ headless: true });
-    this.context = await this.browser.newContext();
-    if (trace) {
-      await this.context.tracing.start({ screenshots: true, snapshots: true });
-      this.tracing = true;
+    try {
+      this.browser = await chromium.launch({ headless: true });
+      this.context = await this.browser.newContext();
+      if (trace) {
+        await this.context.tracing.start({
+          screenshots: true,
+          snapshots: true,
+        });
+        this.tracing = true;
+      }
+      this.attachPage(await this.context.newPage(), emit);
+    } catch (error) {
+      await this.stop().catch(() => undefined);
+      throw error;
     }
-    this.attachPage(await this.context.newPage(), emit);
   }
 
   private attachPage(page: Page, emit: (event: EvidenceInput) => void): void {
@@ -144,6 +154,12 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   }
 
   async stop(tracePath?: string): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopPromise = this.stopInternal(tracePath);
+    return this.stopPromise;
+  }
+
+  private async stopInternal(tracePath?: string): Promise<void> {
     try {
       if (this.tracing && this.context) {
         if (tracePath) await this.context.tracing.stop({ path: tracePath });

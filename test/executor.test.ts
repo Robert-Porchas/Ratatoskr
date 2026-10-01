@@ -264,4 +264,29 @@ describe('workflow executor', () => {
     expect(storage.saved.steps?.[1]?.failure?.kind).toBe('element_not_found');
     expect(JSON.stringify(result)).not.toContain('Playwright call log');
   });
+
+  it('persists a pre-cancelled run as aborted without starting a browser', async () => {
+    const storage = stores();
+    const signal = new AbortController();
+    signal.abort();
+    const result = await executePlan(
+      {
+        startUrl: 'http://local/login',
+        steps: [{ action: 'assert_url', contains: '/login' }],
+      },
+      {
+        browser: new FakeBrowser(),
+        runs: storage.runs,
+        artifacts: storage.artifacts,
+        values: new EnvironmentValueResolver({}),
+        signal: signal.signal,
+      },
+    );
+    expect(result).toMatchObject({
+      success: false,
+      failedStep: -1,
+      reason: 'Browser workflow was cancelled',
+    });
+    expect(storage.saved.record?.status).toBe('aborted');
+  });
 });

@@ -4,18 +4,28 @@ const nonEmpty = z.string().min(1);
 const valueName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 const httpUrl = z
   .url()
-  .refine((value) => /^https?:\/\//.test(value), 'Expected an HTTP(S) URL');
-const targetSchema = z.discriminatedUnion('kind', [
-  z.strictObject({
-    kind: z.literal('role'),
-    role: nonEmpty,
-    name: nonEmpty.optional(),
-  }),
-  z.strictObject({ kind: z.literal('label'), label: nonEmpty }),
-  z.strictObject({ kind: z.literal('text'), text: nonEmpty }),
-  z.strictObject({ kind: z.literal('testId'), testId: nonEmpty }),
-  z.strictObject({ kind: z.literal('css'), selector: nonEmpty }),
-]);
+  .refine((value) => /^https?:\/\//.test(value), 'Expected an HTTP(S) URL')
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }, 'URL credentials are not allowed');
+const targetSchema = z
+  .discriminatedUnion('kind', [
+    z.strictObject({
+      kind: z.literal('role'),
+      role: nonEmpty,
+      name: nonEmpty.optional(),
+    }),
+    z.strictObject({ kind: z.literal('label'), label: nonEmpty }),
+    z.strictObject({ kind: z.literal('text'), text: nonEmpty }),
+    z.strictObject({ kind: z.literal('testId'), testId: nonEmpty }),
+    z.strictObject({ kind: z.literal('css'), selector: nonEmpty }),
+  ])
+  .meta({ id: 'BrowserTarget' });
 
 const options = {
   timeoutMs: z.number().int().positive().max(120_000).optional(),
@@ -252,6 +262,7 @@ export type FailureKind =
   | 'assertion'
   | 'navigation'
   | 'secret_resolution'
+  | 'cancelled'
   | 'browser_execution';
 export interface StepResult {
   index: number;
@@ -308,7 +319,7 @@ export interface RunRecord {
   id: RunIdentifier;
   startedAt: string;
   endedAt: string;
-  status: 'passed' | 'failed';
+  status: 'passed' | 'failed' | 'aborted';
   metrics: RunMetrics;
   artifacts: ArtifactReference[];
 }

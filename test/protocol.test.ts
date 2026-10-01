@@ -43,6 +43,12 @@ describe('browser plan', () => {
         steps: [{ action: 'assert_url', contains: 'index' }],
       }).success,
     ).toBe(false);
+    expect(
+      BrowserPlanSchema.safeParse({
+        startUrl: 'http://user:password@localhost/',
+        steps: [{ action: 'assert_url', contains: '/' }],
+      }).success,
+    ).toBe(false);
   });
 
   it('validates every target strategy', () => {
