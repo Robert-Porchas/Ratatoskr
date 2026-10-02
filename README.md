@@ -46,7 +46,7 @@ npm run cli -- artifact run_ID artifact_ID --out ./failure.png
 
 Inspection categories are `summary`, `steps`, `failed_requests`, `console_errors`, `page_errors`, `navigation`, `artifacts`, `extracted_values`, and `metrics`. Inspection is bounded and paged: default 10 items, hard maximum 25 per category, messages shortened to 300 characters. The CLI's legacy `network`, `console`, and `all` aliases still work.
 
-## BrowserPlan capabilities
+## Canonical BrowserPlan capabilities (CLI)
 
 Plans contain an HTTP(S) `startUrl`, up to 100 typed steps, and optional `timeoutMs` (maximum 10 minutes). Each step can override the default 5-second timeout (maximum 2 minutes). Playwright auto-waits for actionability; assertions wait for their conditions. Supported actions:
 
@@ -54,7 +54,7 @@ Plans contain an HTTP(S) `startUrl`, up to 100 typed steps, and optional `timeou
 
 Prefer targets by role/accessibility name, label, text, or test ID; CSS is an escape hatch. `select_option` chooses a typed value, label, or index. `click` can declare an expected alert/confirm/prompt policy or `expectPopup: true` to switch to a new page. Unexpected dialogs or popups fail clearly. `upload_file` accepts only a basename found directly in `RATATOSKR_UPLOAD_DIR`; symlinks escaping that directory are rejected. `expect_download` stores the file as an artifact and returns only its ID. No plan can enumerate files.
 
-`fill` uses `valueRef` (an environment variable name), never a plaintext value. The MCP server resolves only names listed in `RATATOSKR_ALLOWED_VALUE_REFS`; an unset list allows no MCP value references. The CLI retains its existing local resolver behavior. Extraction actions require unique `saveAs` names and cap each value at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). For example:
+`fill` uses `valueRef` (an environment variable name), never a plaintext value. The MCP server resolves only names listed in `RATATOSKR_ALLOWED_VALUE_REFS`; an unset list allows no MCP value references. The CLI retains its existing local resolver behavior. Canonical extraction actions require unique `saveAs` names and cap each value at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). Completed requested outputs return even when a later step fails. CLI example:
 
 ```json
 {
@@ -106,11 +106,33 @@ tool_timeout_sec = 660
 
 Set the allowlisted reference variables in the local environment that launches Codex; `env_vars` forwards only their names and current values to the server. The MCP tools are:
 
-- `run_browser_workflow`: accepts the same BrowserPlan as the CLI and returns a compact structured result.
+- `run_browser_workflow`: accepts the compact MCP format below, normalizes it into the strict canonical BrowserPlan, and returns a compact structured result.
 - `inspect_browser_run`: returns only requested, bounded categories for one run.
 - `get_browser_artifact`: returns one registered screenshot as MCP image content, a small text artifact as text, or metadata plus a local path for a trace/large binary.
 
-Try asking Codex: “Use Ratatoskr to test the login flow with the test account, verify the dashboard, and investigate source code using the compact failure result. Request more browser evidence only if needed.” Codex must convert that request into a BrowserPlan. It should not automatically fetch screenshots or traces after every run.
+Try asking Codex: “Use Ratatoskr to test the login flow with the test account, verify the dashboard, and investigate source code using the compact failure result. Request more browser evidence only if needed.” Codex derives routes and locators from source/tests, then constructs one workflow. It should not automatically fetch screenshots or traces after every run.
+
+### Compact MCP format
+
+The MCP input deliberately differs from CLI JSON. Locators are flat; exactly one of `label`, `text`, `testId`, `css`, or `role` identifies the target (`name` accompanies `role`). Actions use `do`:
+
+`navigate`, `click`, `fill`, `press`, `wait`, `url`, `has`, `visible`, `select`, `check`, `uncheck`, `hover`, `upload`, `download`, `extractText`, `extractAttribute`.
+
+```json
+{
+  "url": "http://127.0.0.1:3000/login",
+  "steps": [
+    { "do": "fill", "label": "Email", "valueRef": "TEST_EMAIL" },
+    { "do": "fill", "label": "Password", "valueRef": "TEST_PASSWORD" },
+    { "do": "click", "role": "button", "name": "Sign in" },
+    { "do": "url", "contains": "/dashboard" }
+  ]
+}
+```
+
+`has` checks target text against `contains`; `url` checks the URL against `contains`. `select` accepts one of `option` (value), `optionLabel`, or `optionIndex`. `press` needs `key`; `upload` needs an allowed `fileName`. `download` expects a download from clicking its target. Extraction uses `save` (and `attribute` for `extractAttribute`), implicitly requesting an output: up to five unique identifiers, 200 characters each. Completed values return as `values` on success **and failure**, without a separate `outputs` field. Default success remains just `success` and `runId`.
+
+MCP defaults to 5-second actions and a 120-second workflow deadline, without model-facing timeout/evidence knobs. Invalid calls receive a short repair rather than raw schema errors; CLI remains independently strict and configurable.
 
 ## Storage, safety, and limits
 
@@ -118,7 +140,7 @@ Try asking Codex: “Use Ratatoskr to test the login flow with the test account,
 
 Secrets are not written to workflows or normal results. Evidence text is redacted against resolved values. Screenshots mask form controls and matching text; traces are disabled for plans with fills, uploads, or prompt value references because traces can capture secrets. This cannot reliably hide secrets drawn into canvas or images, so avoid such pages. URL credentials, `file:` and `javascript:` navigation, arbitrary JavaScript, shell execution, unrestricted filesystem reads, loops, and natural-language plan execution are not supported. Ratatoskr has no domain policy or authentication yet; run it only for trusted local development workflows.
 
-The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Tool definitions are about 11.8 KB serialized, so schema overhead is still a meaningful context cost. Next work should collect repeated Codex measurements, improve long-latency failure correlation, and add domain permissions before broader use. See [architecture](docs/architecture.md).
+The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are now about 4 KB (previously 11.8 KB); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
 
 ## Reproducible browser evidence benchmark
 

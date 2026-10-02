@@ -20,7 +20,7 @@ MCP ─┘             │                    │
 
 The executor allocates a unique run ID, starts an isolated browser/context, performs the initial navigation, and executes steps in order. Playwright auto-waits for actionability; condition assertions wait to a bounded timeout. A failure stops the plan unless that step permits continuation. Each step records timing, status, and URL. A plan-level deadline caps further steps. MCP cancellation closes the browser best-effort and persists the run as `aborted`. The MCP process permits one active workflow; additional calls receive an explicit tool error.
 
-`valueRef` resolves locally through the value resolver. Only the reference name persists. The MCP adapter restricts names to `RATATOSKR_ALLOWED_VALUE_REFS` (empty by default); the CLI retains its local resolver behavior. An upload accepts a basename inside a configured directory, not an arbitrary plan path. A download is saved through the artifact store; no plan-supplied write path exists. Extraction values are capped, persisted separately, and returned on success only when named in `outputs`. Unexpected dialogs/popups fail; a click can declare one dialog policy or an expected popup, after which the popup becomes the active page.
+`valueRef` resolves locally through the value resolver. Only the reference name persists. The MCP adapter restricts names to `RATATOSKR_ALLOWED_VALUE_REFS` (empty by default); the CLI retains its local resolver behavior. An upload accepts a basename inside a configured directory, not an arbitrary plan path. A download is saved through the artifact store; no plan-supplied write path exists. Extraction values are capped, persisted separately, and returned on either success or failure when named in `outputs` and completed before the failure. Unexpected dialogs/popups fail; a click can declare one dialog policy or an expected popup, after which the popup becomes the active page.
 
 ## Evidence and progressive disclosure
 
@@ -34,7 +34,15 @@ Failure screenshots and safe traces are registered by ID. Tracing is disabled fo
 
 Runs live beneath `RATATOSKR_DATA_DIR` (default `.ratatoskr/`): `runs/<runId>/metadata.json`, `workflow.json`, `steps.json`, `evidence.jsonl`, `extractions.json`, `reduced-result.json`, and `artifacts/`. Artifact metadata is also indexed by ID for MCP lookup. Metrics track step/action/error counts, duration, serialized event bytes, reduced response bytes, artifact count, and compression ratio. These are byte counts, not token counts; binary artifacts and MCP schema overhead are measured separately in integration tests.
 
-The stdio MCP adapter uses the official SDK, exposes exactly three tools, and uses the same BrowserPlan and inspector as the CLI. Future desktop-agent integration should treat this as one capability behind a permission boundary, not as the planner or event bus.
+The stdio MCP adapter uses the official SDK and exposes exactly three tools. It shares the executor and inspector with CLI, but not the input syntax. `src/mcp/wire-plan.ts` advertises a small flat schema, normalizes `url`/`do` steps and inferred locators into the strict canonical BrowserPlan, and validates that canonical plan before execution. Removing MCP still leaves CLI behavior intact. Future desktop-agent integration should treat this as one capability behind a permission boundary, not as the planner or event bus.
+
+## Model-facing efficiency boundary
+
+SDK input validation passes unknown input to application validation deliberately: the guiding JSON schema describes the compact syntax, while the normalizer owns concise semantic errors. No input reaches the executor without canonical Zod validation. Invalid locators, actions, URLs, output names, and unsupported fields return one bounded repair (under 750 serialized bytes), not union issue arrays. The same protection applies to inspection and artifact arguments. Schemas omit rarely needed timeout, evidence, continuation, and output-list knobs; these remain available internally/through CLI.
+
+MCP extraction `save` requests an output automatically, capped at five identifiers and 200 characters each. Completed requested values survive a later failure (canonical `outputs`, MCP `values`). Text assertion failures can include a best-effort 250 ms reread, redacted before truncation to 200 characters; missing targets have no fabricated actual text. This reduces inspection calls without adding an exploration capability. An unambiguous `has` step with another locator and `text` is normalized as expected text; other ambiguous locators remain invalid.
+
+Inspection keeps shared hard bounds (25 items/category, 300-character messages) and MCP defaults to 10 items. Its public API exposes categories and offset, not unbounded dumps or size knobs. Images and trace bytes remain explicit artifact retrieval only.
 
 ## Browser evidence benchmark
 
