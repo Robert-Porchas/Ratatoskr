@@ -84,6 +84,43 @@ export function summarizeMatrix(rows: BenchmarkResult[]) {
     '\nNegative percentage change is improvement; no failed task is excluded from token medians. Success/diagnosis must remain comparable.\n\n| Scenario | Baseline | Token difference (Rat − direct) | Percentage change |\n| --- | --- | ---: | ---: |\n';
   for (const item of comparisons)
     text += `| ${item.scenario} | ${item.baseline} | ${item.difference === null ? 'N/A' : format(item.difference)} | ${item.percentageChange === null ? 'N/A' : format(item.percentageChange) + '%'} |\n`;
+  text += '\n## Supporting medians (tokens and bytes remain separate)\n\n';
+  for (const item of comparisons) {
+    const group = rows.filter(
+      (row) =>
+        row.scenario === item.scenario && row.baselineId === item.baseline,
+    );
+    const direct = group.filter((row) => row.mode === 'baseline');
+    const rat = group.filter((row) => row.mode === 'ratatoskr');
+    const metric = (records: BenchmarkResult[], key: keyof BenchmarkResult) => {
+      const values = records.map((row) => row[key]);
+      return values.every((value) => typeof value === 'number')
+        ? median(values as number[])
+        : null;
+    };
+    text += `### ${item.scenario} / ${item.baseline}\n\n| Metric | Direct browser | Ratatoskr |\n| --- | ---: | ---: |\n`;
+    for (const [name, key] of [
+      ['Input tokens', 'inputTokens'],
+      ['Output tokens', 'outputTokens'],
+      ['Cached input tokens (subset)', 'cachedInputTokens'],
+      ['Uncached input tokens', 'uncachedInputTokens'],
+      ['Reasoning output tokens (subset)', 'reasoningTokens'],
+      ['Tool argument bytes', 'toolArgumentBytes'],
+      ['Tool result / model evidence bytes', 'modelEvidenceBytes'],
+      [
+        'Locally retained evidence bytes (capture scope differs)',
+        'rawEvidenceBytes',
+      ],
+      ['Browser operations (scope differs)', 'browserInteractions'],
+    ] as const) {
+      const a = metric(direct, key),
+        b = metric(rat, key);
+      text += `| ${name} | ${a === null ? 'N/A' : format(a)} | ${b === null ? 'N/A' : format(b)} |\n`;
+    }
+    const a = metric(direct, 'modelEvidenceBytes');
+    const b = metric(rat, 'modelEvidenceBytes');
+    text += `\nEvidence-byte reduction: ${a === null || a === 0 || b === null ? 'N/A' : format((1 - b / a) * 100) + '%'}. This is not token savings.\n\n`;
+  }
   return text;
 }
 if (

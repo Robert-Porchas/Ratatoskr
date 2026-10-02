@@ -77,6 +77,8 @@ it('calculates token distributions and refuses misleading matrix comparisons', a
     plannedSteps: 10,
   }));
   expect(summarizeMatrix(rows)).toContain('75.3%');
+  expect(summarizeMatrix(rows)).toContain('Input tokens');
+  expect(summarizeMatrix(rows)).toContain('not token savings');
   expect(() => summarizeMatrix(rows.slice(0, 1))).toThrow('Unpaired');
   expect(() => summarizeMatrix([...rows, rows[0]!])).toThrow('Duplicate');
   expect(
