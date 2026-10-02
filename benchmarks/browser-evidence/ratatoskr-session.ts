@@ -51,9 +51,8 @@ export async function startRatatoskrSession(
   const discovered = await client.listTools();
   return {
     tools: discovered.tools.map((tool) => ({
-      name: tool.name,
+      ...tool,
       description: tool.description ?? '',
-      inputSchema: tool.inputSchema,
     })),
     async call(name, args) {
       signal.throwIfAborted();

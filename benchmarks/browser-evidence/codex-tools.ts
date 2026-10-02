@@ -53,6 +53,11 @@ for (const tool of session.tools) {
     tool.name,
     {
       description: tool.description,
+      ...(tool.title ? { title: tool.title } : {}),
+      ...(tool.annotations ? { annotations: tool.annotations } : {}),
+      ...(tool.outputSchema
+        ? { outputSchema: applicationValidatedSchema(tool.outputSchema) }
+        : {}),
       inputSchema:
         mode === 'ratatoskr'
           ? applicationValidatedSchema(tool.inputSchema)

@@ -78,9 +78,8 @@ export async function startPlaywrightSession(
   let operations = 0;
   return {
     tools: tools.map((tool) => ({
-      name: tool.name,
+      ...tool,
       description: tool.description ?? '',
-      inputSchema: tool.inputSchema,
     })),
     async call(name, args) {
       signal.throwIfAborted();

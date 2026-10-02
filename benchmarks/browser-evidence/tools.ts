@@ -1,7 +1,13 @@
+import type { Client } from '@modelcontextprotocol/client';
+type DiscoveredTool = Awaited<ReturnType<Client['listTools']>>['tools'][number];
+
 export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown> | undefined;
+  annotations?: DiscoveredTool['annotations'];
+  title?: DiscoveredTool['title'];
 }
 export interface ToolReply {
   text: string;
@@ -20,4 +26,3 @@ export interface BrowserSession {
 }
 export const bytes = (value: unknown): number =>
   Buffer.byteLength(JSON.stringify(value));
-import type { Client } from '@modelcontextprotocol/client';

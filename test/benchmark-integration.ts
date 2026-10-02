@@ -11,10 +11,12 @@ import { runReplay } from '../benchmarks/browser-evidence/agent.js';
 import { startDirectBrowser } from '../benchmarks/browser-evidence/direct-browser.js';
 import { startRatatoskrSession } from '../benchmarks/browser-evidence/ratatoskr-session.js';
 import { startPlaywrightSession } from '../benchmarks/browser-evidence/playwright-session.js';
+import type { ToolDefinition } from '../benchmarks/browser-evidence/tools.js';
 
 const root = await mkdtemp(join(tmpdir(), 'ratatoskr-benchmark-'));
 const fixture = await startProfileFixture();
 const browser = await chromium.launch({ headless: true });
+let ratatoskrDefinitions: ToolDefinition[] = [];
 try {
   const page = await browser.newPage();
   await page.goto(fixture.url);
@@ -103,6 +105,7 @@ try {
             new AbortController().signal,
           );
     const replies: string[] = [];
+    if (mode === 'ratatoskr') ratatoskrDefinitions = session.tools;
     try {
       const report = await runReplay(mode, fixture.url, async (name, args) => {
         const reply = await session.call(name, args);
@@ -147,6 +150,13 @@ try {
     const client = new Client({ name: 'benchmark-wrapper-test', version: '1' });
     try {
       await client.connect(transport);
+      if (mode === 'ratatoskr') {
+        // Codex must discover production metadata, not a cheaper approximate definition.
+        assert.deepEqual(
+          (await client.listTools()).tools,
+          ratatoskrDefinitions,
+        );
+      }
       const report = await runReplay(mode, fixture.url, async (name, args) => {
         const result = await client.callTool({ name, arguments: args });
         const block = result.content.find((block) => block.type === 'text');
