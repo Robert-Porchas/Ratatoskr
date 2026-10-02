@@ -3,6 +3,9 @@ import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { readFile } from 'node:fs/promises';
 import { startProfileFixture } from '../benchmarks/browser-evidence/fixture.js';
 import { runReplay } from '../benchmarks/browser-evidence/agent.js';
 import { startDirectBrowser } from '../benchmarks/browser-evidence/direct-browser.js';
@@ -80,6 +83,45 @@ try {
       }
     } finally {
       await session.close();
+    }
+  }
+  for (const mode of ['baseline', 'ratatoskr'] as const) {
+    const directory = join(root, `codex-${mode}`);
+    await mkdir(directory);
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [
+        new URL(
+          '../benchmarks/browser-evidence/codex-tools.js',
+          import.meta.url,
+        ).pathname,
+      ],
+      env: {
+        BENCHMARK_MODE: mode,
+        BENCHMARK_DIRECTORY: directory,
+        BENCHMARK_FIXTURE_URL: fixture.url,
+      },
+      stderr: 'pipe',
+    });
+    const client = new Client({ name: 'benchmark-wrapper-test', version: '1' });
+    try {
+      await client.connect(transport);
+      const report = await runReplay(mode, fixture.url, async (name, args) => {
+        const result = await client.callTool({ name, arguments: args });
+        const block = result.content.find((block) => block.type === 'text');
+        assert(block?.type === 'text');
+        return { text: block.text };
+      });
+      assert.equal(report.status, 500);
+      assert.equal(report.errorCode, 'INTERNAL_ERROR');
+      const metrics = JSON.parse(
+        await readFile(join(directory, 'codex-browser-metrics.json'), 'utf8'),
+      ) as { returnedEvidenceBytes: number; toolInteractions: number };
+      assert(metrics.returnedEvidenceBytes > 0);
+      assert.equal(metrics.toolInteractions, mode === 'baseline' ? 6 : 1);
+    } finally {
+      await client.close();
+      await transport.close();
     }
   }
   process.stdout.write(

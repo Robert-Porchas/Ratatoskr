@@ -16,19 +16,24 @@ import {
   type ModelTurn,
 } from './agent.js';
 import {
-  cumulativeUsage,
   parseResults,
   summarize,
   type BenchmarkResult,
   type DiagnosisReport,
 } from './metrics.js';
 import { bytes, type BrowserSession, type ToolReply } from './tools.js';
+import { runCodex } from './codex.js';
+import {
+  providerAccounting,
+  unavailableUsage,
+  type TokenAccounting,
+} from './usage.js';
 
 const requestedMode = z
   .enum(['both', 'baseline', 'ratatoskr'])
   .parse(process.argv[2] ?? 'both');
 const driver = z
-  .enum(['replay', 'model'])
+  .enum(['replay', 'model', 'codex'])
   .parse(process.env.BENCHMARK_DRIVER ?? 'replay');
 const runs = z.coerce
   .number()
@@ -36,7 +41,16 @@ const runs = z.coerce
   .min(1)
   .max(100)
   .parse(process.env.BENCHMARK_RUNS ?? '10');
-const model = driver === 'model' ? process.env.BENCHMARK_MODEL : null;
+const model = driver !== 'replay' ? process.env.BENCHMARK_MODEL : null;
+if (driver === 'codex' && !model)
+  throw new Error('Set BENCHMARK_MODEL explicitly for Codex mode');
+const codexVersion =
+  driver === 'codex'
+    ? execFileSync('codex', ['--version'], { encoding: 'utf8' }).trim()
+    : undefined;
+const codexReasoningEffort = z
+  .enum(['low', 'medium', 'high'])
+  .parse(process.env.BENCHMARK_CODEX_REASONING_EFFORT ?? 'medium');
 if (driver === 'model' && (!process.env.OPENAI_API_KEY || !model))
   throw new Error('Set OPENAI_API_KEY and BENCHMARK_MODEL for model mode');
 const maxTurns = 16,
@@ -58,9 +72,9 @@ const dirty = Boolean(
 const configuration = {
   driver,
   model: model ?? null,
-  maxTurns,
+  maxTurns: driver === 'codex' ? null : maxTurns,
   maxToolCalls,
-  maxOutputTokens,
+  maxOutputTokens: driver === 'codex' ? null : maxOutputTokens,
   timeoutMs,
   viewport: { width: 1280, height: 720 },
   prompt,
@@ -71,6 +85,13 @@ const configuration = {
   lockfileHash: createHash('sha256')
     .update(await readFile('package-lock.json'))
     .digest('hex'),
+  ...(codexVersion
+    ? {
+        codexVersion,
+        codexReasoningEffort,
+        tokenAccounting: 'codex-json-events',
+      }
+    : {}),
 };
 const configurationHash = createHash('sha256')
   .update(JSON.stringify(configuration))
@@ -133,86 +154,145 @@ for (let run = 1; run <= runs; run++) {
       browserInteractions: 0,
     };
     let toolDefinitionsBytes = 0;
+    let nativeAccounting: TokenAccounting | undefined;
+    let codexThreadId: string | undefined;
     try {
-      session =
-        mode === 'baseline'
-          ? await startDirectBrowser(fixture.url, directory, controller.signal)
-          : await startRatatoskrSession(
-              fixture.url,
-              directory,
-              controller.signal,
-            );
-      toolDefinitionsBytes = bytes(
-        [...session.tools, finishTool].map((tool) => ({
-          type: 'function',
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.inputSchema,
-          strict: false,
-        })),
-      );
-      const call = async (
-        name: string,
-        args: Record<string, unknown>,
-      ): Promise<ToolReply> => {
-        const at = Date.now();
-        let reply: ToolReply;
-        try {
-          reply = await session!.call(name, args);
-        } catch (failure) {
-          reply = {
-            text: JSON.stringify({
-              error: failure instanceof Error ? failure.message : 'Tool failed',
-            }),
-          };
-        }
-        const payloadBytes =
-          Buffer.byteLength(reply.text) +
-          (reply.images ?? []).reduce(
-            (sum, image) => sum + Buffer.byteLength(image.data),
-            0,
-          );
-        returnedEvidenceBytes += payloadBytes;
-        const interaction = {
-          index: interactions.length + 1,
-          name,
-          arguments: args,
-          reply,
-          durationMs: Date.now() - at,
-        };
-        interactions.push(interaction);
-        await appendFile(
-          join(directory, 'interactions.jsonl'),
-          JSON.stringify(interaction) + '\n',
-        );
-        return reply;
-      };
-      if (driver === 'replay')
-        report = await runReplay(mode, fixture.url, call);
-      else
-        report = await runModel({
-          model: model!,
+      if (driver === 'codex') {
+        const native = await runCodex({
+          mode,
+          url: fixture.url,
+          directory,
           prompt,
-          instructions: `You are testing a local application. Profile page: ${fixture.url}. Desired name is available locally as valueRef BENCHMARK_NAME. Use the available browser tools to perform the task and verify persistence, using condition-based waits (step timeout 500 ms for expected persisted text is sufficient). Inspect only evidence needed for diagnosis. Finish by calling report_diagnosis with supported facts; a workflow completing does not by itself prove persistence.`,
-          tools: session.tools,
-          maxTurns,
-          maxToolCalls,
-          maxOutputTokens,
+          model: model!,
           signal: controller.signal,
-          call,
-          beforeTurn: () => {
-            modelCalls++;
-            cumulativeContextEvidenceBytes += returnedEvidenceBytes;
-            insertedEvidenceBytes = returnedEvidenceBytes;
-          },
-          recordTurn: async (turn) => {
-            turns.push(turn);
-            await appendFile(
-              join(directory, 'model-turns.jsonl'),
-              JSON.stringify(turn) + '\n',
-            );
-          },
+          reasoningEffort: codexReasoningEffort,
         });
+        report = native.report;
+        error = native.error;
+        nativeAccounting = native.accounting;
+        codexThreadId = native.threadId;
+        const completedItems = native.events
+          .filter((event) => event.type === 'item.completed')
+          .map((event) => event.item as Record<string, unknown>);
+        if (
+          completedItems.some((item) =>
+            ['command_execution', 'file_change', 'web_search'].includes(
+              String(item?.type),
+            ),
+          )
+        )
+          error ??=
+            'Codex used non-browser capabilities during the measured task';
+        const measured = JSON.parse(
+          await readFile(join(directory, 'codex-browser-metrics.json'), 'utf8'),
+        ) as typeof local & {
+          returnedEvidenceBytes: number;
+          toolDefinitionsBytes: number;
+        };
+        local = {
+          rawEvidenceBytes: measured.rawEvidenceBytes,
+          artifactBytes: measured.artifactBytes,
+          browserInteractions: measured.browserInteractions,
+        };
+        returnedEvidenceBytes = measured.returnedEvidenceBytes;
+        insertedEvidenceBytes = returnedEvidenceBytes;
+        toolDefinitionsBytes = measured.toolDefinitionsBytes;
+        const transcript = await readFile(
+          join(directory, 'interactions.jsonl'),
+          'utf8',
+        ).catch(() => '');
+        interactions.push(
+          ...transcript
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => JSON.parse(line) as Interaction),
+        );
+      } else {
+        session =
+          mode === 'baseline'
+            ? await startDirectBrowser(
+                fixture.url,
+                directory,
+                controller.signal,
+              )
+            : await startRatatoskrSession(
+                fixture.url,
+                directory,
+                controller.signal,
+              );
+        toolDefinitionsBytes = bytes(
+          [...session.tools, finishTool].map((tool) => ({
+            type: 'function',
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.inputSchema,
+            strict: false,
+          })),
+        );
+        const call = async (
+          name: string,
+          args: Record<string, unknown>,
+        ): Promise<ToolReply> => {
+          const at = Date.now();
+          let reply: ToolReply;
+          try {
+            reply = await session!.call(name, args);
+          } catch (failure) {
+            reply = {
+              text: JSON.stringify({
+                error:
+                  failure instanceof Error ? failure.message : 'Tool failed',
+              }),
+            };
+          }
+          const payloadBytes =
+            Buffer.byteLength(reply.text) +
+            (reply.images ?? []).reduce(
+              (sum, image) => sum + Buffer.byteLength(image.data),
+              0,
+            );
+          returnedEvidenceBytes += payloadBytes;
+          const interaction = {
+            index: interactions.length + 1,
+            name,
+            arguments: args,
+            reply,
+            durationMs: Date.now() - at,
+          };
+          interactions.push(interaction);
+          await appendFile(
+            join(directory, 'interactions.jsonl'),
+            JSON.stringify(interaction) + '\n',
+          );
+          return reply;
+        };
+        if (driver === 'replay')
+          report = await runReplay(mode, fixture.url, call);
+        else
+          report = await runModel({
+            model: model!,
+            prompt,
+            instructions: `You are testing a local application. Profile page: ${fixture.url}. Desired name is available locally as valueRef BENCHMARK_NAME. Use the available browser tools to perform the task and verify persistence, using condition-based waits (step timeout 500 ms for expected persisted text is sufficient). Inspect only evidence needed for diagnosis. Finish by calling report_diagnosis with supported facts; a workflow completing does not by itself prove persistence.`,
+            tools: session.tools,
+            maxTurns,
+            maxToolCalls,
+            maxOutputTokens,
+            signal: controller.signal,
+            call,
+            beforeTurn: () => {
+              modelCalls++;
+              cumulativeContextEvidenceBytes += returnedEvidenceBytes;
+              insertedEvidenceBytes = returnedEvidenceBytes;
+            },
+            recordTurn: async (turn) => {
+              turns.push(turn);
+              await appendFile(
+                join(directory, 'model-turns.jsonl'),
+                JSON.stringify(turn) + '\n',
+              );
+            },
+          });
+      }
     } catch (failure) {
       error = failure instanceof Error ? failure.message : 'Benchmark failed';
     } finally {
@@ -263,10 +343,16 @@ for (let run = 1; run <= runs; run++) {
         observed.code === 'INTERNAL_ERROR',
       didNotClaimPersistence: report?.persisted === false,
     };
-    const usage = cumulativeUsage(turns.map((turn) => turn.usage));
+    const usage = providerAccounting(turns.map((turn) => turn.usage));
     // A failed/unreported invocation must not silently disappear from cumulative totals.
     const totals =
-      turns.length === modelCalls ? usage : cumulativeUsage([null]);
+      driver === 'codex'
+        ? (nativeAccounting ?? unavailableUsage('codex-json-events'))
+        : driver === 'replay'
+          ? unavailableUsage()
+          : turns.length === modelCalls
+            ? usage
+            : unavailableUsage('openai-api');
     const result: BenchmarkResult = {
       benchmarkVersion: '1',
       suiteId,
@@ -285,12 +371,13 @@ for (let run = 1; run <= runs; run++) {
         criteria.identifiedInternalError &&
         criteria.didNotClaimPersistence,
       criteria,
-      modelCalls,
+      modelCalls: driver === 'codex' ? null : modelCalls,
       toolInteractions: interactions.length,
       ...local,
       ...totals,
-      tokenSource: totals.totalTokens === null ? 'unavailable' : 'provider',
-      modelEvidenceBytes: driver === 'model' ? insertedEvidenceBytes : null,
+      ...(codexVersion ? { codexVersion } : {}),
+      ...(codexThreadId ? { codexThreadId } : {}),
+      modelEvidenceBytes: driver !== 'replay' ? insertedEvidenceBytes : null,
       returnedEvidenceBytes,
       cumulativeContextEvidenceBytes:
         driver === 'model' ? cumulativeContextEvidenceBytes : null,
