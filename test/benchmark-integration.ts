@@ -17,6 +17,7 @@ const root = await mkdtemp(join(tmpdir(), 'ratatoskr-benchmark-'));
 const fixture = await startProfileFixture();
 const browser = await chromium.launch({ headless: true });
 let ratatoskrDefinitions: ToolDefinition[] = [];
+let standardDefinitions: ToolDefinition[] = [];
 try {
   const page = await browser.newPage();
   await page.goto(fixture.url);
@@ -56,6 +57,7 @@ try {
     standardDirectory,
     new AbortController().signal,
   );
+  standardDefinitions = standard.tools;
   try {
     assert(standard.tools.some((tool) => tool.name === 'browser_fill_form'));
     assert(
@@ -129,8 +131,12 @@ try {
       await session.close();
     }
   }
-  for (const mode of ['baseline', 'ratatoskr'] as const) {
-    const directory = join(root, `codex-${mode}`);
+  for (const [mode, standardBaseline] of [
+    ['baseline', false],
+    ['ratatoskr', false],
+    ['baseline', true],
+  ] as const) {
+    const directory = join(root, `codex-${mode}-${standardBaseline}`);
     await mkdir(directory);
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -142,6 +148,7 @@ try {
       ],
       env: {
         BENCHMARK_MODE: mode,
+        ...(standardBaseline ? { BENCHMARK_BASELINE: 'playwright' } : {}),
         BENCHMARK_DIRECTORY: directory,
         BENCHMARK_FIXTURE_URL: fixture.url,
       },
@@ -156,6 +163,10 @@ try {
           (await client.listTools()).tools,
           ratatoskrDefinitions,
         );
+      }
+      if (standardBaseline) {
+        assert.deepEqual((await client.listTools()).tools, standardDefinitions);
+        continue;
       }
       const report = await runReplay(mode, fixture.url, async (name, args) => {
         const result = await client.callTool({ name, arguments: args });
