@@ -81,7 +81,7 @@ it('calculates token distributions and refuses misleading matrix comparisons', a
   expect(summarizeMatrix(rows)).toContain('not token savings');
   expect(() => summarizeMatrix(rows.slice(0, 1))).toThrow('Unpaired');
   expect(() =>
-    summarizeMatrix(rows.map(({ scenario: _scenario, ...row }) => row)),
+    summarizeMatrix(rows.map((row) => ({ ...row, scenario: '' }))),
   ).toThrow('Missing matrix');
   expect(() => summarizeMatrix([...rows, rows[0]!])).toThrow('Duplicate');
   expect(
