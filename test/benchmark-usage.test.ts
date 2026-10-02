@@ -1,4 +1,10 @@
 import { expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import {
+  parseResults,
+  summarize,
+} from '../benchmarks/browser-evidence/metrics.js';
+import { observedFailure } from '../benchmarks/browser-evidence/agent.js';
 import {
   codexAccounting,
   providerAccounting,
@@ -107,4 +113,45 @@ it('rejects malformed totals and impossible subset counts', () => {
     }),
   ).toThrow();
   expect(() => codexAccounting(events({ rawEvidenceBytes: 1000 }))).toThrow();
+});
+
+it('reproduces the live sample from native usage and preserved evidence', async () => {
+  const root = 'benchmarks/browser-evidence/codex-sample/';
+  const rows = parseResults(await readFile(root + 'results.jsonl', 'utf8'));
+  const original = parseResults(
+    await readFile(root + 'original-results.jsonl', 'utf8'),
+  );
+  expect(new Set(rows.map((row) => row.codexThreadId)).size).toBe(2);
+  for (const row of rows) {
+    const raw = (
+      await readFile(root + `${row.mode}-1/codex-events.jsonl`, 'utf8')
+    )
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(row).toMatchObject(codexAccounting(raw));
+    const prior = original.find((value) => value.mode === row.mode)!;
+    for (const field of [
+      'inputTokens',
+      'outputTokens',
+      'totalTokens',
+      'rawEvidenceBytes',
+      'modelEvidenceBytes',
+      'returnedEvidenceBytes',
+    ] as const)
+      expect(row[field]).toBe(prior[field]);
+    const interactions = (
+      await readFile(root + `${row.mode}-1/interactions.jsonl`, 'utf8')
+    )
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { reply: { text: string } });
+    expect(
+      observedFailure(interactions.map((value) => value.reply.text))
+        .persistenceFailure,
+    ).toBe(true);
+    expect(row.success).toBe(true);
+    expect(row.diagnosisCorrect).toBe(true);
+  }
+  expect(summarize(rows)).toBe(await readFile(root + 'summary.md', 'utf8'));
 });

@@ -1,0 +1,23 @@
+{
+  "driver": "codex",
+  "model": "gpt-6.1-sol",
+  "maxTurns": null,
+  "maxToolCalls": 24,
+  "maxOutputTokens": null,
+  "timeoutMs": 120000,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "prompt": "Open the profile page, change the name to 'Ratatoskr Test', save it, and verify that the change persisted. If it fails, determine the cause and report the relevant evidence.",
+  "benchmarkVersion": "1",
+  "dirty": false,
+  "nodeVersion": "v24.19.0",
+  "platform": "linux/x64",
+  "lockfileHash": "fad7b2c04ebba956ca1f8293b00500618e4d4f2f748e9b3b07c76e5048283e6b",
+  "codexVersion": "codex-cli 0.159.2",
+  "codexReasoningEffort": "medium",
+  "tokenAccounting": "codex-json-events",
+  "configurationHash": "3430bd14747e37e0d2f2fe36be42ff00d3358550822693010588b978070df831",
+  "gitCommit": "aaf7e0bccd193f139abafd1671b2cea2aeb7da60"
+}

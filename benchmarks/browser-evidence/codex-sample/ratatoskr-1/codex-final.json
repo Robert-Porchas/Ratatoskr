@@ -1,0 +1,1 @@
+{"persisted":false,"method":"POST","path":"/api/profile","status":500,"errorCode":"INTERNAL_ERROR","evidence":["Entered Ratatoskr Test and clicked Save.","Save request returned HTTP 500; console reported 'Failed to save profile: INTERNAL_ERROR'.","After reloading, the page still showed 'Persisted name: Jane Developer' and 'No changes saved.'"]}

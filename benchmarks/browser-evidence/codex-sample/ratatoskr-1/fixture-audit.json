@@ -1,0 +1,26 @@
+[
+  {
+    "method": "GET",
+    "path": "/profile",
+    "body": "",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/profile",
+    "body": "",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/profile",
+    "body": "{\"name\":\"Ratatoskr Test\",\"email\":\"jane@example.test\"}",
+    "status": 500
+  },
+  {
+    "method": "GET",
+    "path": "/profile",
+    "body": "",
+    "status": 200
+  }
+]

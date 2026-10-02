@@ -1,0 +1,59 @@
+{
+  "report": {
+    "persisted": false,
+    "method": "POST",
+    "path": "/api/profile",
+    "status": 500,
+    "errorCode": "INTERNAL_ERROR",
+    "evidence": [
+      "Save request contained name \"Ratatoskr Test\".",
+      "Server returned HTTP 500 with {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+      "Page displayed \"Unable to save profile.\"",
+      "After reloading /profile, both the Name field and persisted name remained \"Jane Developer\"."
+    ]
+  },
+  "result": {
+    "benchmarkVersion": "1",
+    "suiteId": "codex-usage-validation-v2",
+    "mode": "baseline",
+    "driver": "codex",
+    "run": 1,
+    "timestamp": "2026-10-02T02:24:43.848Z",
+    "gitCommit": "aaf7e0bccd193f139abafd1671b2cea2aeb7da60",
+    "configurationHash": "3430bd14747e37e0d2f2fe36be42ff00d3358550822693010588b978070df831",
+    "model": "gpt-6.1-sol",
+    "browserVersion": "153.0.8010.12",
+    "success": true,
+    "diagnosisCorrect": true,
+    "criteria": {
+      "openedCorrectPage": true,
+      "changedName": true,
+      "attemptedSave": true,
+      "recognizedPersistenceFailure": true,
+      "identifiedHttp500": true,
+      "identifiedInternalError": true,
+      "didNotClaimPersistence": true
+    },
+    "modelCalls": null,
+    "toolInteractions": 5,
+    "rawEvidenceBytes": 7392,
+    "artifactBytes": 0,
+    "browserInteractions": 9,
+    "tokenSource": "codex-json-events",
+    "tokenAuthoritative": true,
+    "tokenScope": "isolated-codex-task",
+    "inputTokens": 52973,
+    "outputTokens": 340,
+    "totalTokens": 53313,
+    "cachedInputTokens": 40192,
+    "uncachedInputTokens": 12781,
+    "reasoningTokens": 0,
+    "codexVersion": "codex-cli 0.159.2",
+    "codexThreadId": "01a0fa6d-a22e-7343-9007-8ccb29a81dda",
+    "modelEvidenceBytes": 4749,
+    "returnedEvidenceBytes": 4749,
+    "cumulativeContextEvidenceBytes": null,
+    "toolDefinitionsBytes": 3567,
+    "durationMs": 26116
+  }
+}

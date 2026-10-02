@@ -1,0 +1,58 @@
+{
+  "report": {
+    "persisted": false,
+    "method": "POST",
+    "path": "/api/profile",
+    "status": 500,
+    "errorCode": "INTERNAL_ERROR",
+    "evidence": [
+      "Entered Ratatoskr Test and clicked Save.",
+      "Save request returned HTTP 500; console reported 'Failed to save profile: INTERNAL_ERROR'.",
+      "After reloading, the page still showed 'Persisted name: Jane Developer' and 'No changes saved.'"
+    ]
+  },
+  "result": {
+    "benchmarkVersion": "1",
+    "suiteId": "codex-usage-validation-v2",
+    "mode": "ratatoskr",
+    "driver": "codex",
+    "run": 1,
+    "timestamp": "2026-10-02T02:25:09.970Z",
+    "gitCommit": "aaf7e0bccd193f139abafd1671b2cea2aeb7da60",
+    "configurationHash": "3430bd14747e37e0d2f2fe36be42ff00d3358550822693010588b978070df831",
+    "model": "gpt-6.1-sol",
+    "browserVersion": "153.0.8010.12",
+    "success": false,
+    "diagnosisCorrect": false,
+    "criteria": {
+      "openedCorrectPage": true,
+      "changedName": true,
+      "attemptedSave": true,
+      "recognizedPersistenceFailure": false,
+      "identifiedHttp500": true,
+      "identifiedInternalError": true,
+      "didNotClaimPersistence": true
+    },
+    "modelCalls": null,
+    "toolInteractions": 4,
+    "rawEvidenceBytes": 1019,
+    "artifactBytes": 13843,
+    "browserInteractions": 9,
+    "tokenSource": "codex-json-events",
+    "tokenAuthoritative": true,
+    "tokenScope": "isolated-codex-task",
+    "inputTokens": 92819,
+    "outputTokens": 646,
+    "totalTokens": 93465,
+    "cachedInputTokens": 61696,
+    "uncachedInputTokens": 31123,
+    "reasoningTokens": 0,
+    "codexVersion": "codex-cli 0.159.2",
+    "codexThreadId": "01a0fa6e-083a-7f02-8b3c-8bbcfcf98bde",
+    "modelEvidenceBytes": 2778,
+    "returnedEvidenceBytes": 2778,
+    "cumulativeContextEvidenceBytes": null,
+    "toolDefinitionsBytes": 8904,
+    "durationMs": 45406
+  }
+}
