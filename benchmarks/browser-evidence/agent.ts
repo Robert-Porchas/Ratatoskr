@@ -250,6 +250,7 @@ export function observedFailure(observations: string[]) {
   const joined = observations.join('\n');
   const persistenceFailure =
     joined.includes('Unable to save profile.') ||
-    joined.includes('Expected text to contain Ratatoskr Test');
+    joined.includes('Expected text to contain Ratatoskr Test') ||
+    (http?.status === 500 && code === 'INTERNAL_ERROR');
   return { http, code, message, persistenceFailure };
 }

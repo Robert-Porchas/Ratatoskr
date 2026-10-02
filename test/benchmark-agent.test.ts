@@ -91,3 +91,26 @@ it('does not infer diagnosis from a generic UI failure alone', () => {
   expect(evidence.http).toBeUndefined();
   expect(evidence.code).toBeUndefined();
 });
+
+it('recognizes rejected persistence regardless of the assertion chosen by the agent', () => {
+  const observations = [
+    JSON.stringify({
+      structuredContent: {
+        success: false,
+        action: 'wait_for',
+        reason: 'Target did not become visible',
+        relevantErrors: [
+          { type: 'http', method: 'POST', path: '/api/profile', status: 500 },
+          {
+            type: 'console',
+            message: 'Failed to save profile: INTERNAL_ERROR',
+          },
+        ],
+      },
+    }),
+  ];
+  expect(observedFailure(observations).persistenceFailure).toBe(true);
+  expect(
+    observedFailure([JSON.stringify({ status: 500 })]).persistenceFailure,
+  ).toBe(false);
+});
