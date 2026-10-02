@@ -5,6 +5,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 import { startDirectBrowser } from './direct-browser.js';
 import { startRatatoskrSession } from './ratatoskr-session.js';
+import { startPlaywrightSession } from './playwright-session.js';
 import { bytes, type ToolReply } from './tools.js';
 import { measureSchemas } from './codex-observations.js';
 import {
@@ -20,9 +21,17 @@ const mode = z
 const url = z.url().parse(process.env.BENCHMARK_FIXTURE_URL);
 const directory = z.string().min(1).parse(process.env.BENCHMARK_DIRECTORY);
 const controller = new AbortController();
+if (process.env.BENCHMARK_VALUES) {
+  const values = z
+    .record(z.string().regex(/^BENCHMARK_(NAME|FIELD_\d+)$/), z.string())
+    .parse(JSON.parse(process.env.BENCHMARK_VALUES));
+  process.env.BENCHMARK_VALUES = JSON.stringify(values);
+}
 const session =
   mode === 'baseline'
-    ? await startDirectBrowser(url, directory, controller.signal)
+    ? process.env.BENCHMARK_BASELINE === 'playwright'
+      ? await startPlaywrightSession(url, directory, controller.signal)
+      : await startDirectBrowser(url, directory, controller.signal)
     : await startRatatoskrSession(url, directory, controller.signal);
 let interactions = 0,
   returnedEvidenceBytes = 0;

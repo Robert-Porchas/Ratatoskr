@@ -21,8 +21,17 @@ export async function startRatatoskrSession(
     args: [new URL('../../src/mcp/server.js', import.meta.url).pathname],
     env: {
       RATATOSKR_DATA_DIR: root,
-      RATATOSKR_ALLOWED_VALUE_REFS: 'BENCHMARK_NAME',
+      RATATOSKR_ALLOWED_VALUE_REFS: process.env.BENCHMARK_VALUES
+        ? Object.keys(
+            JSON.parse(process.env.BENCHMARK_VALUES) as Record<string, string>,
+          ).join(',')
+        : 'BENCHMARK_NAME',
       BENCHMARK_NAME: 'Ratatoskr Test',
+      ...(process.env.BENCHMARK_VALUES
+        ? z
+            .record(z.string(), z.string())
+            .parse(JSON.parse(process.env.BENCHMARK_VALUES))
+        : {}),
     },
     stderr: 'pipe',
   });

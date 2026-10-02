@@ -10,6 +10,7 @@ import { startProfileFixture } from '../benchmarks/browser-evidence/fixture.js';
 import { runReplay } from '../benchmarks/browser-evidence/agent.js';
 import { startDirectBrowser } from '../benchmarks/browser-evidence/direct-browser.js';
 import { startRatatoskrSession } from '../benchmarks/browser-evidence/ratatoskr-session.js';
+import { startPlaywrightSession } from '../benchmarks/browser-evidence/playwright-session.js';
 
 const root = await mkdtemp(join(tmpdir(), 'ratatoskr-benchmark-'));
 const fixture = await startProfileFixture();
@@ -46,6 +47,46 @@ try {
   await page.reload();
   assert.equal(await page.getByLabel('Name').inputValue(), 'Jane Developer');
   await page.close();
+  const standardDirectory = join(root, 'standard');
+  await mkdir(standardDirectory);
+  const standard = await startPlaywrightSession(
+    fixture.url,
+    standardDirectory,
+    new AbortController().signal,
+  );
+  try {
+    assert(standard.tools.some((tool) => tool.name === 'browser_fill_form'));
+    assert(
+      !standard.tools.some((tool) =>
+        /evaluate|run_code|file_upload/.test(tool.name),
+      ),
+    );
+    await standard.call('browser_navigate', { url: fixture.url });
+    const typed = await standard.call('browser_type', {
+      element: 'Name',
+      target: 'input[name="name"]',
+      text: 'Ratatoskr Test',
+    });
+    assert(!typed.mcpResult?.isError, typed.text);
+    const clicked = await standard.call('browser_click', {
+      element: 'Save',
+      target: 'button[type="submit"]',
+    });
+    assert(!clicked.mcpResult?.isError, clicked.text);
+    await standard.call('browser_wait_for', {
+      text: 'Unable to save profile.',
+    });
+    const network = await standard.call('browser_network_requests', {
+      includeStatic: false,
+    });
+    const consoleErrors = await standard.call('browser_console_messages', {
+      level: 'error',
+    });
+    assert(network.text.includes('500'));
+    assert(consoleErrors.text.includes('INTERNAL_ERROR'));
+  } finally {
+    await standard.close();
+  }
   for (const mode of ['baseline', 'ratatoskr'] as const) {
     const directory = join(root, mode);
     await mkdir(directory);

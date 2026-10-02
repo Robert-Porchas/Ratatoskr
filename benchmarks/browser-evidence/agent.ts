@@ -211,6 +211,16 @@ export function observedFailure(observations: string[]) {
   let code: string | undefined, message: string | undefined;
   const visit = (value: unknown): void => {
     if (typeof value === 'string') {
+      const networkLine = value
+        .split('\n')
+        .find(
+          (line) =>
+            line.includes('/api/profile') &&
+            /POST/.test(line) &&
+            /\b500\b/.test(line),
+        );
+      if (networkLine)
+        http = { method: 'POST', path: '/api/profile', status: 500 };
       if (value.includes('Failed to save profile: ')) {
         const match = /Failed to save profile: ([A-Z_]+)/.exec(value);
         if (match) {
