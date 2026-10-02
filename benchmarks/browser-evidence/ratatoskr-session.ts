@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
+import { fileURLToPath } from 'node:url';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { z } from 'zod';
 import { normalizeWirePlan } from '../../src/mcp/wire-plan.js';
@@ -18,7 +19,7 @@ export async function startRatatoskrSession(
   const stderr: string[] = [];
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [new URL('../../src/mcp/server.js', import.meta.url).pathname],
+    args: [fileURLToPath(new URL('../../src/mcp/server.js', import.meta.url))],
     env: {
       RATATOSKR_DATA_DIR: root,
       RATATOSKR_ALLOWED_VALUE_REFS: process.env.BENCHMARK_VALUES

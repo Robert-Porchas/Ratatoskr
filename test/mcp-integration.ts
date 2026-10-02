@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { FilesystemRunStore } from '../src/storage.js';
@@ -22,7 +23,7 @@ try {
   const transportErrors: Error[] = [];
   transport = new StdioClientTransport({
     command: process.execPath,
-    args: [new URL('../src/mcp/server.js', import.meta.url).pathname],
+    args: [fileURLToPath(new URL('../src/mcp/server.js', import.meta.url))],
     cwd: process.cwd(),
     env: {
       RATATOSKR_DATA_DIR: root,

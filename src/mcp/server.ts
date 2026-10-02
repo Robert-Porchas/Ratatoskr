@@ -11,6 +11,8 @@ import {
 } from './wire-plan.js';
 import { InspectionCategorySchema } from '../inspection.js';
 import { ArtifactNotFoundError } from '../errors.js';
+import { pathToFileURL } from 'node:url';
+import { VERSION } from '../version.js';
 
 const runId = z.string().regex(/^run_[a-f0-9]{32}$/);
 const artifactId = z.string().regex(/^artifact_[a-f0-9]{32}$/);
@@ -66,7 +68,7 @@ export function createMcpServer(): McpServer {
       .filter((value) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)),
   );
   const app = createRatatoskrApplication(process.env, allowedRefs);
-  const server = new McpServer({ name: 'ratatoskr', version: '0.1.0' });
+  const server = new McpServer({ name: 'ratatoskr', version: VERSION });
   let active = false;
 
   server.registerTool(
@@ -229,10 +231,7 @@ export function createMcpServer(): McpServer {
   return server;
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === new URL(`file://${process.argv[1]}`).href
-) {
+export function startMcpServer(): void {
   const handle = serveStdio(createMcpServer);
   process.on('SIGINT', () => {
     void handle.close();
@@ -241,3 +240,6 @@ if (
     void handle.close();
   });
 }
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  startMcpServer();

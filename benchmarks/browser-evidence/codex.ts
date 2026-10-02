@@ -10,6 +10,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { ReportSchema, type DiagnosisReport } from './metrics.js';
 import { codexAccounting, type TokenAccounting } from './usage.js';
@@ -41,7 +42,7 @@ export async function runCodex(options: CodexOptions): Promise<{
   const finalPath = join(options.directory, 'codex-final.json');
   const config = {
     command: process.execPath,
-    args: [new URL('./codex-tools.js', import.meta.url).pathname],
+    args: [fileURLToPath(new URL('./codex-tools.js', import.meta.url))],
     env: {
       BENCHMARK_MODE: options.mode,
       BENCHMARK_FIXTURE_URL: options.url,

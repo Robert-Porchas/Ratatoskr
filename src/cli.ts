@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { BrowserPlanSchema } from './protocol.js';
@@ -7,11 +8,16 @@ import {
   type InspectionCategory,
 } from './inspection.js';
 import { createRatatoskrApplication } from './application.js';
+import { VERSION } from './version.js';
 
 const app = createRatatoskrApplication();
 
 async function main(args: string[]): Promise<void> {
   const [command, first, second, third, fourth] = args;
+  if (command === '--version') {
+    process.stdout.write(`${VERSION}\n`);
+    return;
+  }
   if (command === 'run' && first) {
     const parsed = BrowserPlanSchema.safeParse(
       JSON.parse(await readFile(resolve(first), 'utf8')),

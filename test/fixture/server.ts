@@ -3,6 +3,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
+import { pathToFileURL } from 'node:url';
 
 function html(fail: boolean): string {
   return `<!doctype html><html><head><title>Ratatoskr test login</title></head><body>
@@ -136,7 +137,7 @@ export function createFixtureServer() {
 
 if (
   process.argv[1] &&
-  import.meta.url === new URL(`file://${process.argv[1]}`).href
+  import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   const port = Number(process.env.PORT ?? 3000);
   createFixtureServer().listen(port, '127.0.0.1', () =>
