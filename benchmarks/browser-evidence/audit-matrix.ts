@@ -51,12 +51,13 @@ export async function auditMatrix(root: string): Promise<BenchmarkResult[]> {
     const methodAndPath =
       !row.scenario.endsWith('http_failure') ||
       (report.method === 'POST' && report.path === '/api/profile');
+    const withinToolBudget = measured.interactions.length <= 24;
     audited.push({
       ...row,
       invalidToolCalls: measured.invalidToolCalls,
       failedToolCalls: measured.failedToolCalls,
-      criteria: { ...row.criteria, methodAndPath },
-      success: row.success && methodAndPath,
+      criteria: { ...row.criteria, methodAndPath, withinToolBudget },
+      success: row.success && methodAndPath && withinToolBudget,
       diagnosisCorrect: row.diagnosisCorrect && methodAndPath,
     });
   }

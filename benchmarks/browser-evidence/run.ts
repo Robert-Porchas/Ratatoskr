@@ -281,7 +281,7 @@ for (let run = 1; run <= runs; run++) {
           report = await runModel({
             model: model!,
             prompt,
-            instructions: `You are testing a local application. Profile page: ${fixture.url}. Desired name is available locally as valueRef BENCHMARK_NAME. Use the available browser tools to perform the task and verify persistence, using condition-based waits (step timeout 500 ms for expected persisted text is sufficient). Inspect only evidence needed for diagnosis. Finish by calling report_diagnosis with supported facts; a workflow completing does not by itself prove persistence.`,
+            instructions: `You are testing a local application. Profile page: ${fixture.url}. Desired name is available locally as valueRef BENCHMARK_NAME. Use the available browser tools to perform the task and verify persistence with condition assertions. Inspect only evidence needed for diagnosis. Finish by calling report_diagnosis with supported facts; a workflow completing does not by itself prove persistence.`,
             tools: session.tools,
             maxTurns,
             maxToolCalls,

@@ -137,6 +137,7 @@ export async function runCodex(options: CodexOptions): Promise<{
   const stderr: Buffer[] = [];
   child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
   const lines = createInterface({ input: child.stdout });
+  let startedToolCalls = 0;
   const capture = (async () => {
     for await (const line of lines) {
       await appendFile(
@@ -144,7 +145,18 @@ export async function runCodex(options: CodexOptions): Promise<{
         line + '\n',
       );
       try {
-        events.push(z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
+        const event = z.record(z.string(), z.unknown()).parse(JSON.parse(line));
+        events.push(event);
+        const item = z.record(z.string(), z.unknown()).safeParse(event.item);
+        if (
+          event.type === 'item.started' &&
+          item.success &&
+          item.data.type === 'mcp_tool_call' &&
+          ++startedToolCalls > 24
+        ) {
+          error ??= 'Maximum browser tool calls exceeded';
+          terminate();
+        }
       } catch {
         error ??= 'Malformed Codex JSON event';
       }
