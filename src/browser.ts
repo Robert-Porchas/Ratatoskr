@@ -55,5 +55,7 @@ export interface BrowserAdapter {
   ): Promise<void>;
   isVisible(target: BrowserTarget, timeoutMs: number): Promise<boolean>;
   currentUrl(): Promise<string>;
+  /** Optional diagnostic probe; never returns page content or chooses another target. */
+  targetExists?(target: BrowserTarget): Promise<boolean>;
   screenshot(): Promise<Buffer>;
 }

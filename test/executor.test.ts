@@ -138,6 +138,45 @@ function stores(): {
 }
 
 describe('workflow executor', () => {
+  it('distinguishes absent click targets from present but unactionable controls', async () => {
+    for (const exists of [false, true]) {
+      class TimeoutBrowser extends FakeBrowser {
+        override async click(): Promise<void> {
+          throw Object.assign(new Error('private call log'), {
+            name: 'TimeoutError',
+          });
+        }
+        async targetExists(): Promise<boolean> {
+          return exists;
+        }
+      }
+      const storage = stores();
+      const result = await executePlan(
+        {
+          startUrl: 'http://local',
+          steps: [
+            {
+              action: 'click',
+              target: { kind: 'role', role: 'button', name: 'Publish' },
+            },
+          ],
+        },
+        {
+          browser: new TimeoutBrowser(),
+          runs: storage.runs,
+          artifacts: storage.artifacts,
+          values: new EnvironmentValueResolver({}),
+        },
+      );
+      expect(result).toMatchObject({
+        success: false,
+        reason: exists
+          ? 'Timed out during click'
+          : 'Click target not found: button Publish',
+      });
+      expect(JSON.stringify(result)).not.toContain('private call log');
+    }
+  });
   it('returns bounded redacted actual text for an assertion failure', async () => {
     class FailedTextBrowser extends FakeBrowser {
       override async waitForTextContains(): Promise<void> {

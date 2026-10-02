@@ -321,6 +321,9 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   async text(target: BrowserTarget, timeoutMs: number): Promise<string> {
     return this.locator(target).innerText({ timeout: timeoutMs });
   }
+  async targetExists(target: BrowserTarget): Promise<boolean> {
+    return (await this.locator(target).count()) > 0;
+  }
   async attribute(
     target: BrowserTarget,
     name: string,

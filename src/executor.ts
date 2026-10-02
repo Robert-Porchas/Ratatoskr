@@ -274,6 +274,41 @@ export async function executePlan(
         failure = failureFor(error, step.action, deps.signal?.aborted);
       }
       let actualText: string | undefined;
+      if (
+        failure?.kind === 'timeout' &&
+        step.action === 'click' &&
+        deps.browser.targetExists &&
+        !deps.signal?.aborted
+      ) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const exists = await Promise.race([
+            deps.browser.targetExists(step.target),
+            new Promise<undefined>((resolve) => {
+              timer = setTimeout(
+                () => resolve(undefined),
+                Math.min(150, Math.max(1, deadline - Date.now())),
+              );
+            }),
+          ]);
+          if (exists === false) {
+            const description =
+              step.target.kind === 'role'
+                ? `${step.target.role} ${step.target.name ?? ''}`.trim()
+                : step.target.kind;
+            failure = {
+              kind: 'element_not_found',
+              reason: evidence
+                .redact(`Click target not found: ${description}`)
+                .slice(0, 160),
+            };
+          }
+        } catch {
+          /* A failed diagnostic probe must not replace the original failure. */
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
       if (failure && step.action === 'assert_text' && !deps.signal?.aborted) {
         try {
           actualText = evidence
