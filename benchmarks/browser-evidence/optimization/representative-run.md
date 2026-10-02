@@ -1,6 +1,6 @@
 # Recorded medium failure, run 1
 
-Both sequences below are actual native MCP interactions from the production-metadata experiment. No screenshots or trace bytes were returned in the workflow result.
+Actual terminal MCP interactions from the production-metadata ten-pair experiment. Browser screenshots/trace bytes were not returned; Ratatoskr returned only a screenshot ID. Local ports differ because sessions are isolated. Text content below is native text, not an additional serialized wrapper.
 
 ## baseline
 
@@ -14,28 +14,24 @@ Arguments:
 }
 ```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ````text
 ### Ran Playwright code
 ```js
 await page.goto('http://127.0.0.1:39352/profile');
-````
-
+```
 ### Page
-
 - Page URL: http://127.0.0.1:39352/profile
 - Page Title: Profile Settings
-
 ### Snapshot
-
 - [Snapshot](./page-2026-10-02T21-18-42-672Z.yml)
-
 ````
 
 ### 2. browser_fill_form
 
 Arguments:
+
 ```json
 {
   "fields": [
@@ -65,9 +61,9 @@ Arguments:
     }
   ]
 }
-````
+```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ````text
 ### Ran Playwright code
@@ -76,53 +72,47 @@ await page.locator('#name').fill('Ratatoskr Test');
 await page.locator('#field-1').fill('ratatoskr@example.test');
 await page.locator('#field-2').fill('Acme Labs');
 await page.locator('#field-3').fill('Engineer');
-````
-
+```
 ````
 
 ### 3. browser_click
 
 Arguments:
+
 ```json
 {
   "target": "button:has-text(\"Save\")"
 }
-````
+```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ````text
 ### Ran Playwright code
 ```js
 await page.locator('button:has-text("Save")').click();
-````
-
+```
 ### Page
-
 - Page URL: http://127.0.0.1:39352/profile
 - Page Title: Profile Settings
 - Console: 2 errors, 0 warnings
-
 ### Snapshot
-
 - [Snapshot](./page-2026-10-02T21-18-51-383Z.yml)
-
 ### Events
-
 - New console entries: console-2026-10-02T21-18-42-549Z.log#L1-L2
-
 ````
 
 ### 4. browser_wait_for
 
 Arguments:
+
 ```json
 {
   "text": "Ratatoskr Test"
 }
-````
+```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ```text
 ### Error
@@ -142,7 +132,7 @@ Arguments:
 }
 ```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ````text
 ### Page
@@ -152,21 +142,21 @@ Returned text/structured payload (unchanged; formatting added for this document)
 ### Snapshot
 ```yaml
 - text: Jane Developer
-````
-
+```
 ````
 
 ### 6. browser_network_requests
 
 Arguments:
+
 ```json
 {
   "static": false,
   "filter": "/api/"
 }
-````
+```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ```text
 ### Result
@@ -185,7 +175,7 @@ Arguments:
 }
 ```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ```text
 ### Result
@@ -263,8 +253,37 @@ Arguments:
 }
 ```
 
-Returned text/structured payload (unchanged; formatting added for this document):
+Native text content:
 
 ```text
-{"content":["Workflow failed at step 5: Expected text to contain Ratatoskr Test"],"structuredContent":{"success":false,"runId":"run_76d0203cff97490a950ab7d3dfe01904","failedStep":5,"action":"assert_text","reason":"Expected text to contain Ratatoskr Test","actualUrl":"http://127.0.0.1:37932/profile","relevantErrors":[{"type":"http","method":"POST","path":"/api/profile","status":500},{"type":"console","message":"Failed to save profile: INTERNAL_ERROR"}],"actualText":"Jane Developer","artifacts":{"screenshot":"artifact_a9645e6bdb164d539c6e750cd4cae25a"}}}
+Workflow failed at step 5: Expected text to contain Ratatoskr Test
+```
+
+Native structured content:
+
+```json
+{
+  "success": false,
+  "runId": "run_76d0203cff97490a950ab7d3dfe01904",
+  "failedStep": 5,
+  "action": "assert_text",
+  "reason": "Expected text to contain Ratatoskr Test",
+  "actualUrl": "http://127.0.0.1:37932/profile",
+  "relevantErrors": [
+    {
+      "type": "http",
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500
+    },
+    {
+      "type": "console",
+      "message": "Failed to save profile: INTERNAL_ERROR"
+    }
+  ],
+  "actualText": "Jane Developer",
+  "artifacts": {
+    "screenshot": "artifact_a9645e6bdb164d539c6e750cd4cae25a"
+  }
+}
 ```

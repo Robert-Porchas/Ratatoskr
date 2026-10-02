@@ -87,7 +87,7 @@ Prefer targets by role/accessibility name, label, text, or test ID; CSS is an es
 
 ## Use from Codex through MCP
 
-Build first, then the stdio server can be started manually with `npm run mcp` (it waits for an MCP client; stdout is protocol-only). This repository has been registered locally as `ratatoskr`. For another machine, build and register with absolute paths:
+Build first, then the stdio server can be started manually with `npm run mcp` (it waits for an MCP client; stdout is protocol-only). Restart Codex after upgrading/building to refresh its cached MCP definitions. This repository has been registered locally as `ratatoskr`. For another machine, build and register with absolute paths:
 
 ```sh
 npm run build
@@ -140,13 +140,22 @@ MCP defaults to 5-second actions and a 120-second workflow deadline, without mod
 
 Secrets are not written to workflows or normal results. Evidence text is redacted against resolved values. Screenshots mask form controls and matching text; traces are disabled for plans with fills, uploads, or prompt value references because traces can capture secrets. This cannot reliably hide secrets drawn into canvas or images, so avoid such pages. URL credentials, `file:` and `javascript:` navigation, arbitrary JavaScript, shell execution, unrestricted filesystem reads, loops, and natural-language plan execution are not supported. Ratatoskr has no domain policy or authentication yet; run it only for trusted local development workflows.
 
-The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are now about 4 KB (previously 11.8 KB); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
+The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. A timed-out click can report that its target is absent, without returning page content or choosing a replacement. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are now about 4 KB (previously 11.8 KB); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
 
 ## Token-first browser benchmark
 
 The benchmark measures **actual Codex task tokens**, separately from browser evidence bytes. Ratatoskr is intended for source-known, multi-step software tests—not autonomous page discovery. Earlier live measurements showed a token regression despite smaller returned evidence; those unfavorable records remain available in the [original sample](benchmarks/browser-evidence/codex-sample/README.md) and [pre-optimization baseline](benchmarks/browser-evidence/optimization/pre.json).
 
 The optimization harness compares fresh Codex tasks on identical local fixtures. Its primary direct baseline is pinned official Playwright MCP, including bulk form fill and normal observations; a second `direct` baseline uses the original individual-action adapter. Each mode receives identical task/source facts. No byte-to-token conversion is used.
+
+Measured on October 2, 2026 with Codex CLI 0.160.0, `gpt-6.1-sol`, medium reasoning and Chromium 153.0.8010.12. The table comes from [all 40 individual task records](benchmarks/browser-evidence/optimization/production-results.jsonl), with ten fresh tasks per mode/scenario. Token accounting is Codex's cumulative `turn.completed.usage`, including cached input; this is not a billing estimate.
+
+| Scenario            | Planned steps | Direct median tokens | Ratatoskr median tokens | Token reduction | Correct diagnoses, each mode |
+| ------------------- | ------------: | -------------------: | ----------------------: | --------------: | ---------------------------: |
+| Medium HTTP failure |            10 |               78,372 |                31,959.5 |           59.2% |                        10/10 |
+| Large HTTP failure  |            20 |             94,542.5 |                  32,868 |           65.2% |                        10/10 |
+
+Ratatoskr needed one browser-tool call per task and no invalid calls in these cases. The baseline exposes 17 safe core Playwright MCP tools, excludes arbitrary JavaScript/code execution, and retains native bulk fill and default observations. These measurements **do not compare against unrestricted code-capable browser tools or Codex's built-in browser tool**. See the [full sprint report](benchmarks/browser-evidence/optimization/report.md) for smaller samples, success/locator cases, distributions, remaining bottlenecks and preserved regressions.
 
 ```sh
 npm run test:benchmark

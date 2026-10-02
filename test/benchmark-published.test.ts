@@ -1,7 +1,11 @@
 import { it, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { parseResults } from '../benchmarks/browser-evidence/metrics.js';
+import {
+  median,
+  parseResults,
+  savings,
+} from '../benchmarks/browser-evidence/metrics.js';
 import { summarizeMatrix } from '../benchmarks/browser-evidence/matrix-summary.js';
 import { codexAccounting } from '../benchmarks/browser-evidence/usage.js';
 
@@ -57,3 +61,39 @@ it.each([
     );
   },
 );
+
+it('keeps the README token comparison tied to recorded production medians', async () => {
+  const rows = parseResults(
+    await readFile(
+      'benchmarks/browser-evidence/optimization/production-results.jsonl',
+      'utf8',
+    ),
+  );
+  const readme = await readFile('README.md', 'utf8');
+  for (const [scenario, label] of [
+    ['medium-http_failure', 'Medium HTTP failure'],
+    ['large-http_failure', 'Large HTTP failure'],
+  ]) {
+    const group = rows.filter((row) => row.scenario === scenario);
+    const direct = group.filter((row) => row.mode === 'baseline');
+    const rat = group.filter((row) => row.mode === 'ratatoskr');
+    const a = median(direct.map((row) => row.totalTokens!))!;
+    const b = median(rat.map((row) => row.totalTokens!))!;
+    const cells = readme
+      .split('\n')
+      .find((line) => line.startsWith('| ' + label))!
+      .split('|')
+      .map((cell) => cell.trim());
+    expect(cells.slice(1, 6)).toEqual([
+      label,
+      String(group[0]!.plannedSteps),
+      a.toLocaleString('en-US'),
+      b.toLocaleString('en-US'),
+      savings(a, b)!.toFixed(1) + '%',
+    ]);
+    for (const records of [direct, rat])
+      expect(cells[6]).toBe(
+        `${records.filter((row) => row.diagnosisCorrect).length}/${records.length}`,
+      );
+  }
+});
