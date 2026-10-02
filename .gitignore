@@ -2,4 +2,8 @@ node_modules/
 dist/
 .ratatoskr/
 coverage/
+.env
+.env.*
+*.log
+*.tgz
 benchmarks/browser-evidence/results/

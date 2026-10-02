@@ -1,0 +1,12 @@
+{
+  "name": "ratatoskr-local",
+  "interface": { "displayName": "Ratatoskr" },
+  "plugins": [
+    {
+      "name": "ratatoskr",
+      "source": { "source": "local", "path": "./dist/plugin" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

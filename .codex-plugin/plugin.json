@@ -1,0 +1,12 @@
+{
+  "name": "ratatoskr",
+  "version": "0.1.0",
+  "description": "Batch known browser tests locally; return compact evidence to Codex.",
+  "author": { "name": "Robert Porchas" },
+  "repository": "https://github.com/Robert-Porchas/Ratatoskr",
+  "homepage": "https://github.com/Robert-Porchas/Ratatoskr",
+  "license": "MIT",
+  "keywords": ["browser", "e2e", "playwright", "tokens"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

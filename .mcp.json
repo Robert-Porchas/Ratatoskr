@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "ratatoskr": {
+      "command": "node",
+      "args": ["scripts/mcp.mjs"],
+      "cwd": ".",
+      "env_vars": [
+        "RATATOSKR_HOME",
+        "RATATOSKR_DATA_DIR",
+        "RATATOSKR_UPLOAD_DIR",
+        "RATATOSKR_ALLOWED_VALUE_REFS",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "TEST_EMAIL",
+        "TEST_PASSWORD"
+      ],
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 210
+    }
+  }
+}

@@ -2,9 +2,36 @@
   "name": "ratatoskr",
   "version": "0.1.0",
   "private": true,
+  "description": "Local deterministic browser workflows and compact diagnostic evidence for Codex",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Robert-Porchas/Ratatoskr.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist/src/",
+    "scripts/runtime.mjs",
+    "scripts/mcp.mjs",
+    "skills/",
+    ".codex-plugin/",
+    ".mcp.json",
+    "docs/architecture.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "ratatoskr": "dist/src/cli.js"
+  },
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/build-plugin.mjs",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "test:dist": "node scripts/check-distribution.mjs",
+    "test:install": "node scripts/test-clean-install.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -13,7 +40,7 @@
     "test:e2e": "tsx test/integration.ts",
     "test:mcp": "npm run build && node dist/test/mcp-integration.js",
     "test:benchmark": "npm run build && node dist/test/benchmark-integration.js",
-    "cli": "tsx src/cli.ts",
+    "cli": "node dist/src/cli.js",
     "mcp": "node dist/src/mcp/server.js",
     "fixture": "tsx test/fixture/server.ts",
     "benchmark:browser": "npm run build && node dist/benchmarks/browser-evidence/run.js",
