@@ -142,45 +142,20 @@ Secrets are not written to workflows or normal results. Evidence text is redacte
 
 The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are now about 4 KB (previously 11.8 KB); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
 
-## Reproducible browser evidence benchmark
+## Token-first browser benchmark
 
-Ratatoskr keeps detailed browser evidence available locally while limiting evidence inserted into model context. The benchmark compares the identical local profile-debugging task through individual browser tools and the real Ratatoskr MCP server. Browser evidence bytes remain distinct from **actual Codex-reported model tokens**.
+The benchmark measures **actual Codex task tokens**, separately from browser evidence bytes. Ratatoskr is intended for source-known, multi-step software tests—not autonomous page discovery. Earlier live measurements showed a token regression despite smaller returned evidence; those unfavorable records remain available in the [original sample](benchmarks/browser-evidence/codex-sample/README.md) and [pre-optimization baseline](benchmarks/browser-evidence/optimization/pre.json).
+
+The optimization harness compares fresh Codex tasks on identical local fixtures. Its primary direct baseline is pinned official Playwright MCP, including bulk form fill and normal observations; a second `direct` baseline uses the original individual-action adapter. Each mode receives identical task/source facts. No byte-to-token conversion is used.
 
 ```sh
 npm run test:benchmark
-# Offline ten-pair replay, no model/account required:
+# Offline fixture/replay checks: no account or API key
 BENCHMARK_RUNS=10 npm run benchmark:browser
-# Actual Codex accounting, fresh task per run (requires codex login):
-BENCHMARK_DRIVER=codex BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=10 npm run benchmark:browser
+# Real Codex tokens: ten fresh sessions per mode/scenario; consumes account usage
+BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=10 \
+BENCHMARK_SCENARIOS=medium-http_failure,large-http_failure \
+BENCHMARK_SUITE=my-token-comparison npm run benchmark:tokens
 ```
 
-The [benchmark guide](benchmarks/browser-evidence/README.md) explains prerequisites, isolation, accounting, and commands. The [original ten-pair offline sample](benchmarks/browser-evidence/sample/summary.md) measures evidence, not tokens. The [live Codex validation sample](benchmarks/browser-evidence/codex-sample/summary.md) below contains **one task per mode**, with raw usage/events and an auditable scoring correction.
-
-Both diagnoses were correct. Ratatoskr exposed **41.5% fewer evidence bytes but consumed 75.3% more total tokens** in this pair. Its model made an invalid initial request, recovered, and requested extra inspection; its larger tool schema also adds overhead. These are measured results, not evidence of universal savings. No unfavorable task was removed and no production reducer was changed. Run repeated pairs before drawing broader conclusions.
-
-<!-- Generated from recorded runs; do not edit measurements. -->
-
-Configuration: codex; model: gpt-6.1-sol; browser: 153.0.8010.12; commit: aaf7e0bccd193f139abafd1671b2cea2aeb7da60; Codex: codex-cli 0.159.2; runs: 1 per mode; started: 2026-10-02T02:24:43.848Z.
-
-Token accounting: Codex-reported turn.completed.usage from one fresh process/thread per task. This is the completed user-turn total across internal model calls; model-call counts and per-invocation usage are not exposed by this CLI stream. Total tokens = reported input + reported output; cached input and reasoning output are subsets, not additions.
-
-| Metric                                                        | Direct browser | Ratatoskr |           Change |
-| ------------------------------------------------------------- | -------------: | --------: | ---------------: |
-| Task criteria met                                             |            1/1 |       1/1 |                — |
-| Correct diagnosis                                             |            1/1 |       1/1 |                — |
-| Median input tokens                                           |         52,973 |    92,819 | -75.2% reduction |
-| Median output tokens                                          |            340 |       646 |   -90% reduction |
-| Median total tokens                                           |         53,313 |    93,465 | -75.3% reduction |
-| Median cached input tokens (included in input)                |         40,192 |    61,696 |                — |
-| Median uncached input tokens                                  |         12,781 |    31,123 |                — |
-| Median reasoning tokens (included in output)                  |              0 |         0 |                — |
-| Median model calls                                            |            N/A |       N/A |                — |
-| Median tool interactions                                      |              5 |         4 |    20% reduction |
-| Median browser operations (including observations/assertions) |              9 |         9 |     0% reduction |
-| Median evidence inserted into model context (bytes)           |          4,749 |     2,778 |  41.5% reduction |
-| Median returned evidence (bytes)                              |          4,749 |     2,778 |  41.5% reduction |
-| Median cumulative context evidence (bytes)                    |            N/A |       N/A |                — |
-| Median local event evidence (bytes; capture differs by mode)  |          7,392 |     1,019 |                — |
-| Median local binary artifacts (bytes)                         |              0 |    13,843 |                — |
-| Tool definitions (bytes)                                      |          3,567 |     8,904 |                — |
-| Median elapsed time (ms)                                      |         26,116 |    45,406 |                — |
+See the [benchmark guide](benchmarks/browser-evidence/README.md) for prerequisites, token provenance, and complete commands. Results use medians across all attempts, with success/diagnosis counts and token distributions. Fixed overhead, retries, and additional inspection can still erase batching benefits; measurements do not establish universal savings.

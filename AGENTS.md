@@ -16,7 +16,7 @@ Use strict TypeScript, two-space indentation, single quotes, and Prettier's trai
 
 Add Vitest tests as `test/<area>.test.ts`. Cover schemas, reduction, persistence, and secrets. Extend browser and MCP integration tests when those behaviors change. There is no coverage gate; run relevant tests, type checking, linting, and formatting before committing.
 
-The browser evidence benchmark lives in `benchmarks/browser-evidence/`. Run `npm run test:benchmark` for its local browser/MCP checks and `npm run benchmark:browser` for ten offline pairs. Model mode is explicit and requires local API credentials. Keep provider token usage separate from replay byte metrics; never fabricate token counts or alter production reduction to favor a benchmark.
+The benchmark lives in `benchmarks/browser-evidence/`. `npm run test:benchmark` checks local fixtures; `npm run benchmark:browser` runs offline replay. `BENCHMARK_MODEL=... npm run benchmark:tokens` measures fresh Codex tasks against standard Playwright MCP (requires Codex login, consumes account usage). Keep authoritative tokens separate from evidence bytes; preserve unfavorable runs and never alter production reduction to favor a benchmark.
 
 ## Commit & Pull Request Guidelines
 

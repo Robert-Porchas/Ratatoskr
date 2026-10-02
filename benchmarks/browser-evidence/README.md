@@ -1,5 +1,31 @@
 # Browser evidence benchmark
 
+## Token optimization matrix
+
+The current token-first comparison is `npm run benchmark:tokens`. It uses fresh Codex tasks with shared source-known routes, locators and values, and increasing real form sizes (1, 2, 4, or 9 fields). These facts are supplied identically and counted in both model contexts; setup/source exploration is not measured. Each task must submit every changed field and verify persisted state or correctly diagnose the failure.
+
+Its default baseline is **official `@playwright/mcp@0.0.83`**, not the original simplified adapter. It includes bulk `browser_fill_form` and 16 other fixture-relevant core tools, with native input definitions and responses, isolated headless sessions and the same installed Chromium executable/viewport as Ratatoskr. JavaScript evaluation, shell, upload/installation and caller-supplied file paths are excluded from both modes. Normal generated snapshots/code snippets/file references remain in the native response. The baseline is this explicit configuration, not every possible Codex browser tool. `BENCHMARK_BASELINES=direct,playwright` additionally measures the original six-tool individual-action adapter; comparisons stay separately labeled.
+
+Ratatoskr forwards real MCP responses without JSON-inside-JSON serialization. The wrapper preserves output schemas, titles and annotations; an integration test compares both servers' full discovered tool lists with their wrappers. Terminal Codex `item.completed` MCP events count **every** returned text, structured output, image and transport error, including SDK validation failures before the handler. `toolArgumentBytes`, `toolResultBytes`, `invalidToolCalls` and per-tool input/description/definition sizes supplement authoritative native token totals. Invalid-call counts currently count error/rejection responses (including runtime tool errors), not completed workflows with `success:false`. They are not inference counts.
+
+```sh
+# Requires codex login and network access; no separate API key with ChatGPT login.
+BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=1 BENCHMARK_SUITE=my-pilot npm run benchmark:tokens
+# Ten pairs for the intended medium/large runtime-failure case:
+BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=10 \
+BENCHMARK_SCENARIOS=medium-http_failure,large-http_failure \
+BENCHMARK_SUITE=my-primary npm run benchmark:tokens
+# All sizes/outcomes (140 model tasks by default):
+BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=10 BENCHMARK_SUITE=my-matrix npm run benchmark:tokens
+npm run benchmark:tokens:summary -- benchmarks/browser-evidence/results/my-primary/results.jsonl
+```
+
+`BENCHMARK_SCENARIOS` accepts size (`tiny`, `small`, `medium`, `large`) plus outcome (`http_failure`, `success`, `locator_failure`), separated by a hyphen; comma-separate cases. Default cases are four HTTP failures, medium/large success, and medium locator failure. Missing Publish is a deliberate locator failure, not a permission to click Save instead. Success fixtures really persist in local memory and require a reload; HTTP-failure fixtures retain initial state and return the same 500/INTERNAL_ERROR. The nominal planned-step count covers fill/verify per field plus navigation/submit; executed actions and agent retries are measured separately.
+
+Each task has a fresh process/thread, fixture and browser, 180-second deadline and 24-call cap. Runs default to ten, concurrency to one (`BENCHMARK_CONCURRENCY=2` is supported and recorded); mode order alternates per pair. Reasoning defaults to medium. Both modes use the same authoritative accounting. Setup/build/report generation are outside the task. Summaries include median/min/max/mean/population standard deviation and all failures, reject mixed configurations/unpaired tasks, and show unavailable totals as N/A. Negative `(Rat − direct) / direct` percentages are improvement.
+
+The checked-in [optimization record](optimization/README.md) documents pre/post measurements and limitations. The older sample below is historical: its handler-only byte/call counter missed a 13,950-byte SDK rejection. Its Codex token totals remain valid, but its returned-byte and call-count comparison is not a reliable current benchmark. `optimization/pre.json` preserves a new pre-optimization pair with corrected event accounting.
+
 This benchmark measures the same profile-debugging task through individual browser tools and Ratatoskr's real stdio MCP server. Detailed browser evidence stays available locally; we measure what each tool path returns and, optionally, what a real model consumes.
 
 The exact task is stored in [prompt.txt](prompt.txt):
@@ -12,7 +38,7 @@ The exact task is stored in [prompt.txt](prompt.txt):
 - **Model (optional):** the same prompt and shared instruction template go to the OpenAI Responses API. The model chooses tools and constructs its own plan. `BENCHMARK_MODEL` selects the same model for both modes. This is a standalone browser-agent harness, not a measurement of the Codex application's internal token usage. No production model dependency is added to Ratatoskr.
 - **Codex (actual Codex accounting):** a fresh `codex exec --json --ephemeral` process receives the canonical prompt for each task. A benchmark-only MCP transport exposes the same direct observations or forwards the real Ratatoskr responses. Codex chooses the operations. Only this fixture's MCP server is approved for unattended execution; shell, web search, unrelated MCP servers, plugins, and repository instructions are disabled. No global Codex configuration is changed.
 
-In both drivers, baseline uses a benchmark-only direct Playwright adapter: individual navigate/fill/click calls return full accessibility snapshots and input values; explicit network/console tools return observed logs, including response bodies. No synthetic page content or padding is added. This is a documented direct-browser configuration, not an assertion that every browser tool exposes the same observations. Screenshots are not sent by the baseline, so screenshot tokens cannot inflate its score.
+In the original profile runner, baseline uses a benchmark-only direct Playwright adapter: individual navigate/fill/click calls return full accessibility snapshots and input values; explicit network/console tools return observed logs, including response bodies. No synthetic page content or padding is added. This is a documented direct-browser configuration, not an assertion that every browser tool exposes the same observations. Screenshots are not sent by the baseline, so screenshot tokens cannot inflate its score.
 
 Ratatoskr calls the existing compiled MCP server, discovers its real tool definitions, and forwards its actual tool responses. It uses the existing reducer and shared inspector unchanged. The replay submits fill, click Save, and an assertion of the persisted name. The assertion fails and the normal result includes HTTP 500 and the console's `INTERNAL_ERROR`. No extra inspection is needed in this fixture. In model mode, the model can request the real inspection/artifact tools if necessary; their payloads also count.
 
@@ -30,7 +56,7 @@ Browser evidence bytes and model tokens are independent measurements. There is *
 
 ### Codex-native token provenance and boundary
 
-The installed validation version is `codex-cli 0.159.2`. Its official JSON stream ends with `turn.completed.usage`: `input_tokens`, `output_tokens`, `cached_input_tokens`, and `reasoning_output_tokens`. This is the cumulative completed user-task total, including internal model/tool round trips, not the last individual inference. Each measured process accepts exactly one canonical task in a neutral temporary directory; it never resumes another thread. Setup, compilation, this development conversation, and report generation occur outside that process. We require exactly one thread start, one task start, and one completion, rejecting missing/duplicate/failed usage rather than double-counting it.
+The historical validation used `codex-cli 0.159.2`; this optimization sprint uses `codex-cli 0.160.0`. Its official JSON stream ends with `turn.completed.usage`: `input_tokens`, `output_tokens`, `cached_input_tokens`, and `reasoning_output_tokens`. This is the cumulative completed user-task total, including internal model/tool round trips, not the last individual inference. Each measured process accepts exactly one canonical task in a neutral temporary directory; it never resumes another thread. Setup, compilation, this development conversation, and report generation occur outside that process. We require exactly one thread start, one task start, and one completion, rejecting missing/duplicate/failed usage rather than double-counting it.
 
 Normalized records identify `tokenSource: "codex-json-events"`, `tokenAuthoritative: true`, and `tokenScope: "isolated-codex-task"`. `totalTokens` uses the reported total when present, validating it against input plus output; this CLI version supplies only the two components, so their sum is used. Cached tokens are a subset of input: `uncachedInputTokens = inputTokens - cachedInputTokens`. Reasoning tokens are a subset of output. Neither subset is added again to the total. Unknown optional fields remain null. Raw usage retains additional fields such as `cache_write_input_tokens`; these are not independently added to token totals or treated as cache hits.
 
@@ -43,7 +69,7 @@ Codex does not expose per-inference usage/counts in this exec stream. `modelCall
 - `returnedEvidenceBytes`: UTF-8 tool response text plus any explicitly requested image base64. It excludes tool arguments and schemas, which have their own overhead. The normal Ratatoskr response retains the real MCP text and structured output. Images use model image inputs without a second copy in text.
 - `modelEvidenceBytes`: returned evidence actually supplied to at least one model request, counted once. `cumulativeContextEvidenceBytes` counts it again each time it reappears in growing history. Both are unavailable in replay.
 - `rawEvidenceBytes`: serialized locally retained browser events/observations. Baseline captures network bodies and snapshots; production Ratatoskr captures event metadata. These are different capture scopes, so their ratio is not a compression claim. `artifactBytes` separately counts Ratatoskr's registered binaries. Fills disable traces under existing secret policy; failure screenshots remain local unless requested.
-- `toolDefinitionsBytes`: serialized function definitions actually offered to the model, including the shared diagnosis tool. Ratatoskr's larger schema is included in every model request. Time includes browser/MCP startup and cleanup, excluding fixture startup and the suite's browser-version probe.
+- `toolDefinitionsBytes`: serialized function definitions actually offered to the model, including the diagnosis tool for the API driver only. Codex definitions are measured from discovered input schemas/descriptions; production full definitions (also output schemas and annotations) are recorded separately. Time includes browser/MCP startup and cleanup, excluding fixture startup and the suite's browser-version probe.
 
 Aggregation uses medians across **all** runs, including failed runs, and reports success counts separately. It rejects mixed suites/configurations, duplicate/unpaired runs, malformed records, and incomplete token coverage. Savings are `(1 - ratatoskrMedian / baselineMedian) * 100`; a zero/missing baseline yields no percentage. A reduction in returned bytes alone does not establish a reduction in total model tokens.
 
