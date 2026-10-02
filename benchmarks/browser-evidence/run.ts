@@ -23,6 +23,7 @@ import {
 } from './metrics.js';
 import { bytes, type BrowserSession, type ToolReply } from './tools.js';
 import { runCodex } from './codex.js';
+import { measureCodexTools } from './codex-observations.js';
 import {
   providerAccounting,
   unavailableUsage,
@@ -156,6 +157,8 @@ for (let run = 1; run <= runs; run++) {
     let toolDefinitionsBytes = 0;
     let nativeAccounting: TokenAccounting | undefined;
     let codexThreadId: string | undefined;
+    let toolAccounting: ReturnType<typeof measureCodexTools> | undefined;
+    let schemaByTool: BenchmarkResult['schemaByTool'];
     try {
       if (driver === 'codex') {
         const native = await runCodex({
@@ -188,24 +191,22 @@ for (let run = 1; run <= runs; run++) {
         ) as typeof local & {
           returnedEvidenceBytes: number;
           toolDefinitionsBytes: number;
+          schemaByTool: BenchmarkResult['schemaByTool'];
         };
         local = {
           rawEvidenceBytes: measured.rawEvidenceBytes,
           artifactBytes: measured.artifactBytes,
           browserInteractions: measured.browserInteractions,
         };
-        returnedEvidenceBytes = measured.returnedEvidenceBytes;
+        toolAccounting = measureCodexTools(native.events);
+        returnedEvidenceBytes = toolAccounting.toolResultBytes;
         insertedEvidenceBytes = returnedEvidenceBytes;
         toolDefinitionsBytes = measured.toolDefinitionsBytes;
-        const transcript = await readFile(
-          join(directory, 'interactions.jsonl'),
-          'utf8',
-        ).catch(() => '');
-        interactions.push(
-          ...transcript
-            .split('\n')
-            .filter(Boolean)
-            .map((line) => JSON.parse(line) as Interaction),
+        schemaByTool = measured.schemaByTool;
+        interactions.push(...toolAccounting.interactions);
+        await writeFile(
+          join(directory, 'model-visible-tools.json'),
+          JSON.stringify(toolAccounting, null, 2),
         );
       } else {
         session =
@@ -382,6 +383,15 @@ for (let run = 1; run <= runs; run++) {
       cumulativeContextEvidenceBytes:
         driver === 'model' ? cumulativeContextEvidenceBytes : null,
       toolDefinitionsBytes,
+      ...(toolAccounting
+        ? {
+            invalidToolCalls: toolAccounting.invalidToolCalls,
+            toolArgumentBytes: toolAccounting.toolArgumentBytes,
+            toolResultBytes: toolAccounting.toolResultBytes,
+            maxToolErrorBytes: toolAccounting.maxToolErrorBytes,
+          }
+        : {}),
+      ...(schemaByTool ? { schemaByTool } : {}),
       durationMs: Date.now() - startedAt,
       ...(error ? { error } : {}),
     };

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { startDirectBrowser } from './direct-browser.js';
 import { startRatatoskrSession } from './ratatoskr-session.js';
 import { bytes, type ToolReply } from './tools.js';
+import { measureSchemas } from './codex-observations.js';
 
 /** Benchmark-only transport: expose the same replies already measured by the API/replay drivers. */
 const mode = z
@@ -28,6 +29,7 @@ const persistMetrics = async () =>
       toolInteractions: interactions,
       returnedEvidenceBytes,
       toolDefinitionsBytes: bytes(session.tools),
+      schemaByTool: measureSchemas(session.tools),
     }),
   );
 await persistMetrics();

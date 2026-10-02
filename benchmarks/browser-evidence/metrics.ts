@@ -59,6 +59,20 @@ export const ResultSchema = z.object({
   returnedEvidenceBytes: count,
   cumulativeContextEvidenceBytes: count.nullable(),
   toolDefinitionsBytes: count,
+  invalidToolCalls: count.optional(),
+  toolArgumentBytes: count.optional(),
+  toolResultBytes: count.optional(),
+  maxToolErrorBytes: count.optional(),
+  schemaByTool: z
+    .array(
+      z.object({
+        name: z.string(),
+        inputSchemaBytes: count,
+        descriptionBytes: count,
+        definitionBytes: count,
+      }),
+    )
+    .optional(),
   durationMs: count,
   error: z.string().optional(),
 });
