@@ -48,7 +48,8 @@ export async function runCodex(options: CodexOptions): Promise<{
   const envTable = Object.entries(config.env)
     .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
     .join(',');
-  const mcp = `{benchmark={command=${JSON.stringify(config.command)},args=${JSON.stringify(config.args)},env={${envTable}},required=true,startup_timeout_sec=20,tool_timeout_sec=60}}`;
+  // Unattended approval is scoped to this fixture-only server, not global tools.
+  const mcp = `{benchmark={command=${JSON.stringify(config.command)},args=${JSON.stringify(config.args)},env={${envTable}},required=true,default_tools_approval_mode="approve",startup_timeout_sec=20,tool_timeout_sec=60}}`;
   const instructions = `You are testing a local application. Profile page: ${options.url}. Desired name is available locally as valueRef BENCHMARK_NAME. Perform the task using only the benchmark MCP browser tools. Use condition-based waits (step timeout 500 ms for expected persisted text is sufficient). Inspect only evidence needed for diagnosis. Do not explore the repository or run setup commands. Finish with the structured diagnosis requested by the output schema, supported by actual browser evidence; a workflow completing does not by itself prove persistence.`;
   const args = [
     'exec',
