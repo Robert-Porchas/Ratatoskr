@@ -48,7 +48,7 @@ Inspection categories are `summary`, `steps`, `failed_requests`, `console_errors
 
 ## Canonical BrowserPlan capabilities (CLI)
 
-Plans contain an HTTP(S) `startUrl`, up to 100 typed steps, and optional `timeoutMs` (maximum 10 minutes). Each step can override the default 5-second timeout (maximum 2 minutes). Playwright auto-waits for actionability; assertions wait for their conditions. Supported actions:
+Plans contain an HTTP(S) `startUrl`, up to 300 typed steps, and a default 180-second workflow deadline. The CLI's optional `timeoutMs` can override that deadline (maximum 10 minutes). Each step can override the default 5-second timeout (maximum 2 minutes). Playwright auto-waits for actionability; assertions wait for their conditions. Supported actions:
 
 `navigate`, `click`, `fill`, `press`, `wait_for`, `assert_url`, `assert_text`, `assert_visible`, `select_option`, `check`, `uncheck`, `hover`, `upload_file`, `expect_download`, `extract_text`, and `extract_attribute`.
 
@@ -132,7 +132,7 @@ The MCP input deliberately differs from CLI JSON. Locators are flat; exactly one
 
 `has` checks target text against `contains`; `url` checks the URL against `contains`. `select` accepts one of `option` (value), `optionLabel`, or `optionIndex`. `press` needs `key`; `upload` needs an allowed `fileName`. `download` expects a download from clicking its target. Extraction uses `save` (and `attribute` for `extractAttribute`), implicitly requesting an output: up to five unique identifiers, 200 characters each. Completed values return as `values` on success **and failure**, without a separate `outputs` field. Default success remains just `success` and `runId`.
 
-MCP defaults to 5-second actions and a 120-second workflow deadline, without model-facing timeout/evidence knobs. Invalid calls receive a short repair rather than raw schema errors; CLI remains independently strict and configurable.
+MCP supports up to 300 steps with 5-second actions and a 180-second workflow deadline, without model-facing timeout/evidence knobs. Invalid calls receive a short repair rather than raw schema errors; CLI remains independently strict and configurable.
 
 ## Storage, safety, and limits
 

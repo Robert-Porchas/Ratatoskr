@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { executePlan } from '../src/executor.js';
 import type { BrowserAdapter } from '../src/browser.js';
 import type { EvidenceInput } from '../src/evidence.js';
@@ -138,6 +138,56 @@ function stores(): {
 }
 
 describe('workflow executor', () => {
+  it('defaults to a 180-second deadline while retaining explicit plan timeouts', async () => {
+    let clock = 0;
+    const timeouts: Array<number | undefined> = [];
+    class BudgetBrowser extends FakeBrowser {
+      override async fill(): Promise<void> {
+        clock += 5000;
+      }
+      override async navigate(url: string, timeoutMs?: number): Promise<void> {
+        timeouts.push(timeoutMs);
+        await super.navigate(url);
+      }
+    }
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      for (const timeoutMs of [undefined, 120_000]) {
+        clock = 0;
+        timeouts.length = 0;
+        const storage = stores();
+        const plan: BrowserPlan = {
+          startUrl: 'http://local',
+          ...(timeoutMs === undefined ? {} : { timeoutMs }),
+          steps: [
+            ...Array.from({ length: 26 }, () => ({
+              action: 'fill' as const,
+              target: { kind: 'label' as const, label: 'Name' },
+              valueRef: 'TEST_NAME',
+            })),
+            {
+              action: 'navigate',
+              url: 'http://local/done',
+              timeoutMs: 120_000,
+            },
+          ],
+        };
+        const result = await executePlan(plan, {
+          browser: new BudgetBrowser(),
+          runs: storage.runs,
+          artifacts: storage.artifacts,
+          values: new EnvironmentValueResolver({ TEST_NAME: 'public name' }),
+        });
+        expect(result.success).toBe(timeoutMs === undefined);
+        expect(timeouts).toEqual(
+          timeoutMs === undefined ? [5000, 50_000] : [5000],
+        );
+      }
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it('distinguishes absent click targets from present but unactionable controls', async () => {
     for (const exists of [false, true]) {
       class TimeoutBrowser extends FakeBrowser {

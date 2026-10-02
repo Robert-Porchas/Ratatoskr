@@ -3,6 +3,23 @@ import { BrowserPlanSchema, BrowserTargetSchema } from '../src/protocol.js';
 import { EnvironmentValueResolver } from '../src/values.js';
 
 describe('browser plan', () => {
+  it('accepts 300 steps and rejects plans beyond that boundary', () => {
+    const plan = {
+      startUrl: 'http://localhost:3000',
+      steps: Array.from({ length: 300 }, () => ({
+        action: 'assert_url',
+        contains: '/',
+      })),
+    };
+    expect(BrowserPlanSchema.safeParse(plan).success).toBe(true);
+    expect(
+      BrowserPlanSchema.safeParse({
+        ...plan,
+        steps: [...plan.steps, plan.steps[0]],
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts a typed workflow with references', () => {
     expect(
       BrowserPlanSchema.safeParse({

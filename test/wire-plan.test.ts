@@ -7,6 +7,21 @@ import {
 } from '../src/mcp/wire-plan.js';
 import { BrowserPlanSchema } from '../src/protocol.js';
 
+it('advertises and enforces the 300-step MCP limit', () => {
+  const input = {
+    url: 'http://localhost',
+    steps: Array.from({ length: 300 }, () => ({ do: 'url', contains: '/' })),
+  };
+  expect(wirePlanJsonSchema.properties.steps.maxItems).toBe(300);
+  expect(normalizeWirePlan(input).steps).toHaveLength(300);
+  expect(() =>
+    normalizeWirePlan({
+      ...input,
+      steps: [...input.steps, input.steps[0]],
+    }),
+  ).toThrow('Provide 1–300 steps');
+});
+
 it('normalizes flat locators and automatically requests bounded saved outputs', () => {
   const plan = normalizeWirePlan({
     url: 'http://localhost',

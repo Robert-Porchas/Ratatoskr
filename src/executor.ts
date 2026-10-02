@@ -9,6 +9,7 @@ import {
   StepTimeoutError,
 } from './errors.js';
 import { EvidenceCollector, buildMetrics, relevantErrors } from './evidence.js';
+import { DEFAULT_WORKFLOW_TIMEOUT_MS } from './protocol.js';
 import type {
   BrowserPlan,
   BrowserStep,
@@ -212,7 +213,7 @@ export async function executePlan(
       step.action === 'upload_file' ||
       (step.action === 'click' && Boolean(step.dialog?.valueRef)),
   );
-  const deadline = startedAt + (plan.timeoutMs ?? 120_000);
+  const deadline = startedAt + (plan.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS);
   const captureFailure = async (): Promise<void> => {
     try {
       artifacts.push(

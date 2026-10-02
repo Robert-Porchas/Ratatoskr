@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const MAX_WORKFLOW_STEPS = 300;
+export const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
+
 const nonEmpty = z.string().min(1);
 const valueName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 const httpUrl = z
@@ -145,7 +148,7 @@ export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 export const BrowserPlanSchema = z
   .strictObject({
     startUrl: httpUrl,
-    steps: z.array(BrowserStepSchema).min(1).max(100),
+    steps: z.array(BrowserStepSchema).min(1).max(MAX_WORKFLOW_STEPS),
     outputs: z.array(valueName).max(5).optional(),
     timeoutMs: z.number().int().min(1000).max(600_000).optional(),
   })

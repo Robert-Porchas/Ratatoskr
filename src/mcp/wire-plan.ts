@@ -5,6 +5,7 @@ import type {
 } from '@modelcontextprotocol/server';
 import {
   BrowserPlanSchema,
+  MAX_WORKFLOW_STEPS,
   type BrowserPlan,
   type BrowserTarget,
 } from '../protocol.js';
@@ -37,7 +38,7 @@ export const wirePlanJsonSchema = {
     steps: {
       type: 'array',
       minItems: 1,
-      maxItems: 100,
+      maxItems: MAX_WORKFLOW_STEPS,
       items: {
         type: 'object',
         required: ['do'],
@@ -189,9 +190,9 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
   if (
     !Array.isArray(plan.steps) ||
     plan.steps.length < 1 ||
-    plan.steps.length > 100
+    plan.steps.length > MAX_WORKFLOW_STEPS
   )
-    throw new InvalidWirePlan('steps', 'Provide 1–100 steps');
+    throw new InvalidWirePlan('steps', `Provide 1–${MAX_WORKFLOW_STEPS} steps`);
   const outputs: string[] = [];
   const steps = plan.steps.map((value, index) => {
     const path = `steps[${index}]`;

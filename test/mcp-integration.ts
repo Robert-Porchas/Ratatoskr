@@ -48,10 +48,22 @@ try {
     assert.equal(tool.inputSchema.type, 'object');
     assert(tool.inputSchema.properties);
   }
+  const workflowTool = discovered.tools.find(
+    (tool) => tool.name === 'run_browser_workflow',
+  );
+  const stepsSchema = workflowTool?.inputSchema.properties?.steps;
+  assert(
+    stepsSchema && typeof stepsSchema === 'object' && 'maxItems' in stepsSchema,
+  );
+  assert.equal(stepsSchema.maxItems, 300);
   for (const args of [
     {},
     { url: 'file:///etc/passwd', steps: [{ do: 'visible', text: 'hello' }] },
     { url: base, steps: [{ do: 'click' }] },
+    {
+      url: base,
+      steps: Array.from({ length: 301 }, () => ({ do: 'url', contains: '/' })),
+    },
     { url: base, steps: [{ do: 'click', label: 'x', text: 'x' }] },
     {
       url: base,
@@ -102,6 +114,25 @@ try {
   };
   assert.equal(success.success, true);
   assert.deepEqual(Object.keys(success).sort(), ['runId', 'success']);
+  const boundaryCall = await client.callTool({
+    name: 'run_browser_workflow',
+    arguments: {
+      url: `${base}/login`,
+      steps: Array.from({ length: 300 }, () => ({
+        do: 'url',
+        contains: '/login',
+      })),
+    },
+  });
+  assert(!boundaryCall.isError);
+  const boundary = boundaryCall.structuredContent as {
+    success: boolean;
+    runId: string;
+  };
+  assert.equal(boundary.success, true);
+  assert.deepEqual(Object.keys(boundary).sort(), ['runId', 'success']);
+  const boundaryRun = await new FilesystemRunStore(root).load(boundary.runId);
+  assert.equal(boundaryRun.steps.length, 300);
   const savedFailure = await client.callTool({
     name: 'run_browser_workflow',
     arguments: {
