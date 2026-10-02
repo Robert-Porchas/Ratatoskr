@@ -253,7 +253,7 @@ export function observedFailure(observations: string[]) {
     try {
       visit(JSON.parse(value));
     } catch {
-      /* tool error */
+      visit(value);
     }
   });
   const joined = observations.join('\n');

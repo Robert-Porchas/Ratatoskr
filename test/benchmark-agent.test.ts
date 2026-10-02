@@ -92,6 +92,16 @@ it('does not infer diagnosis from a generic UI failure alone', () => {
   expect(evidence.code).toBeUndefined();
 });
 
+it('reads native Playwright MCP text results rather than requiring JSON wrappers', () => {
+  const observed = observedFailure([
+    '### Result\n2. [POST] http://127.0.0.1:3000/api/profile => [500] Internal Server Error',
+    '### Result\n[ERROR] Failed to save profile: INTERNAL_ERROR',
+  ]);
+  expect(observed.http?.status).toBe(500);
+  expect(observed.code).toBe('INTERNAL_ERROR');
+  expect(observed.persistenceFailure).toBe(true);
+});
+
 it('recognizes rejected persistence regardless of the assertion chosen by the agent', () => {
   const observations = [
     JSON.stringify({

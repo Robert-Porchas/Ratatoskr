@@ -208,9 +208,14 @@ async function task(
             : Boolean(
                 report?.persisted === false &&
                 report.errorCode === 'LOCATOR_NOT_FOUND' &&
-                /not found|not visible|Timeout|Target|locator/i.test(
+                (/not found|not visible|Timeout|Target|locator/i.test(
                   tools.interactions.map((item) => item.reply.text).join('\n'),
-                ),
+                ) ||
+                  tools.interactions.some(
+                    (item) =>
+                      /button .Save./.test(item.reply.text) &&
+                      !/button .Publish./.test(item.reply.text),
+                  )),
               ),
     };
     const row: BenchmarkResult = {

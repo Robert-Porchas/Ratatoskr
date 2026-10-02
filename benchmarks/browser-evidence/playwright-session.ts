@@ -34,7 +34,6 @@ export async function startPlaywrightSession(
       '--no-webmcp',
       '--output-dir',
       directory,
-      '--save-session',
     ],
     cwd: directory,
     stderr: 'pipe',
