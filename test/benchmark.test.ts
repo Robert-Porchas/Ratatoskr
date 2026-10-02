@@ -146,4 +146,30 @@ describe('browser benchmark', () => {
       '| Median total tokens | 200 | N/A | — |',
     );
   });
+  it('uses identical token accounting for both modes and keeps byte savings independent', () => {
+    const baseline = {
+      ...result('baseline', 1, 100),
+      driver: 'codex' as const,
+      tokenSource: 'codex-json-events' as const,
+      tokenAuthoritative: true,
+      modelCalls: null,
+      modelEvidenceBytes: 10000,
+    };
+    const ratatoskr = {
+      ...baseline,
+      mode: 'ratatoskr' as const,
+      inputTokens: 50,
+      totalTokens: 50,
+      modelEvidenceBytes: 1000,
+    };
+    expect(summarize([baseline, ratatoskr])).toContain(
+      '| Median total tokens | 100 | 50 | 50% reduction |',
+    );
+    expect(summarize([baseline, ratatoskr])).toContain(
+      '| Median evidence inserted into model context (bytes) | 10,000 | 1,000 | 90% reduction |',
+    );
+    expect(() =>
+      summarize([baseline, { ...ratatoskr, tokenSource: 'openai-api' }]),
+    ).toThrow('Mixed token accounting sources');
+  });
 });

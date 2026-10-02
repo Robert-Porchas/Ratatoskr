@@ -1,32 +1,11 @@
 import { z } from 'zod';
+import { providerAccounting, type Usage } from './usage.js';
+export { UsageSchema, type Usage } from './usage.js';
 
 const count = z.number().int().nonnegative();
-export const UsageSchema = z
-  .object({
-    input_tokens: count,
-    output_tokens: count,
-    total_tokens: count,
-    input_tokens_details: z.object({ cached_tokens: count }).optional(),
-  })
-  .refine(
-    (value) => value.total_tokens === value.input_tokens + value.output_tokens,
-    'Inconsistent provider token totals',
-  );
-export type Usage = z.infer<typeof UsageSchema>;
-
 export function cumulativeUsage(turns: Array<Usage | null>) {
-  if (turns.length === 0 || turns.some((turn) => turn === null)) {
-    return { inputTokens: null, outputTokens: null, totalTokens: null };
-  }
-  const inputTokens = turns.reduce(
-    (sum, turn) => sum + (turn?.input_tokens ?? 0),
-    0,
-  );
-  const outputTokens = turns.reduce(
-    (sum, turn) => sum + (turn?.output_tokens ?? 0),
-    0,
-  );
-  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+  const { inputTokens, outputTokens, totalTokens } = providerAccounting(turns);
+  return { inputTokens, outputTokens, totalTokens };
 }
 
 export const ReportSchema = z.strictObject({
@@ -43,7 +22,7 @@ export const ResultSchema = z.object({
   benchmarkVersion: z.literal('1'),
   suiteId: z.string(),
   mode: z.enum(['baseline', 'ratatoskr']),
-  driver: z.enum(['replay', 'model']),
+  driver: z.enum(['replay', 'model', 'codex']),
   run: count.min(1),
   timestamp: z.string(),
   gitCommit: z.string(),
@@ -53,13 +32,27 @@ export const ResultSchema = z.object({
   success: z.boolean(),
   diagnosisCorrect: z.boolean(),
   criteria: z.record(z.string(), z.boolean()),
-  modelCalls: count,
+  modelCalls: count.nullable(),
   toolInteractions: count,
   browserInteractions: count,
   inputTokens: count.nullable(),
   outputTokens: count.nullable(),
   totalTokens: count.nullable(),
-  tokenSource: z.enum(['provider', 'unavailable']),
+  tokenSource: z.enum([
+    'provider',
+    'openai-api',
+    'codex-json-events',
+    'unavailable',
+  ]),
+  tokenAuthoritative: z.boolean().optional(),
+  tokenScope: z
+    .enum(['model-invocations', 'isolated-codex-task', 'unavailable'])
+    .optional(),
+  cachedInputTokens: count.nullable().optional(),
+  uncachedInputTokens: count.nullable().optional(),
+  reasoningTokens: count.nullable().optional(),
+  codexVersion: z.string().optional(),
+  codexThreadId: z.string().optional(),
   rawEvidenceBytes: count,
   artifactBytes: count,
   modelEvidenceBytes: count.nullable(),
@@ -103,6 +96,16 @@ export function summarize(results: BenchmarkResult[]): string {
     throw new Error(
       'Mixed configurations/suites; summarize one experiment at a time',
     );
+  const sources = new Set(
+    results
+      .filter((row) => row.tokenSource !== 'unavailable')
+      .map((row) =>
+        row.tokenSource === 'provider' ? 'openai-api' : row.tokenSource,
+      ),
+  );
+  if (sources.size > 1) throw new Error('Mixed token accounting sources');
+  if (new Set(results.map((row) => row.codexVersion ?? '')).size !== 1)
+    throw new Error('Mixed Codex versions');
   if (
     new Set(results.map((row) => `${row.mode}:${row.run}`)).size !==
     results.length
@@ -138,6 +141,13 @@ export function summarize(results: BenchmarkResult[]): string {
     ['Median input tokens', 'inputTokens', true],
     ['Median output tokens', 'outputTokens', true],
     ['Median total tokens', 'totalTokens', true],
+    [
+      'Median cached input tokens (included in input)',
+      'cachedInputTokens',
+      false,
+    ],
+    ['Median uncached input tokens', 'uncachedInputTokens', false],
+    ['Median reasoning tokens (included in output)', 'reasoningTokens', false],
     ['Median model calls', 'modelCalls', false],
     ['Median tool interactions', 'toolInteractions', true],
     [
@@ -173,7 +183,13 @@ export function summarize(results: BenchmarkResult[]): string {
       `| ${label} | ${format(a)} | ${format(b)} | ${percent === null ? '—' : `${format(percent)}% reduction`} |`,
     );
   }
-  return `<!-- Generated from recorded runs; do not edit measurements. -->\n\nConfiguration: ${results[0]?.driver}; model: ${results[0]?.model ?? 'none'}; browser: ${results[0]?.browserVersion}; commit: ${results[0]?.gitCommit}.\n\n${results[0]?.driver === 'replay' ? 'Offline scripted replay: no model was invoked. Token/context metrics are unavailable; returned evidence measures tool payloads only.' : 'Token counts sum provider usage across all turns, including repeated history and tool definitions. Missing usage makes aggregate token metrics unavailable.'}\n\n| Metric | Direct browser | Ratatoskr | Change |\n| --- | ---: | ---: | ---: |\n${rows.join('\n')}\n`;
+  const accounting =
+    results[0]?.driver === 'codex'
+      ? 'Token accounting: Codex-reported turn.completed.usage from one fresh process/thread per task. This is the completed user-turn total across internal model calls; model-call counts and per-invocation usage are not exposed by this CLI stream. Total tokens = reported input + reported output; cached input and reasoning output are subsets, not additions.'
+      : results[0]?.driver === 'replay'
+        ? 'Token accounting: unavailable (offline replay). No model was invoked. Token/context metrics are unavailable; returned evidence measures tool payloads only.'
+        : 'Token accounting: OpenAI Responses API usage, summed across every invocation. Repeated history and tool definitions are included. Missing usage makes aggregate token metrics unavailable.';
+  return `<!-- Generated from recorded runs; do not edit measurements. -->\n\nConfiguration: ${results[0]?.driver}; model: ${results[0]?.model ?? 'none'}; browser: ${results[0]?.browserVersion}; commit: ${results[0]?.gitCommit}; Codex: ${results[0]?.codexVersion ?? 'not used'}; runs: ${baseline.length} per mode; started: ${results.map((row) => row.timestamp).sort()[0]}.\n\n${accounting}\n\n| Metric | Direct browser | Ratatoskr | Change |\n| --- | ---: | ---: | ---: |\n${rows.join('\n')}\n`;
 }
 
 export function parseResults(jsonl: string): BenchmarkResult[] {
@@ -184,13 +200,44 @@ export function parseResults(jsonl: string): BenchmarkResult[] {
       try {
         const result = ResultSchema.parse(JSON.parse(line));
         if (
-          result.tokenSource === 'provider' &&
+          ['provider', 'openai-api', 'codex-json-events'].includes(
+            result.tokenSource,
+          ) &&
+          result.tokenAuthoritative !== false &&
           (result.totalTokens === null ||
             result.inputTokens === null ||
             result.outputTokens === null ||
             result.totalTokens !== result.inputTokens + result.outputTokens)
         )
           throw new Error('Invalid provider totals');
+        if (
+          result.tokenAuthoritative === false &&
+          [result.inputTokens, result.outputTokens, result.totalTokens].some(
+            (value) => value !== null,
+          )
+        )
+          throw new Error('Unavailable authoritative metrics must be null');
+        if (
+          result.cachedInputTokens !== undefined &&
+          result.cachedInputTokens !== null &&
+          (result.inputTokens === null ||
+            result.cachedInputTokens > result.inputTokens)
+        )
+          throw new Error('Invalid cached tokens');
+        if (
+          result.uncachedInputTokens !== undefined &&
+          result.uncachedInputTokens !== null &&
+          result.uncachedInputTokens !==
+            (result.inputTokens ?? 0) - (result.cachedInputTokens ?? 0)
+        )
+          throw new Error('Invalid uncached tokens');
+        if (
+          result.reasoningTokens !== undefined &&
+          result.reasoningTokens !== null &&
+          (result.outputTokens === null ||
+            result.reasoningTokens > result.outputTokens)
+        )
+          throw new Error('Invalid reasoning tokens');
         if (
           result.tokenSource === 'unavailable' &&
           [result.inputTokens, result.outputTokens, result.totalTokens].some(

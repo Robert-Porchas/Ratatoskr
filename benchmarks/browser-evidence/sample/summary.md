@@ -1,8 +1,8 @@
 <!-- Generated from recorded runs; do not edit measurements. -->
 
-Configuration: replay; model: none; browser: 153.0.8010.12; commit: b471e0f7bcab802fe73dfa22c1981216896080d1.
+Configuration: replay; model: none; browser: 153.0.8010.12; commit: b471e0f7bcab802fe73dfa22c1981216896080d1; Codex: not used; runs: 10 per mode; started: 2026-10-01T20:55:47.135Z.
 
-Offline scripted replay: no model was invoked. Token/context metrics are unavailable; returned evidence measures tool payloads only.
+Token accounting: unavailable (offline replay). No model was invoked. Token/context metrics are unavailable; returned evidence measures tool payloads only.
 
 | Metric | Direct browser | Ratatoskr | Change |
 | --- | ---: | ---: | ---: |
@@ -11,6 +11,9 @@ Offline scripted replay: no model was invoked. Token/context metrics are unavail
 | Median input tokens | N/A | N/A | — |
 | Median output tokens | N/A | N/A | — |
 | Median total tokens | N/A | N/A | — |
+| Median cached input tokens (included in input) | N/A | N/A | — |
+| Median uncached input tokens | N/A | N/A | — |
+| Median reasoning tokens (included in output) | N/A | N/A | — |
 | Median model calls | 0 | 0 | — |
 | Median tool interactions | 6 | 1 | 83.3% reduction |
 | Median browser operations (including observations/assertions) | 10 | 4 | 60% reduction |
