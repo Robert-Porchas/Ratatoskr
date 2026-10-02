@@ -28,7 +28,7 @@ const inspectionInput = z.strictObject({
 });
 const inspectionOutput = z.object({
   runId,
-  sections: z.partialRecord(InspectionCategorySchema, z.unknown()),
+  sections: z.record(z.string(), z.unknown()),
 });
 const artifactOutput = z.object({
   id: artifactId,
@@ -73,7 +73,7 @@ export function createMcpServer(): McpServer {
     'run_browser_workflow',
     {
       description:
-        'Batch a known app workflow in one call; use source labels/routes. Each step: do + one locator (label/text/testId/css/role+name). fill uses local valueRef; has uses contains; extraction uses save. Returns compact failure evidence and saved values. No JS/shell.',
+        'Batch known app steps in one call. Locator: label/text/testId/css/role+name. fill: valueRef; has: text contains; url: URL contains; extractText/Attribute: save (+attribute). Saved values return on failure too. No JS/shell. Inspect only if evidence is insufficient.',
       inputSchema: applicationValidatedSchema(wirePlanJsonSchema),
       outputSchema: runOutput,
       annotations: { readOnlyHint: false, destructiveHint: true },

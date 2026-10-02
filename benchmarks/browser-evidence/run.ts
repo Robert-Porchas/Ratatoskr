@@ -43,6 +43,7 @@ const runs = z.coerce
   .max(100)
   .parse(process.env.BENCHMARK_RUNS ?? '10');
 const model = driver !== 'replay' ? process.env.BENCHMARK_MODEL : null;
+const sourceGuided = process.env.BENCHMARK_SOURCE_GUIDED === '1';
 if (driver === 'codex' && !model)
   throw new Error('Set BENCHMARK_MODEL explicitly for Codex mode');
 const codexVersion =
@@ -80,6 +81,7 @@ const configuration = {
   viewport: { width: 1280, height: 720 },
   prompt,
   benchmarkVersion: '1',
+  sourceGuided,
   dirty,
   nodeVersion: process.version,
   platform: `${process.platform}/${process.arch}`,
@@ -169,6 +171,12 @@ for (let run = 1; run <= runs; run++) {
           model: model!,
           signal: controller.signal,
           reasoningEffort: codexReasoningEffort,
+          ...(sourceGuided
+            ? {
+                sourceContext:
+                  'Shared source/test facts: /profile has label Name, label Email, and button Save. Persisted name is visible text at testId persisted-name (not the edited input). Verify that text after saving. Known routes and locators need no preliminary browser discovery. Batch the known workflow when the tool supports it.',
+              }
+            : {}),
         });
         report = native.report;
         error = native.error;
