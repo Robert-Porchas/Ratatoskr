@@ -6,6 +6,7 @@ export interface ToolDefinition {
 export interface ToolReply {
   text: string;
   images?: Array<{ data: string; mimeType: string }>;
+  mcpResult?: Awaited<ReturnType<Client['callTool']>>;
 }
 export interface BrowserSession {
   tools: ToolDefinition[];
@@ -19,3 +20,4 @@ export interface BrowserSession {
 }
 export const bytes = (value: unknown): number =>
   Buffer.byteLength(JSON.stringify(value));
+import type { Client } from '@modelcontextprotocol/client';

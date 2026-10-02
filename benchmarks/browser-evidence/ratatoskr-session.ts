@@ -73,12 +73,13 @@ export async function startRatatoskrSession(
           ? [{ data: block.data, mimeType: block.mimeType }]
           : [],
       );
-      // Keep the real normal MCP response; remove image bytes only from text because they use an image input block.
+      // Native Codex receives the original MCP result. The API driver gets one canonical value.
       return {
-        text: JSON.stringify({
-          ...result,
-          content: result.content.filter((block) => block.type !== 'image'),
-        }),
+        text: JSON.stringify(
+          result.structuredContent ??
+            result.content.filter((block) => block.type !== 'image'),
+        ),
+        mcpResult: result,
         ...(images.length ? { images } : {}),
       };
     },

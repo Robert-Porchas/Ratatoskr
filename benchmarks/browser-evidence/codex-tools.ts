@@ -73,16 +73,18 @@ for (const tool of session.tools) {
         }) + '\n',
       );
       await persistMetrics();
-      return {
-        content: [
-          { type: 'text' as const, text: reply.text },
-          ...(reply.images ?? []).map((image) => ({
-            type: 'image' as const,
-            data: image.data,
-            mimeType: image.mimeType,
-          })),
-        ],
-      };
+      return (
+        reply.mcpResult ?? {
+          content: [
+            { type: 'text' as const, text: reply.text },
+            ...(reply.images ?? []).map((image) => ({
+              type: 'image' as const,
+              data: image.data,
+              mimeType: image.mimeType,
+            })),
+          ],
+        }
+      );
     },
   );
 }

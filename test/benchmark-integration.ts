@@ -110,7 +110,11 @@ try {
         const result = await client.callTool({ name, arguments: args });
         const block = result.content.find((block) => block.type === 'text');
         assert(block?.type === 'text');
-        return { text: block.text };
+        return {
+          text: JSON.stringify(
+            result.structuredContent ?? JSON.parse(block.text),
+          ),
+        };
       });
       assert.equal(report.status, 500);
       assert.equal(report.errorCode, 'INTERNAL_ERROR');
