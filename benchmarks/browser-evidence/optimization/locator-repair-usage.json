@@ -1,0 +1,179 @@
+[
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febb-2c49-77d1-9138-d4d52b56d092",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 60865,
+          "cached_input_tokens": 50432,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 402,
+          "reasoning_output_tokens": 25
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Exact button selector button:text-is(\"Publish\") matched no elements. No button was substituted; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febb-2c32-7730-9d8d-debcea420b1c",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31497,
+          "cached_input_tokens": 28032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 399,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Click failed: exact button 'Publish' was not found.",
+        "No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febb-953f-7392-9e38-bc9fdc28386c",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 55815,
+          "cached_input_tokens": 47488,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 415,
+          "reasoning_output_tokens": 16
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Exact button 'Publish' did not match any elements. No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febb-8e6b-7971-ba7c-b7931ddb8b36",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31567,
+          "cached_input_tokens": 25344,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 435,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Browser failed at the click step: Click target not found: button Publish.",
+        "No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febc-0372-7232-afe5-918b1bd44b95",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 61955,
+          "cached_input_tokens": 55680,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 398,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Exact Publish button locator matched no elements. No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0febc-6d0d-7f23-a1c5-09f96c9d61ad",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31495,
+          "cached_input_tokens": 28032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 398,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Browser failed at the click step: Click target not found: button Publish.",
+        "No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  }
+]

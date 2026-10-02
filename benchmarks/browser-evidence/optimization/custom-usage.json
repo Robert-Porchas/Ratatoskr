@@ -1,0 +1,370 @@
+[
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb1-b6f9-7dd3-a4e5-b439653b6a02",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31558,
+          "cached_input_tokens": 25344,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 418,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "The persisted-name assertion failed: expected Ratatoskr Test, actual Jane Developer.",
+        "The workflow stopped before reload and verification of the remaining fields."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb1-b70b-7b13-8710-5325c2c81626",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 78693,
+          "cached_input_tokens": 67840,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 741,
+          "reasoning_output_tokens": 38
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save submitted all four requested values; the server returned HTTP 500 with message \"Unable to persist profile\".",
+        "Page displayed \"Unable to save profile.\" Console reported \"Failed to save profile: INTERNAL_ERROR\".",
+        "Before reload, persisted Name remained \"Jane Developer\".",
+        "After reload, all persisted-value assertions failed: Name=\"Jane Developer\", Email=\"jane@example.test\", Company=\"Old Company\", Job title=\"Developer\"."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb2-4980-78c2-a9d0-8b48e8f79e41",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31509,
+          "cached_input_tokens": 28032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 408,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Before reload, persisted-name remained 'Jane Developer', failing the assertion for 'Ratatoskr Test'.",
+        "The workflow stopped at that failed assertion; reload verification of all fields was not reached."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb2-240b-7340-bc8d-17542b8594b2",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 78550,
+          "cached_input_tokens": 67840,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 693,
+          "reasoning_output_tokens": 15
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save submitted all four requested values; the server returned {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+        "The page displayed “Unable to save profile.” Console: “Failed to save profile: INTERNAL_ERROR”.",
+        "Persisted Name assertion failed before reload: actual “Jane Developer”.",
+        "After reload, all persisted-value assertions failed: Name “Jane Developer”, Email “jane@example.test”, Company “Old Company”, Job title “Developer”."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb2-af0b-76b0-8837-f626a00ec4ce",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 78609,
+          "cached_input_tokens": 64640,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 746,
+          "reasoning_output_tokens": 70
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save submitted all four requested values; response: {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+        "Page displayed \"Unable to save profile.\" Console reported \"Failed to save profile: INTERNAL_ERROR\".",
+        "Before reload, persisted Name assertion failed: actual \"Jane Developer\".",
+        "After reload, all persisted assertions failed: Name \"Jane Developer\", Email \"jane@example.test\", Company \"Old Company\", Job title \"Developer\"."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb2-aeff-7d10-beb2-94d22bb84619",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 69030,
+          "cached_input_tokens": 61824,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 734,
+          "reasoning_output_tokens": 24
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500 with {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+        "Page displayed 'Unable to save profile.' Console reported 'Failed to save profile: INTERNAL_ERROR'.",
+        "Before reload, persisted Name remained 'Jane Developer'.",
+        "After reload, assertions failed for Name, Email, Company, Job title, City, Region, Postal code, and Website; all retained their original values. Country matched 'USA', which was already its original value."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "medium-http_failure",
+    "threadId": "01a0feb3-4cfc-76a2-870e-326ab91c8917",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31536,
+          "cached_input_tokens": 18304,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 416,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save request returned HTTP 500; console reported 'Failed to save profile: INTERNAL_ERROR'.",
+        "The persisted-name assertion failed: expected 'Ratatoskr Test', actual 'Jane Developer'.",
+        "Workflow stopped before reload and verification of the remaining fields."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb3-568a-7eb2-98f5-ceed9e5d6eb7",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 33712,
+          "cached_input_tokens": 29056,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 534,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500 for POST /api/profile.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR.",
+        "After saving, persisted-name remained 'Jane Developer'; expected 'Ratatoskr Test'.",
+        "The persisted-name assertion failed before reload, so verification of all fields after reload was not reached."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb3-c6ba-7911-a440-c7ccd53bdc2f",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32415,
+          "cached_input_tokens": 28288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 629,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "All nine fields were filled and Save was clicked.",
+        "The persisted-name assertion failed before reload: expected 'Ratatoskr Test', actual 'Jane Developer'.",
+        "POST /api/profile returned HTTP 500.",
+        "Browser console: Failed to save profile: INTERNAL_ERROR."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb3-c6cf-7ba2-bb6f-e8043694ca05",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 82782,
+          "cached_input_tokens": 75264,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 800,
+          "reasoning_output_tokens": 78
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save response: {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+        "Page displayed “Unable to save profile.” Console reported “Failed to save profile: INTERNAL_ERROR”.",
+        "Persisted Name assertion failed before reload: expected “Ratatoskr Test”, actual “Jane Developer”.",
+        "After reload, eight requested values failed persisted-text assertions. Country matched “USA”, which was already its original value."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb4-6655-7a30-bd95-765c51af5ca3",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32278,
+          "cached_input_tokens": 28288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 530,
+          "reasoning_output_tokens": 24
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Filled all nine requested fields and clicked Save.",
+        "Save request returned HTTP 500; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Before reload, the persisted-name assertion failed: expected Ratatoskr Test, actual Jane Developer. The workflow stopped before reload and verification of the remaining fields."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "large-http_failure",
+    "threadId": "01a0feb4-5c22-7b33-bf3f-1ebae823e5d8",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 71882,
+          "cached_input_tokens": 51456,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 782,
+          "reasoning_output_tokens": 60
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save submitted all nine requested values; server returned {\"error\":\"INTERNAL_ERROR\",\"message\":\"Unable to persist profile\"}.",
+        "Page displayed “Unable to save profile”; console reported “Failed to save profile: INTERNAL_ERROR”.",
+        "Before reload, persisted Name remained “Jane Developer”.",
+        "After reload, assertions failed for Name, Email, Company, Job title, City, Region, Postal code, and Website: all retained their original values. Country passed as “USA”, which was already its original value."
+      ]
+    }
+  }
+]

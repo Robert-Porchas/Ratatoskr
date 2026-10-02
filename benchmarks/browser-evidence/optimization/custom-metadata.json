@@ -1,0 +1,94 @@
+{
+  "audit": "Native token totals and interaction bytes checked against original events. Invalid arguments are separate from runtime tool errors. All tasks were within the 24-call budget; no token or byte totals were changed.",
+  "configuration": {
+    "runs": 3,
+    "concurrency": 2,
+    "model": "gpt-6.1-sol",
+    "reasoning": "medium",
+    "scenarios": [
+      {
+        "size": "medium",
+        "outcome": "http_failure"
+      },
+      {
+        "size": "large",
+        "outcome": "http_failure"
+      }
+    ],
+    "baselines": ["direct"],
+    "commit": "986faeeb19d1a13c3b6aa351470826c236e2ad0c",
+    "codexVersion": "codex-cli 0.160.0",
+    "browserVersion": "153.0.8010.12",
+    "timeoutMs": 180000,
+    "maxToolCalls": 24,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "dirty": false,
+    "lockfileHash": "3cc242aec5fbdf353872917af3e794e52c8ef0f758580c7264ac406a1d6f0e58",
+    "nodeVersion": "v24.19.0",
+    "tokenAccounting": "codex-json-events",
+    "standardBaselineVersion": "@playwright/mcp@0.0.83"
+  },
+  "schemas": {
+    "baseline": [
+      {
+        "name": "browser_navigate",
+        "inputSchemaBytes": 176,
+        "descriptionBytes": 85,
+        "definitionBytes": 320
+      },
+      {
+        "name": "browser_inspect_page",
+        "inputSchemaBytes": 119,
+        "descriptionBytes": 61,
+        "definitionBytes": 243
+      },
+      {
+        "name": "browser_fill",
+        "inputSchemaBytes": 1149,
+        "descriptionBytes": 68,
+        "definitionBytes": 1272
+      },
+      {
+        "name": "browser_click",
+        "inputSchemaBytes": 1115,
+        "descriptionBytes": 69,
+        "definitionBytes": 1240
+      },
+      {
+        "name": "browser_network",
+        "inputSchemaBytes": 119,
+        "descriptionBytes": 85,
+        "definitionBytes": 262
+      },
+      {
+        "name": "browser_console",
+        "inputSchemaBytes": 119,
+        "descriptionBytes": 46,
+        "definitionBytes": 223
+      }
+    ],
+    "ratatoskr": [
+      {
+        "name": "run_browser_workflow",
+        "inputSchemaBytes": 1276,
+        "descriptionBytes": 264,
+        "definitionBytes": 2013
+      },
+      {
+        "name": "inspect_browser_run",
+        "inputSchemaBytes": 493,
+        "descriptionBytes": 121,
+        "definitionBytes": 1024
+      },
+      {
+        "name": "get_browser_artifact",
+        "inputSchemaBytes": 211,
+        "descriptionBytes": 114,
+        "definitionBytes": 993
+      }
+    ]
+  }
+}

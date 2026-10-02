@@ -1,0 +1,156 @@
+{
+  "audit": "All native totals and interaction counters checked against original events; no totals or bytes changed. All tasks correctly diagnose the absent Publish control within budget. This three-pair suite isolates the bounded absent-target diagnostic change.",
+  "configuration": {
+    "runs": 3,
+    "concurrency": 2,
+    "model": "gpt-6.1-sol",
+    "reasoning": "medium",
+    "scenarios": [
+      {
+        "size": "medium",
+        "outcome": "locator_failure"
+      }
+    ],
+    "baselines": ["playwright"],
+    "commit": "5b31edcfce281595f409b784a6a00023177181a0",
+    "codexVersion": "codex-cli 0.160.0",
+    "browserVersion": "153.0.8010.12",
+    "timeoutMs": 180000,
+    "maxToolCalls": 24,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "dirty": false,
+    "lockfileHash": "3cc242aec5fbdf353872917af3e794e52c8ef0f758580c7264ac406a1d6f0e58",
+    "nodeVersion": "v24.19.0",
+    "tokenAccounting": "codex-json-events",
+    "standardBaselineVersion": "@playwright/mcp@0.0.83"
+  },
+  "schemas": {
+    "baseline": [
+      {
+        "name": "browser_close",
+        "inputSchemaBytes": 119,
+        "descriptionBytes": 14,
+        "definitionBytes": 294
+      },
+      {
+        "name": "browser_resize",
+        "inputSchemaBytes": 290,
+        "descriptionBytes": 25,
+        "definitionBytes": 485
+      },
+      {
+        "name": "browser_console_messages",
+        "inputSchemaBytes": 716,
+        "descriptionBytes": 28,
+        "definitionBytes": 923
+      },
+      {
+        "name": "browser_handle_dialog",
+        "inputSchemaBytes": 312,
+        "descriptionBytes": 15,
+        "definitionBytes": 498
+      },
+      {
+        "name": "browser_fill_form",
+        "inputSchemaBytes": 968,
+        "descriptionBytes": 25,
+        "definitionBytes": 1154
+      },
+      {
+        "name": "browser_press_key",
+        "inputSchemaBytes": 257,
+        "descriptionBytes": 27,
+        "definitionBytes": 447
+      },
+      {
+        "name": "browser_type",
+        "inputSchemaBytes": 752,
+        "descriptionBytes": 31,
+        "definitionBytes": 939
+      },
+      {
+        "name": "browser_navigate",
+        "inputSchemaBytes": 200,
+        "descriptionBytes": 17,
+        "definitionBytes": 385
+      },
+      {
+        "name": "browser_network_requests",
+        "inputSchemaBytes": 615,
+        "descriptionBytes": 132,
+        "definitionBytes": 927
+      },
+      {
+        "name": "browser_take_screenshot",
+        "inputSchemaBytes": 1331,
+        "descriptionBytes": 123,
+        "definitionBytes": 1629
+      },
+      {
+        "name": "browser_snapshot",
+        "inputSchemaBytes": 698,
+        "descriptionBytes": 82,
+        "definitionBytes": 944
+      },
+      {
+        "name": "browser_click",
+        "inputSchemaBytes": 770,
+        "descriptionBytes": 27,
+        "definitionBytes": 950
+      },
+      {
+        "name": "browser_drag",
+        "inputSchemaBytes": 717,
+        "descriptionBytes": 42,
+        "definitionBytes": 916
+      },
+      {
+        "name": "browser_hover",
+        "inputSchemaBytes": 401,
+        "descriptionBytes": 26,
+        "definitionBytes": 586
+      },
+      {
+        "name": "browser_select_option",
+        "inputSchemaBytes": 568,
+        "descriptionBytes": 30,
+        "definitionBytes": 767
+      },
+      {
+        "name": "browser_tabs",
+        "inputSchemaBytes": 453,
+        "descriptionBytes": 45,
+        "definitionBytes": 656
+      },
+      {
+        "name": "browser_wait_for",
+        "inputSchemaBytes": 340,
+        "descriptionBytes": 64,
+        "definitionBytes": 563
+      }
+    ],
+    "ratatoskr": [
+      {
+        "name": "run_browser_workflow",
+        "inputSchemaBytes": 1276,
+        "descriptionBytes": 264,
+        "definitionBytes": 2013
+      },
+      {
+        "name": "inspect_browser_run",
+        "inputSchemaBytes": 493,
+        "descriptionBytes": 121,
+        "definitionBytes": 1024
+      },
+      {
+        "name": "get_browser_artifact",
+        "inputSchemaBytes": 211,
+        "descriptionBytes": 114,
+        "definitionBytes": 993
+      }
+    ]
+  }
+}

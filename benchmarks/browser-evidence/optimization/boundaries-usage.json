@@ -1,0 +1,904 @@
+[
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea6-54ba-77e3-8fba-f031dcb6e797",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 30994,
+          "cached_input_tokens": 18176,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 286,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save failed: POST /api/profile returned HTTP 500.",
+        "Console: Failed to save profile: INTERNAL_ERROR.",
+        "Before reload, persisted-name remained 'Jane Developer'; expected 'Ratatoskr Test'. The failed assertion stopped the workflow before reload."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea6-54b8-7673-a16e-d0289a73d42e",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 73950,
+          "cached_input_tokens": 54272,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 566,
+          "reasoning_output_tokens": 85
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save request returned HTTP 500 Internal Server Error.",
+        "Console: Failed to save profile: INTERNAL_ERROR.",
+        "Expected text 'Ratatoskr Test' did not appear after saving or reloading.",
+        "Persisted name remained 'Jane Developer' before and after reload."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea6-b048-7f31-a1f5-b4e25bdcd493",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 71378,
+          "cached_input_tokens": 39936,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 655,
+          "reasoning_output_tokens": 104
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save failed: POST /api/profile returned 500 Internal Server Error.",
+        "Console: Failed to save profile: INTERNAL_ERROR.",
+        "Persisted Name remained Jane Developer before reload; waiting for Ratatoskr Test timed out.",
+        "After reload, persisted-name still read Jane Developer; the persistence assertion failed."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea6-ffa6-7a61-97e9-e06e7b080671",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32442,
+          "cached_input_tokens": 17280,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 329,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "The persisted-name assertion failed: expected Ratatoskr Test, actual text Jane Developer.",
+        "The workflow stopped at the failed assertion before reloading."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea7-5acf-7933-ac74-2feced361f45",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 71273,
+          "cached_input_tokens": 62080,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 729,
+          "reasoning_output_tokens": 121
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500 Internal Server Error; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Before reload, the persisted-name assertion failed: expected Ratatoskr Test, actual Jane Developer.",
+        "After reload, both persisted values differed from the requested values: Name was Jane Developer; Email was jane@example.test."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea7-5ae6-76b1-a57b-04ef6440a4f0",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 97391,
+          "cached_input_tokens": 79744,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 608,
+          "reasoning_output_tokens": 45
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save sent POST /api/profile, which returned 500 Internal Server Error.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Persisted-name assertion for 'Ratatoskr Test' failed before and after reload; actual text remained 'Jane Developer'."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea7-fa95-7383-8e5b-20f40bdfc498",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31192,
+          "cached_input_tokens": 25216,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 328,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save returned HTTP 500; console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Persisted name assertion failed: expected Ratatoskr Test, actual Jane Developer.",
+        "Workflow stopped before reload; persistence of both changed values was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "tiny-http_failure",
+    "threadId": "01a0fea8-067c-7ab1-842c-eeb3caea4b88",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32421,
+          "cached_input_tokens": 28288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 360,
+          "reasoning_output_tokens": 43
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Filled Name with Ratatoskr Test and clicked Save.",
+        "Persisted-name assertion failed before reload: expected Ratatoskr Test; actual text was Jane Developer.",
+        "POST /api/profile returned HTTP 500.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea8-723a-7b70-bc88-d9d5f5424b8c",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31194,
+          "cached_input_tokens": 27776,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 357,
+          "reasoning_output_tokens": 23
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save request returned HTTP 500.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR.",
+        "After saving, persisted-name remained 'Jane Developer'; expected 'Ratatoskr Test'. Verification stopped before reload because the persisted-name assertion failed."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea8-7222-7f92-85e9-555625537045",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 61323,
+          "cached_input_tokens": 55040,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 598,
+          "reasoning_output_tokens": 159
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Filled Name with 'Ratatoskr Test' and Email with 'ratatoskr@example.test', then clicked Save.",
+        "Persisted-name verification failed: expected 'Ratatoskr Test'; actual text was 'Jane Developer'.",
+        "POST /api/profile returned 500 Internal Server Error.",
+        "Browser console reported: Failed to save profile: INTERNAL_ERROR."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea9-0b1d-7893-b728-19ef67dc2cc8",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31177,
+          "cached_input_tokens": 27776,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 316,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save request returned HTTP 500.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR.",
+        "After saving, persisted-name remained 'Jane Developer'; assertion expecting 'Ratatoskr Test' failed before reload."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "small-http_failure",
+    "threadId": "01a0fea8-d4eb-7661-ad1e-60425195305a",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 61730,
+          "cached_input_tokens": 55040,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 592,
+          "reasoning_output_tokens": 51
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "POST",
+      "path": "/api/profile",
+      "status": 500,
+      "errorCode": "INTERNAL_ERROR",
+      "evidence": [
+        "Save request returned HTTP 500 Internal Server Error.",
+        "Console reported: Failed to save profile: INTERNAL_ERROR.",
+        "Before reload, the desired name assertion timed out; persisted-name remained Jane Developer.",
+        "After reload, both desired-value assertions timed out. Persisted name was Jane Developer; persisted email was jane@example.test."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "medium-success",
+    "threadId": "01a0fea9-9723-7562-9742-3c58318df676",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31451,
+          "cached_input_tokens": 28032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 516,
+          "reasoning_output_tokens": 74
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "POST",
+      "path": "/profile",
+      "status": 200,
+      "errorCode": "",
+      "evidence": [
+        "Browser workflow run_eb157a99efdb4ba69869b85dfd5d6487 passed.",
+        "Persisted Name matched 'Ratatoskr Test' after saving.",
+        "After reloading, persisted text assertions passed for Name 'Ratatoskr Test', Email 'ratatoskr@example.test', Company 'Acme Labs', and Job title 'Engineer'."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "medium-success",
+    "threadId": "01a0fea9-9742-75c1-81c3-d029b59057f4",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 62573,
+          "cached_input_tokens": 42112,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 612,
+          "reasoning_output_tokens": 81
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "UI",
+      "path": "/profile",
+      "status": 200,
+      "errorCode": "",
+      "evidence": [
+        "After Save, persisted-name showed Ratatoskr Test.",
+        "After reload, text conditions passed and persisted elements showed: Name = Ratatoskr Test; Email = ratatoskr@example.test; Company = Acme Labs; Job title = Engineer."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "medium-success",
+    "threadId": "01a0feaa-334e-7a62-9adc-34392ee34a1a",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 31447,
+          "cached_input_tokens": 28032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 520,
+          "reasoning_output_tokens": 79
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Browser workflow run_6656843cf7cf4883a336d3ea99543992 passed.",
+        "Persisted Name matched 'Ratatoskr Test' after saving and before reloading.",
+        "After reloading, persisted text assertions passed for Name 'Ratatoskr Test', Email 'ratatoskr@example.test', Company 'Acme Labs', and Job title 'Engineer'."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "medium-success",
+    "threadId": "01a0fea9-fde5-7840-90b7-1173d4b59ba8",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 92320,
+          "cached_input_tokens": 83840,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 945,
+          "reasoning_output_tokens": 174
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "GET",
+      "path": "/profile",
+      "status": 200,
+      "errorCode": "",
+      "evidence": [
+        "Before reload, persisted-name displayed Ratatoskr Test.",
+        "After reload, assertions on persisted text passed for all four fields: Name = Ratatoskr Test; Email = ratatoskr@example.test; Company = Acme Labs; Job title = Engineer."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "medium-success",
+    "threadId": "01a0feaa-b793-7780-a427-c20ecaebecf3",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 76984,
+          "cached_input_tokens": 55168,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 613,
+          "reasoning_output_tokens": 22
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "After saving, persisted-name displayed Ratatoskr Test.",
+        "After reloading /profile, condition checks passed and persisted text showed: Name = Ratatoskr Test; Email = ratatoskr@example.test; Company = Acme Labs; Job title = Engineer.",
+        "No /api/ network requests were recorded; save HTTP method and status were not observed."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "large-success",
+    "threadId": "01a0feaa-b779-7912-a33d-7e1fc8d099dc",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 78768,
+          "cached_input_tokens": 64768,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 903,
+          "reasoning_output_tokens": 151
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Persisted name was Ratatoskr Test before reload.",
+        "After reload, persisted text matched all nine requested values: Ratatoskr Test; ratatoskr@example.test; Acme Labs; Engineer; Reno; Nevada; 89501; USA; https://example.test.",
+        "Browser console reported no errors."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "medium-success",
+    "threadId": "01a0feab-406c-7171-9846-21bcd51c3cdc",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 42624,
+          "cached_input_tokens": 38784,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 534,
+          "reasoning_output_tokens": 52
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Browser run run_89032cb97a9744c8a2509873a37121db passed all assertions.",
+        "After Save, persisted-name contained 'Ratatoskr Test'.",
+        "After reloading, persisted text assertions passed for Name 'Ratatoskr Test', Email 'ratatoskr@example.test', Company 'Acme Labs', and Job title 'Engineer'."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "large-success",
+    "threadId": "01a0feab-6881-7793-95f3-304852a1c43b",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32145,
+          "cached_input_tokens": 28288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 547,
+          "reasoning_output_tokens": 67
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Browser run run_bfb610552b99440bb660bfdad46ab3f4 passed all condition assertions.",
+        "After Save, persisted-name contained Ratatoskr Test before reloading.",
+        "After reloading, all nine persisted fields matched the requested values."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "large-success",
+    "threadId": "01a0feab-d1d5-7bd2-8e1a-3b0cf680eff0",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32297,
+          "cached_input_tokens": 26240,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 724,
+          "reasoning_output_tokens": 110
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Browser run run_e24192e07442441db6e72d5bfab4637b passed.",
+        "Persisted Name matched 'Ratatoskr Test' after saving.",
+        "After reloading, condition assertions verified all nine persisted values matched the requested values."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "large-success",
+    "threadId": "01a0feab-d1bb-7c61-8402-55dc0cc0a818",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 94288,
+          "cached_input_tokens": 85376,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1169,
+          "reasoning_output_tokens": 186
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "UI",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Saved the profile and verified persisted Name was Ratatoskr Test before reloading.",
+        "After reload, all nine persisted fields matched: Ratatoskr Test; ratatoskr@example.test; Acme Labs; Engineer; Reno; Nevada; 89501; USA; https://example.test.",
+        "HTTP save status was not captured; persistence was verified through browser text assertions."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "large-success",
+    "threadId": "01a0feac-6995-7f81-8957-21d7104fc633",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 74148,
+          "cached_input_tokens": 64000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 935,
+          "reasoning_output_tokens": 90
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "UNKNOWN",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Before reload, persisted-name displayed Ratatoskr Test.",
+        "After reload, all nine persisted fields matched: Name=Ratatoskr Test; Email=ratatoskr@example.test; Company=Acme Labs; Job title=Engineer; City=Reno; Region=Nevada; Postal code=89501; Country=USA; Website=https://example.test.",
+        "Save request HTTP details were unavailable because the browser tool call limit was reached."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "large-success",
+    "threadId": "01a0feac-b400-7002-9915-159d66582fad",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 32299,
+          "cached_input_tokens": 26240,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 714,
+          "reasoning_output_tokens": 70
+        }
+      }
+    ],
+    "report": {
+      "persisted": true,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "",
+      "evidence": [
+        "Save completed and the persisted name matched 'Ratatoskr Test' before reloading.",
+        "After reloading /profile, condition assertions passed for all nine persisted values: Name, Email, Company, Job title, City, Region, Postal code, Country, and Website.",
+        "Browser workflow run_f9020fb4a8ed42e69556b3e03f0d1668 passed."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 1,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0fead-33c5-7ab2-adbe-11ca24d41b01",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 60872,
+          "cached_input_tokens": 54912,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 402,
+          "reasoning_output_tokens": 15
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Exact Publish button locator matched no elements. No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 2,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0fead-33b1-7a52-9781-a18408ed10b0",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 55718,
+          "cached_input_tokens": 31872,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 561,
+          "reasoning_output_tokens": 28
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "All four requested field fills passed.",
+        "The exact Publish button was missing; its click locator timed out.",
+        "Browser screenshot showed only Save and 'No changes saved.' No substitute button was clicked."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 2,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0fead-bd15-7e22-a303-176dfa203188",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 48396,
+          "cached_input_tokens": 34816,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 403,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Filled Name, Email, Company, and Job title with the requested values.",
+        "Browser reported that exact button locator role=button[name=\"Publish\"s] does not match any elements.",
+        "No substitute button was clicked; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 1,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0fead-978c-7bc1-8749-e4a8a0888d83",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 55777,
+          "cached_input_tokens": 47104,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 573,
+          "reasoning_output_tokens": 16
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "All four requested fields were filled successfully.",
+        "The requested Publish button was missing; its click timed out.",
+        "Browser screenshot shows only a Save button and 'No changes saved.' Save was not clicked."
+      ]
+    }
+  },
+  {
+    "mode": "baseline",
+    "run": 3,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0feae-522c-7280-a17a-48c488b41d9b",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 73935,
+          "cached_input_tokens": 67584,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 429,
+          "reasoning_output_tokens": 36
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "Entered all four requested field values.",
+        "Exact Publish button locator matched no elements; the available button is Save.",
+        "No submission occurred; persistence was not verified."
+      ]
+    }
+  },
+  {
+    "mode": "ratatoskr",
+    "run": 3,
+    "scenario": "medium-locator_failure",
+    "threadId": "01a0feae-bd23-7150-9ff0-65dc74a52708",
+    "events": [
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 55665,
+          "cached_input_tokens": 46720,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 556,
+          "reasoning_output_tokens": 26
+        }
+      }
+    ],
+    "report": {
+      "persisted": false,
+      "method": "NONE",
+      "path": "/profile",
+      "status": 0,
+      "errorCode": "LOCATOR_NOT_FOUND",
+      "evidence": [
+        "All four requested fields were filled successfully.",
+        "The Publish button lookup timed out. Browser screenshot shows Save, with no Publish button.",
+        "No substitute button was clicked. Page states 'No changes saved.'"
+      ]
+    }
+  }
+]
