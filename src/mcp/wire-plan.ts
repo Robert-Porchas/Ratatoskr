@@ -239,10 +239,10 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
         canonical[field] = requiredString(step[field], `${path}.${field}`);
     if (doAction === 'extractText' || doAction === 'extractAttribute') {
       const name = requiredString(step.save, `${path}.save`);
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+      if (name.length > 64 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
         throw new InvalidWirePlan(
           `${path}.save`,
-          'Use an identifier such as orderNumber (letters, digits, underscores)',
+          'Use an identifier such as orderNumber (max 64 letters/digits/underscores)',
         );
       if (outputs.includes(name))
         throw new InvalidWirePlan(`${path}.save`, 'Save names must be unique');
@@ -301,7 +301,7 @@ export function invalidPlanResult(error: unknown) {
           path: 'arguments',
           message: 'Invalid arguments; use the tool schema',
         };
-  return {
+  const result = {
     isError: true,
     content: [
       {
@@ -310,4 +310,12 @@ export function invalidPlanResult(error: unknown) {
       },
     ],
   };
+  if (Buffer.byteLength(JSON.stringify(result)) >= 750) {
+    result.content[0]!.text = JSON.stringify({
+      error: 'INVALID_PLAN',
+      path: 'arguments',
+      message: 'Invalid arguments; use the tool schema',
+    });
+  }
+  return result;
 }

@@ -181,12 +181,17 @@ describe('workflow executor', () => {
     const result = await executePlan(
       {
         startUrl: 'http://local/login',
-        outputs: ['before', 'after'],
+        outputs: ['before', '__proto__', 'after'],
         steps: [
           {
             action: 'extract_text',
             target: { kind: 'text', text: 'Welcome' },
             saveAs: 'before',
+          },
+          {
+            action: 'extract_text',
+            target: { kind: 'text', text: 'Welcome' },
+            saveAs: '__proto__',
           },
           { action: 'assert_url', contains: '/dashboard' },
           {
@@ -208,6 +213,8 @@ describe('workflow executor', () => {
       outputs: { before: 'Welcome' },
     });
     expect(result.outputs).not.toHaveProperty('after');
+    expect(Object.hasOwn(result.outputs ?? {}, '__proto__')).toBe(true);
+    expect(result.outputs?.['__proto__']).toBe('Welcome');
   });
   it('returns only a run ID on success', async () => {
     const storage = stores();

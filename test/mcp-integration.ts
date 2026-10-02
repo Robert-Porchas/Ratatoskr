@@ -256,7 +256,8 @@ try {
   assert(sizes.mcpResultBytes < 2200);
   assert(sizes.inspectionBytes < 3500);
   assert(sizes.artifactMetadataBytes < 500);
-  assert(sizes.toolDefinitionsBytes < 16_000);
+  // Allow a little maintenance headroom over the measured ~4 KB compact interface.
+  assert(sizes.toolDefinitionsBytes < 4_500);
   assert.equal(
     transportErrors.length,
     0,

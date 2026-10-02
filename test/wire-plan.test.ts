@@ -3,6 +3,7 @@ import {
   normalizeWirePlan,
   invalidPlanResult,
   wirePlanJsonSchema,
+  InvalidWirePlan,
 } from '../src/mcp/wire-plan.js';
 import { BrowserPlanSchema } from '../src/protocol.js';
 
@@ -71,10 +72,23 @@ it('repairs the unambiguous has/text spelling locally, without mutating the inpu
 });
 
 it('bounds validation repair including giant hostile inputs without echoing values', () => {
+  expect(
+    Buffer.byteLength(
+      JSON.stringify(
+        invalidPlanResult(
+          new InvalidWirePlan('x'.repeat(1000), 'x'.repeat(10000)),
+        ),
+      ),
+    ),
+  ).toBeLessThan(750);
   for (const input of [
     {},
     { url: 'x', steps: [{ do: 'click', label: 'secret', text: 'secret' }] },
     { url: 'x', steps: Array(1000).fill({ do: 'secret' }) },
+    {
+      url: 'http://localhost',
+      steps: [{ do: 'extractText', css: 'body', save: 'x'.repeat(65) }],
+    },
   ]) {
     try {
       normalizeWirePlan(input);

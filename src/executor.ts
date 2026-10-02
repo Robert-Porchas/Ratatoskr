@@ -202,7 +202,7 @@ export async function executePlan(
   const startedAt = Date.now();
   const evidence = new EvidenceCollector();
   const steps: StepResult[] = [];
-  const extractions: Record<string, string> = {};
+  const extractions = Object.create(null) as Record<string, string>;
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
   let browserStarted = false;
