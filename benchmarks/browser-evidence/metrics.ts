@@ -63,6 +63,7 @@ export const ResultSchema = z.object({
   cumulativeContextEvidenceBytes: count.nullable(),
   toolDefinitionsBytes: count,
   invalidToolCalls: count.optional(),
+  failedToolCalls: count.optional(),
   toolArgumentBytes: count.optional(),
   toolResultBytes: count.optional(),
   maxToolErrorBytes: count.optional(),

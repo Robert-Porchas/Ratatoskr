@@ -15,6 +15,7 @@ const itemSchema = z.object({
 export function measureCodexTools(events: Array<Record<string, unknown>>) {
   const interactions: Interaction[] = [];
   let invalidToolCalls = 0,
+    failedToolCalls = 0,
     toolArgumentBytes = 0,
     toolResultBytes = 0,
     maxToolErrorBytes = 0;
@@ -44,11 +45,20 @@ export function measureCodexTools(events: Array<Record<string, unknown>>) {
       ? (result.data.structured_content ?? result.data.structuredContent)
       : undefined;
     const text = texts.join('\n');
+    const applicationError = texts.some((value) => {
+      try {
+        return z.object({ error: z.string() }).safeParse(JSON.parse(value))
+          .success;
+      } catch {
+        return false;
+      }
+    });
     const failed =
       item.status === 'failed' ||
       Boolean(item.error) ||
       (result.success && (result.data.isError || result.data.is_error)) ||
-      /"error"\s*:|INVALID_PLAN|Input validation error/.test(text);
+      applicationError ||
+      /INVALID_PLAN|Input validation error/.test(text);
     const payloadBytes =
       texts.reduce((sum, value) => sum + Buffer.byteLength(value), 0) +
       (structured == null ? 0 : Buffer.byteLength(JSON.stringify(structured))) +
@@ -66,7 +76,27 @@ export function measureCodexTools(events: Array<Record<string, unknown>>) {
     toolArgumentBytes += Buffer.byteLength(JSON.stringify(item.arguments));
     toolResultBytes += payloadBytes;
     if (failed) {
-      invalidToolCalls++;
+      failedToolCalls++;
+      const diagnostic = text + JSON.stringify(item.error ?? structured ?? '');
+      const legacyValidation = texts.some((value) => {
+        try {
+          const parsed = z
+            .object({ error: z.string() })
+            .parse(JSON.parse(value));
+          return z
+            .array(z.object({ code: z.string(), path: z.array(z.unknown()) }))
+            .safeParse(JSON.parse(parsed.error)).success;
+        } catch {
+          return false;
+        }
+      });
+      if (
+        /INVALID_PLAN|Input validation error|Invalid arguments for tool/.test(
+          diagnostic,
+        ) ||
+        legacyValidation
+      )
+        invalidToolCalls++;
       maxToolErrorBytes = Math.max(maxToolErrorBytes, payloadBytes);
     }
     interactions.push({
@@ -85,6 +115,7 @@ export function measureCodexTools(events: Array<Record<string, unknown>>) {
   return {
     interactions,
     invalidToolCalls,
+    failedToolCalls,
     toolArgumentBytes,
     toolResultBytes,
     maxToolErrorBytes,

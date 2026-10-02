@@ -200,6 +200,8 @@ async function task(
           : scenario.outcome === 'http_failure'
             ? Boolean(
                 report?.persisted === false &&
+                report.method === 'POST' &&
+                report.path === '/api/profile' &&
                 observed.http?.status === 500 &&
                 report.status === 500 &&
                 observed.code === 'INTERNAL_ERROR' &&
@@ -240,6 +242,7 @@ async function task(
       modelCalls: null,
       toolInteractions: tools.interactions.length,
       invalidToolCalls: tools.invalidToolCalls,
+      failedToolCalls: tools.failedToolCalls,
       toolArgumentBytes: tools.toolArgumentBytes,
       toolResultBytes: tools.toolResultBytes,
       maxToolErrorBytes: tools.maxToolErrorBytes,

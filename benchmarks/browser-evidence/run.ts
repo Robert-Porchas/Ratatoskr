@@ -394,6 +394,7 @@ for (let run = 1; run <= runs; run++) {
       ...(toolAccounting
         ? {
             invalidToolCalls: toolAccounting.invalidToolCalls,
+            failedToolCalls: toolAccounting.failedToolCalls,
             toolArgumentBytes: toolAccounting.toolArgumentBytes,
             toolResultBytes: toolAccounting.toolResultBytes,
             maxToolErrorBytes: toolAccounting.maxToolErrorBytes,

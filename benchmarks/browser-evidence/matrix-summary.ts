@@ -18,6 +18,13 @@ export function distribution(values: number[]) {
 export function summarizeMatrix(rows: BenchmarkResult[]) {
   if (!rows.length) throw new Error('No matrix results');
   if (
+    rows.some(
+      (row) =>
+        !row.scenario || !row.baselineId || row.plannedSteps === undefined,
+    )
+  )
+    throw new Error('Missing matrix scenario metadata');
+  if (
     new Set(
       rows.map(
         (row) =>
@@ -112,6 +119,10 @@ export function summarizeMatrix(rows: BenchmarkResult[]) {
         'rawEvidenceBytes',
       ],
       ['Browser operations (scope differs)', 'browserInteractions'],
+      [
+        'Failed MCP tool calls (includes valid runtime failures)',
+        'failedToolCalls',
+      ],
     ] as const) {
       const a = metric(direct, key),
         b = metric(rat, key);
