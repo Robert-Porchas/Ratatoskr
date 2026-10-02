@@ -152,12 +152,9 @@ async function executeStep(
       return;
     }
     case 'extract_text':
-      return evidence.redact(
-        (await browser.text(step.target, timeout)).slice(
-          0,
-          step.maxChars ?? 200,
-        ),
-      );
+      return evidence
+        .redact(await browser.text(step.target, timeout))
+        .slice(0, step.maxChars ?? 200);
     case 'extract_attribute': {
       const value = await browser.attribute(
         step.target,
@@ -168,7 +165,7 @@ async function executeStep(
         throw new BrowserAssertionError(
           `Attribute ${step.attribute} was not present`,
         );
-      return evidence.redact(value.slice(0, step.maxChars ?? 200));
+      return evidence.redact(value).slice(0, step.maxChars ?? 200);
     }
   }
 }
@@ -276,6 +273,21 @@ export async function executePlan(
       } catch (error) {
         failure = failureFor(error, step.action, deps.signal?.aborted);
       }
+      let actualText: string | undefined;
+      if (failure && step.action === 'assert_text' && !deps.signal?.aborted) {
+        try {
+          actualText = evidence
+            .redact(
+              await deps.browser.text(
+                step.target,
+                Math.min(250, Math.max(1, deadline - Date.now())),
+              ),
+            )
+            .slice(0, 200);
+        } catch {
+          /* Missing targets carry no fabricated text. */
+        }
+      }
       const end = Date.now();
       let actualUrl: string | undefined;
       try {
@@ -292,6 +304,7 @@ export async function executePlan(
         endedAt: end,
         durationMs: end - start,
         ...(actualUrl ? { actualUrl } : {}),
+        ...(actualText !== undefined ? { actualText } : {}),
         ...(failure ? { failure } : {}),
       };
     };
@@ -382,6 +395,9 @@ export async function executePlan(
           ? { actualUrl: firstFailure.actualUrl }
           : {}),
         relevantErrors: relevantErrors(evidence.events, firstFailure),
+        ...(firstFailure.actualText !== undefined
+          ? { actualText: firstFailure.actualText }
+          : {}),
         ...(Object.keys(requestedOutputs).length
           ? { outputs: requestedOutputs }
           : {}),

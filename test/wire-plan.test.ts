@@ -57,6 +57,19 @@ it('rejects ambiguous locators, secrets, unsafe operations, unknown fields and d
   ).toThrow();
 });
 
+it('repairs the unambiguous has/text spelling locally, without mutating the input', () => {
+  const input = {
+    url: 'http://localhost',
+    steps: [{ do: 'has', testId: 'name', text: 'Jane' }],
+  };
+  expect(normalizeWirePlan(input).steps[0]).toEqual({
+    action: 'assert_text',
+    target: { kind: 'testId', testId: 'name' },
+    contains: 'Jane',
+  });
+  expect(input.steps[0]?.text).toBe('Jane');
+});
+
 it('bounds validation repair including giant hostile inputs without echoing values', () => {
   for (const input of [
     {},

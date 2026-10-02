@@ -272,6 +272,7 @@ export interface StepResult {
   endedAt: number;
   durationMs: number;
   actualUrl?: string;
+  actualText?: string;
   failure?: { kind: FailureKind; reason: string };
 }
 
@@ -296,6 +297,7 @@ export type RunResult =
       actualUrl?: string;
       relevantErrors: RelevantError[];
       outputs?: Record<string, string>;
+      actualText?: string;
       artifacts?: { screenshot?: string; trace?: string };
     };
 

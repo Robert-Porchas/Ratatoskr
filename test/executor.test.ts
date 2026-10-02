@@ -138,6 +138,44 @@ function stores(): {
 }
 
 describe('workflow executor', () => {
+  it('returns bounded redacted actual text for an assertion failure', async () => {
+    class FailedTextBrowser extends FakeBrowser {
+      override async waitForTextContains(): Promise<void> {
+        const error = new Error('call log');
+        error.name = 'TimeoutError';
+        throw error;
+      }
+      override async text(): Promise<string> {
+        return 's'.repeat(300);
+      }
+    }
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://local',
+        steps: [
+          {
+            action: 'fill',
+            target: { kind: 'label', label: 'Password' },
+            valueRef: 'PASSWORD',
+          },
+          {
+            action: 'assert_text',
+            target: { kind: 'testId', testId: 'saved' },
+            contains: 'Ready',
+          },
+        ],
+      },
+      {
+        browser: new FailedTextBrowser(),
+        runs: storage.runs,
+        artifacts: storage.artifacts,
+        values: new EnvironmentValueResolver({ PASSWORD: 's'.repeat(300) }),
+      },
+    );
+    expect(result).toMatchObject({ success: false, actualText: '[REDACTED]' });
+    expect(JSON.stringify(result)).not.toContain('s'.repeat(20));
+  });
   it('returns only completed requested extractions when a later step fails', async () => {
     const storage = stores();
     const result = await executePlan(

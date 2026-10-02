@@ -57,7 +57,7 @@ export const wirePlanJsonSchema = {
           save: {
             type: 'string',
             description:
-              'Extraction output name; returned even if a later step fails (200 chars).',
+              'Unique identifier (letters/digits/underscores). Max 5 saved outputs, 200 chars each; returned on failure.',
           },
           attribute: string,
           option: string,
@@ -203,6 +203,17 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
         'Unsupported action; use a do value from the tool schema',
       );
     const doAction = op as keyof typeof actions;
+    // A frequent, unambiguous assertion spelling: another locator + text as expectation.
+    // Clicks and other operations still reject ambiguous locator combinations.
+    if (
+      doAction === 'has' &&
+      step.contains === undefined &&
+      typeof step.text === 'string' &&
+      locatorKeys.some((key) => key !== 'text' && step[key] !== undefined)
+    ) {
+      step.contains = step.text;
+      delete step.text;
+    }
     if (
       Object.keys(step).some(
         (key) => key !== 'do' && !fields[doAction].includes(key),
@@ -228,6 +239,11 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
         canonical[field] = requiredString(step[field], `${path}.${field}`);
     if (doAction === 'extractText' || doAction === 'extractAttribute') {
       const name = requiredString(step.save, `${path}.save`);
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+        throw new InvalidWirePlan(
+          `${path}.save`,
+          'Use an identifier such as orderNumber (letters, digits, underscores)',
+        );
       if (outputs.includes(name))
         throw new InvalidWirePlan(`${path}.save`, 'Save names must be unique');
       outputs.push(name);
