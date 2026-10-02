@@ -138,6 +138,39 @@ function stores(): {
 }
 
 describe('workflow executor', () => {
+  it('returns only completed requested extractions when a later step fails', async () => {
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://local/login',
+        outputs: ['before', 'after'],
+        steps: [
+          {
+            action: 'extract_text',
+            target: { kind: 'text', text: 'Welcome' },
+            saveAs: 'before',
+          },
+          { action: 'assert_url', contains: '/dashboard' },
+          {
+            action: 'extract_text',
+            target: { kind: 'text', text: 'Welcome' },
+            saveAs: 'after',
+          },
+        ],
+      },
+      {
+        browser: new FakeBrowser(),
+        runs: storage.runs,
+        artifacts: storage.artifacts,
+        values: new EnvironmentValueResolver({}),
+      },
+    );
+    expect(result).toMatchObject({
+      success: false,
+      outputs: { before: 'Welcome' },
+    });
+    expect(result.outputs).not.toHaveProperty('after');
+  });
   it('returns only a run ID on success', async () => {
     const storage = stores();
     const result = await executePlan(

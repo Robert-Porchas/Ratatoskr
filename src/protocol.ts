@@ -295,6 +295,7 @@ export type RunResult =
       reason: string;
       actualUrl?: string;
       relevantErrors: RelevantError[];
+      outputs?: Record<string, string>;
       artifacts?: { screenshot?: string; trace?: string };
     };
 

@@ -366,6 +366,11 @@ export async function executePlan(
     (artifact) => artifact.type === 'screenshot',
   );
   const trace = artifacts.find((artifact) => artifact.type === 'trace');
+  const requestedOutputs = Object.fromEntries(
+    (plan.outputs ?? [])
+      .filter((name) => Object.hasOwn(extractions, name))
+      .map((name) => [name, extractions[name]!]),
+  );
   const result: RunResult = firstFailure
     ? {
         success: false,
@@ -377,6 +382,9 @@ export async function executePlan(
           ? { actualUrl: firstFailure.actualUrl }
           : {}),
         relevantErrors: relevantErrors(evidence.events, firstFailure),
+        ...(Object.keys(requestedOutputs).length
+          ? { outputs: requestedOutputs }
+          : {}),
         ...(artifacts.length
           ? {
               artifacts: {
@@ -389,12 +397,8 @@ export async function executePlan(
     : {
         success: true,
         runId,
-        ...(plan.outputs?.length
-          ? {
-              outputs: Object.fromEntries(
-                plan.outputs.map((name) => [name, extractions[name] ?? '']),
-              ),
-            }
+        ...(Object.keys(requestedOutputs).length
+          ? { outputs: requestedOutputs }
           : {}),
         ...(artifacts.some((artifact) => artifact.type === 'download')
           ? {
