@@ -170,23 +170,22 @@ export async function runReplay(
     await invoke('browser_navigate', { url });
   } else {
     await invoke('run_browser_workflow', {
-      startUrl: url,
-      timeoutMs: 15_000,
+      url,
       steps: [
         {
-          action: 'fill',
-          target: { kind: 'label', label: 'Name' },
+          do: 'fill',
+          label: 'Name',
           valueRef: 'BENCHMARK_NAME',
         },
         {
-          action: 'click',
-          target: { kind: 'role', role: 'button', name: 'Save' },
+          do: 'click',
+          role: 'button',
+          name: 'Save',
         },
         {
-          action: 'assert_text',
-          target: { kind: 'testId', testId: 'persisted-name' },
+          do: 'has',
+          testId: 'persisted-name',
           contains: 'Ratatoskr Test',
-          timeoutMs: 500,
         },
       ],
     });

@@ -2,57 +2,30 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 import { createRatatoskrApplication } from '../application.js';
-import { BrowserPlanSchema } from '../protocol.js';
 import {
-  InspectionOptionsSchema,
-  InspectionCategorySchema,
-} from '../inspection.js';
+  applicationValidatedSchema,
+  normalizeWirePlan,
+  wirePlanJsonSchema,
+  invalidPlanResult,
+  InvalidWirePlan,
+} from './wire-plan.js';
+import { InspectionCategorySchema } from '../inspection.js';
 import { ArtifactNotFoundError } from '../errors.js';
 
 const runId = z.string().regex(/^run_[a-f0-9]{32}$/);
 const artifactId = z.string().regex(/^artifact_[a-f0-9]{32}$/);
-const relevantError = z.union([
-  z.object({
-    type: z.literal('http'),
-    method: z.string(),
-    path: z.string(),
-    status: z.number(),
-  }),
-  z.object({
-    type: z.literal('request_failed'),
-    method: z.string(),
-    path: z.string(),
-    error: z.string(),
-  }),
-  z.object({
-    type: z.enum(['console', 'page_error', 'dialog', 'popup']),
-    message: z.string(),
-  }),
-]);
-const runOutput = z.union([
-  z.object({
-    success: z.literal(true),
+const runOutput = z
+  .object({
+    success: z.boolean(),
     runId,
-    outputs: z.record(z.string(), z.string()).optional(),
-    downloads: z.array(artifactId).optional(),
-  }),
-  z.object({
-    success: z.literal(false),
-    runId,
-    failedStep: z.number(),
-    action: z.string(),
-    reason: z.string(),
-    actualUrl: z.string().optional(),
-    relevantErrors: z.array(relevantError),
-    artifacts: z
-      .object({
-        screenshot: artifactId.optional(),
-        trace: artifactId.optional(),
-      })
-      .optional(),
-  }),
-]);
-const inspectionInput = InspectionOptionsSchema.extend({ runId });
+    values: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough();
+const inspectionInput = z.strictObject({
+  runId,
+  include: z.array(InspectionCategorySchema).min(1).max(9).default(['summary']),
+  offset: z.number().int().min(0).max(10_000).optional(),
+});
 const inspectionOutput = z.object({
   runId,
   sections: z.partialRecord(InspectionCategorySchema, z.unknown()),
@@ -100,12 +73,18 @@ export function createMcpServer(): McpServer {
     'run_browser_workflow',
     {
       description:
-        'Batch deterministic browser steps for E2E validation and compact failure evidence. Codex must provide a structured plan; no natural-language planning, JavaScript, shell, or filesystem access.',
-      inputSchema: BrowserPlanSchema,
+        'Batch a known app workflow in one call; use source labels/routes. Each step: do + one locator (label/text/testId/css/role+name). fill uses local valueRef; has uses contains; extraction uses save. Returns compact failure evidence and saved values. No JS/shell.',
+      inputSchema: applicationValidatedSchema(wirePlanJsonSchema),
       outputSchema: runOutput,
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
-    async (plan, context) => {
+    async (input, context) => {
+      let plan;
+      try {
+        plan = normalizeWirePlan(input);
+      } catch (error) {
+        return invalidPlanResult(error);
+      }
       if (active)
         return {
           content: [
@@ -115,7 +94,9 @@ export function createMcpServer(): McpServer {
         };
       active = true;
       try {
-        const result = await app.run(plan, context.mcpReq.signal);
+        const canonical = await app.run(plan, context.mcpReq.signal);
+        const { outputs, ...rest } = canonical;
+        const result = { ...rest, ...(outputs ? { values: outputs } : {}) };
         return {
           content: [
             {
@@ -139,12 +120,21 @@ export function createMcpServer(): McpServer {
     'inspect_browser_run',
     {
       description:
-        'Read bounded selected evidence from a completed run. Use only when the compact workflow result is insufficient.',
-      inputSchema: inspectionInput,
+        'Read selected run evidence only if the workflow result is insufficient. Defaults: 10 items/category; use offset for more.',
+      inputSchema: applicationValidatedSchema(z.toJSONSchema(inspectionInput)),
       outputSchema: inspectionOutput,
       annotations: { readOnlyHint: true },
     },
-    async ({ runId: id, ...options }) => {
+    async (input) => {
+      const parsed = inspectionInput.safeParse(input);
+      if (!parsed.success)
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Use runId, supported include categories and optional offset',
+          ),
+        );
+      const { runId: id, ...options } = parsed.data;
       try {
         const result = await app.inspect(id, options);
         return {
@@ -166,12 +156,20 @@ export function createMcpServer(): McpServer {
     'get_browser_artifact',
     {
       description:
-        'Retrieve one registered artifact by ID. Use only when that screenshot, text file, or trace metadata is necessary for diagnosis.',
-      inputSchema: z.strictObject({ artifactId }),
+        'Retrieve one registered artifact only when needed. Images are explicit; large binaries return metadata, not bytes.',
+      inputSchema: applicationValidatedSchema(
+        z.toJSONSchema(z.strictObject({ artifactId })),
+      ),
       outputSchema: artifactOutput,
       annotations: { readOnlyHint: true },
     },
-    async ({ artifactId: id }) => {
+    async (input) => {
+      const parsed = z.strictObject({ artifactId }).safeParse(input);
+      if (!parsed.success)
+        return invalidPlanResult(
+          new InvalidWirePlan('artifactId', 'Use a registered artifact ID'),
+        );
+      const id = parsed.data.artifactId;
       try {
         const artifact = await app.artifacts.find(id);
         const metadata = {

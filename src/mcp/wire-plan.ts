@@ -84,14 +84,18 @@ export const wirePlanJsonSchema = {
 /** SDK advertises the guiding schema; application validation owns bounded repair errors.
  * No unvalidated value can reach the executor. This avoids SDK union-error explosions. */
 export function applicationValidatedSchema(
-  schema: JsonSchemaType,
+  schema: Record<string, unknown>,
 ): StandardSchemaWithJSON<unknown, unknown> {
   return {
     '~standard': {
       version: 1,
       vendor: 'ratatoskr',
       validate: (value) => ({ value }),
-      jsonSchema: { input: () => schema, output: () => schema },
+      // Zod and SDK differ in vocabulary typings, not the emitted JSON format.
+      jsonSchema: {
+        input: () => schema as JsonSchemaType,
+        output: () => schema as JsonSchemaType,
+      },
     },
   };
 }

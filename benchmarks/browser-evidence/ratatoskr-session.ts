@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { z } from 'zod';
-import { BrowserPlanSchema } from '../../src/protocol.js';
+import { normalizeWirePlan } from '../../src/mcp/wire-plan.js';
 import { FilesystemRunStore } from '../../src/storage.js';
 import type { BrowserSession } from './tools.js';
 
@@ -49,7 +49,7 @@ export async function startRatatoskrSession(
     async call(name, args) {
       signal.throwIfAborted();
       if (name === 'run_browser_workflow') {
-        const plan = BrowserPlanSchema.parse(args);
+        const plan = normalizeWirePlan(args);
         if (
           plan.startUrl !== url ||
           plan.steps.some(

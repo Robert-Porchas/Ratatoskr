@@ -48,32 +48,48 @@ try {
     assert.equal(tool.inputSchema.type, 'object');
     assert(tool.inputSchema.properties);
   }
+  for (const args of [
+    {},
+    { url: 'file:///etc/passwd', steps: [{ do: 'visible', text: 'hello' }] },
+    { url: base, steps: [{ do: 'click' }] },
+    { url: base, steps: [{ do: 'click', label: 'x', text: 'x' }] },
+    {
+      url: base,
+      steps: [{ do: 'fill', label: 'Name', value: 'do-not-echo-secret' }],
+    },
+  ]) {
+    const invalid = await client.callTool({
+      name: 'run_browser_workflow',
+      arguments: args,
+    });
+    assert(invalid.isError);
+    assert(Buffer.byteLength(JSON.stringify(invalid)) < 750);
+    assert(!JSON.stringify(invalid).includes('do-not-echo-secret'));
+  }
   const fields = [
     {
-      action: 'fill',
-      target: { kind: 'label', label: 'Email' },
+      do: 'fill',
+      label: 'Email',
       valueRef: 'TEST_EMAIL',
     },
     {
-      action: 'fill',
-      target: { kind: 'label', label: 'Password' },
+      do: 'fill',
+      label: 'Password',
       valueRef: 'TEST_PASSWORD',
     },
     {
-      action: 'click',
-      target: { kind: 'role', role: 'button', name: 'Sign in' },
+      do: 'click',
+      role: 'button',
+      name: 'Sign in',
     },
   ];
   const successPlan = {
-    startUrl: `${base}/login`,
-    steps: [...fields, { action: 'assert_url', contains: '/dashboard' }],
+    url: `${base}/login`,
+    steps: [...fields, { do: 'url', contains: '/dashboard' }],
   };
   const failurePlan = {
-    startUrl: `${base}/login-failure`,
-    steps: [
-      ...fields,
-      { action: 'assert_url', contains: '/dashboard', timeoutMs: 400 },
-    ],
+    url: `${base}/login-failure`,
+    steps: [...fields, { do: 'url', contains: '/dashboard' }],
   };
   const successCall = await client.callTool({
     name: 'run_browser_workflow',
@@ -86,14 +102,32 @@ try {
   };
   assert.equal(success.success, true);
   assert.deepEqual(Object.keys(success).sort(), ['runId', 'success']);
+  const savedFailure = await client.callTool({
+    name: 'run_browser_workflow',
+    arguments: {
+      url: `${base}/login`,
+      steps: [
+        { do: 'extractText', role: 'heading', save: 'heading' },
+        { do: 'url', contains: '/absent' },
+      ],
+    },
+  });
+  const savedValues = savedFailure.structuredContent as {
+    success: boolean;
+    values: unknown;
+  };
+  assert.equal(savedValues.success, false);
+  assert.deepEqual(savedValues.values, {
+    heading: 'Sign in',
+  });
   const blockedRefCall = await client.callTool({
     name: 'run_browser_workflow',
     arguments: {
-      startUrl: `${base}/login`,
+      url: `${base}/login`,
       steps: [
         {
-          action: 'fill',
-          target: { kind: 'label', label: 'Password' },
+          do: 'fill',
+          label: 'Password',
           valueRef: 'PATH',
         },
       ],
@@ -134,7 +168,6 @@ try {
     arguments: {
       runId: failure.runId,
       include: ['failed_requests', 'metrics', 'artifacts'],
-      maxItemsPerCategory: 1,
     },
   });
   assert(!inspectCall.isError);
@@ -150,7 +183,7 @@ try {
       artifacts: { items: unknown[] };
     };
   };
-  assert.equal(inspection.sections.failed_requests.returnedCount, 1);
+  assert(inspection.sections.failed_requests.returnedCount <= 10);
   assert(inspection.sections.failed_requests.availableCount >= 1);
   const screenshotCall = await client.callTool({
     name: 'get_browser_artifact',
@@ -175,12 +208,12 @@ try {
   const traceCall = await client.callTool({
     name: 'run_browser_workflow',
     arguments: {
-      startUrl: `${base}/missing`,
+      url: `${base}/missing`,
       steps: [
         {
-          action: 'click',
-          target: { kind: 'role', role: 'button', name: 'Absent' },
-          timeoutMs: 200,
+          do: 'click',
+          role: 'button',
+          name: 'Absent',
         },
       ],
     },

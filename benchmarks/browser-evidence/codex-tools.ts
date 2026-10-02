@@ -7,6 +7,11 @@ import { startDirectBrowser } from './direct-browser.js';
 import { startRatatoskrSession } from './ratatoskr-session.js';
 import { bytes, type ToolReply } from './tools.js';
 import { measureSchemas } from './codex-observations.js';
+import {
+  applicationValidatedSchema,
+  invalidPlanResult,
+  InvalidWirePlan,
+} from '../../src/mcp/wire-plan.js';
 
 /** Benchmark-only transport: expose the same replies already measured by the API/replay drivers. */
 const mode = z
@@ -39,7 +44,10 @@ for (const tool of session.tools) {
     tool.name,
     {
       description: tool.description,
-      inputSchema: fromJsonSchema<Record<string, unknown>>(tool.inputSchema),
+      inputSchema:
+        mode === 'ratatoskr'
+          ? applicationValidatedSchema(tool.inputSchema)
+          : fromJsonSchema<Record<string, unknown>>(tool.inputSchema),
     },
     async (args) => {
       const start = Date.now();
@@ -47,13 +55,19 @@ for (const tool of session.tools) {
       if (interactions >= 24)
         throw new Error('Maximum browser tool calls exceeded');
       try {
-        reply = await session.call(tool.name, args);
+        reply = await session.call(tool.name, args as Record<string, unknown>);
       } catch (error) {
-        reply = {
-          text: JSON.stringify({
-            error: error instanceof Error ? error.message : 'Tool failed',
-          }),
-        };
+        reply =
+          error instanceof InvalidWirePlan
+            ? {
+                text: invalidPlanResult(error).content[0]!.text,
+                mcpResult: invalidPlanResult(error),
+              }
+            : {
+                text: JSON.stringify({
+                  error: error instanceof Error ? error.message : 'Tool failed',
+                }),
+              };
       }
       interactions++;
       returnedEvidenceBytes +=
