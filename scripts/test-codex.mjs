@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { copyFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  writeFile,
+} from 'node:fs/promises';
+import { join, relative, isAbsolute } from 'node:path';
 import { z } from 'zod';
+import { chromium } from 'playwright';
 import { projectRoot } from './runtime.mjs';
 import {
   startSettingsFixture,
@@ -19,6 +26,29 @@ assert(
   'Use npm run test:install -- --codex',
 );
 const root = process.env.RATATOSKR_INSTALL_TEST_ROOT;
+const codexRelative = relative(root, process.env.CODEX_HOME);
+assert(
+  codexRelative &&
+    !codexRelative.startsWith('..') &&
+    !isAbsolute(codexRelative),
+  'Codex home must be inside this disposable test tree',
+);
+const version = JSON.parse(
+  await readFile(join(projectRoot, 'package.json'), 'utf8'),
+).version;
+const cachedConfig = join(
+  process.env.CODEX_HOME,
+  'plugins/cache/ratatoskr-local/ratatoskr',
+  version,
+  '.mcp.json',
+);
+const declared = JSON.parse(await readFile(cachedConfig, 'utf8'));
+// Host policy cannot widen a plugin's declared approval requirement in this Codex
+// version. Auto-approve one tool ONLY in the disposable fixture-test installation.
+declared.mcpServers.ratatoskr.tools = {
+  run_browser_workflow: { approval_mode: 'approve' },
+};
+await writeFile(cachedConfig, JSON.stringify(declared));
 const model = process.env.BENCHMARK_MODEL || 'gpt-6.1-sol';
 const reasoning = process.env.BENCHMARK_CODEX_REASONING_EFFORT || 'medium';
 const schemaPath = join(root, 'diagnosis-schema.json');
@@ -35,6 +65,7 @@ for (const [mode, outcome] of [
   ['control', 'http_failure'],
   ['plugin', 'http_failure'],
   ['plugin', 'success'],
+  ['direct', 'http_failure'],
 ]) {
   const fixture = await startSettingsFixture({ size: 'medium', outcome });
   const task = settingsTask({ size: 'medium', outcome });
@@ -42,11 +73,11 @@ for (const [mode, outcome] of [
   const environment = {
     ...process.env,
     ...task.values,
-    CODEX_HOME: mode === 'control' ? control : process.env.CODEX_HOME,
+    CODEX_HOME: mode === 'plugin' ? process.env.CODEX_HOME : control,
   };
   delete environment.CODEX_THREAD_ID;
   delete environment.CODEX_SESSION_ID;
-  const instructions = `You are testing a local application. Profile page: ${fixture.url}. Perform the task using the available Ratatoskr browser tools. Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis. Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${task.sourceContext}`;
+  const instructions = `You are testing a local application. Profile page: ${fixture.url}. Perform the task using the available browser tools. Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis. Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${task.sourceContext}`;
   const args = [
     'exec',
     '--json',
@@ -75,8 +106,44 @@ for (const [mode, outcome] of [
       '-c',
       'plugins."ratatoskr@ratatoskr-local".mcp_servers.ratatoskr.default_tools_approval_mode="approve"',
     );
-  else {
+  else if (mode === 'control') {
     const mcp = `{ratatoskr={command=${JSON.stringify(process.execPath)},args=${JSON.stringify([join(projectRoot, 'scripts/mcp.mjs')])},env_vars=${JSON.stringify(['RATATOSKR_HOME', 'PLAYWRIGHT_BROWSERS_PATH', ...Object.keys(task.values)])},env={RATATOSKR_ALLOWED_VALUE_REFS=${JSON.stringify(Object.keys(task.values).join(','))}},startup_timeout_sec=20,tool_timeout_sec=210,default_tools_approval_mode="approve"}}`;
+    args.push('-c', `mcp_servers=${mcp}`);
+  } else {
+    const allowed = [
+      'browser_navigate',
+      'browser_click',
+      'browser_type',
+      'browser_fill_form',
+      'browser_snapshot',
+      'browser_wait_for',
+      'browser_network_requests',
+      'browser_console_messages',
+      'browser_press_key',
+      'browser_select_option',
+      'browser_hover',
+      'browser_take_screenshot',
+      'browser_tabs',
+      'browser_close',
+      'browser_handle_dialog',
+      'browser_resize',
+      'browser_drag',
+    ];
+    const commandArgs = [
+      join(projectRoot, 'node_modules/@playwright/mcp/cli.js'),
+      '--headless',
+      '--isolated',
+      '--executable-path',
+      chromium.executablePath(),
+      '--viewport-size',
+      '1280x720',
+      '--allowed-origins',
+      new URL(fixture.url).origin,
+      '--no-webmcp',
+      '--output-dir',
+      workspace,
+    ];
+    const mcp = `{browser={command=${JSON.stringify(process.execPath)},args=${JSON.stringify(commandArgs)},env_vars=["PLAYWRIGHT_BROWSERS_PATH"],enabled_tools=${JSON.stringify(allowed)},startup_timeout_sec=20,tool_timeout_sec=60,default_tools_approval_mode="approve"}}`;
     args.push('-c', `mcp_servers=${mcp}`);
   }
   args.push('-');
@@ -121,14 +188,18 @@ for (const [mode, outcome] of [
       'Authoritative task usage unavailable',
     );
     const tools = measureCodexTools(events);
-    assert.equal(tools.invalidToolCalls, 0);
-    assert.equal(
-      tools.interactions.length,
-      1,
-      'Expected one browser workflow without inspection',
-    );
-    assert.equal(tools.interactions[0].name, 'run_browser_workflow');
-    const resultText = tools.interactions[0].reply.text;
+    if (mode !== 'direct') {
+      assert.equal(tools.invalidToolCalls, 0);
+      assert.equal(
+        tools.interactions.length,
+        1,
+        'Expected one browser workflow without inspection',
+      );
+      assert.equal(tools.interactions[0].name, 'run_browser_workflow');
+    }
+    const resultText = tools.interactions
+      .map((interaction) => interaction.reply.text)
+      .join('\n');
     const agentMessages = events.filter(
       (event) =>
         event.type === 'item.completed' && event.item?.type === 'agent_message',

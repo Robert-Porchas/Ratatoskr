@@ -2,6 +2,14 @@
 
 This is one TypeScript package, not a monorepo. The modules form a browser capability that can later be hosted by a desktop agent without making Playwright the domain model.
 
+## Installation boundary
+
+The Codex plugin uses the supported compatibility manifest (`.codex-plugin/plugin.json`, `.mcp.json`, `skills/`). This permits stdio environment-name forwarding and a client timeout longer than the 180-second workflow deadline; the portable MCP schema currently excludes those fields. The repository marketplace is `.claude-plugin/marketplace.json`, a supported catalog location. Codex resolves `cwd: "."` against the installed plugin root; its MCP parser does not interpolate hook-style `${PLUGIN_ROOT}` variables. See [official packaging guidance](https://developers.openai.com/plugins/build/plugins) and [parser implementation](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/plugin_config.rs).
+
+Build stages a small bundle in `dist/plugin/`. Only the manifest, MCP declaration, skill and bootstrap scripts enter the replaceable Codex plugin cache—not `node_modules`, benchmarks, builds or user data. `npm run setup` prepares the retained clone and registers its absolute runtime location in user-owned `~/.ratatoskr/runtime.json` (`RATATOSKR_HOME` override). The bootstrap imports that runtime's compiled server without shell command construction and sets run storage to the user data directory. Moving a clone requires setup again. CLI/bare MCP storage defaults remain unchanged.
+
+Setup neither edits Codex configuration nor saves environment values. `--value-refs` adds only selected variable names to the staged forwarding/allowlist configuration. The skill is operational guidance, not part of the executor, and adds no tools. CLI/MCP versions come from package metadata; distribution checks ensure the plugin version agrees. Doctor probes dependencies and writability; smoke uses a temporary localhost fixture and real stdio MCP client. Neither calls a model. Clean-install tests use a committed fresh clone and isolated browser/runtime/Codex directories.
+
 ## Dependency boundaries
 
 ```text

@@ -1,23 +1,127 @@
 # Ratatoskr
 
-Ratatoskr runs a structured Playwright workflow locally, stores browser evidence locally, and returns a compact result to Codex. One workflow can batch many browser actions, avoiding repeated model/browser round trips and routine DOM, console, and network dumps. Codex plans the steps; Ratatoskr executes them deterministically. It is not an autonomous browser agent.
+Ratatoskr is a local browser tool for Codex. It batches known multi-step application tests and returns compact diagnostic evidence instead of repeated browser dumps. This reduces model/browser round trips and has measured token savings on the [tested E2E scenarios](#token-first-browser-benchmark); it is not an autonomous browsing agent.
 
-## Install and verify
+## Install with Codex
 
-Requires Node.js 22+, npm, and Chromium:
+### Prerequisites
+
+- **Codex CLI** with plugin commands (tested: **0.160.0**); authenticate with `codex login` to use a model.
+- **Node.js 22+**, npm, and Git. Keep Node available on the PATH of the process that starts Codex.
+- **Chromium**, downloaded by setup. Linux also needs Playwright's system libraries; if missing, run `npx playwright install --with-deps chromium` after `npm ci` (may require administrator access).
+- **Tested:** Linux x86-64 (Ubuntu 26.04), Node 24. Windows/macOS are expected to work but are **not yet installation-tested**. No API key is required for doctor/smoke; model tasks require a Codex account/login.
+
+### Install Ratatoskr
+
+Run these commands in the directory where you want to keep Ratatoskr:
 
 ```sh
-npm install
-npx playwright install chromium
-npm test
-npm run typecheck
-npm run lint
-npm run format:check
-npm run test:e2e
-npm run test:mcp
+git clone https://github.com/Robert-Porchas/Ratatoskr.git
+cd Ratatoskr
+npm ci
+npm run setup
+codex plugin marketplace add .
+codex plugin add ratatoskr@ratatoskr-local
 ```
 
-`test:e2e` and `test:mcp` start their own small local website. `test:mcp` builds the server, spawns it over stdio with the official MCP client, and checks discovery, successful and failing workflows, selected inspection, explicit screenshot retrieval, trace metadata, and response-size budgets. Unit tests need no browser.
+Setup builds the runtime, stages a small plugin, downloads Chromium and registers this clone locally. It does **not** change Codex configuration; the two explicit `codex plugin` commands do. Keep the clone: the installed plugin launches its prepared runtime. Don't install from an unbuilt clone or delete/move it without rerunning setup.
+
+This uses Codex's [supported compatibility plugin layout](https://developers.openai.com/plugins/build/plugins), with a skill and stdio MCP bundled together. Unlike the portable MCP schema, this layout supports the environment-name allowlist and 210-second client timeout. It uses a relative plugin `cwd`, not unsupported MCP `${PLUGIN_ROOT}` interpolation. It is a repository marketplace, not a public-directory listing or published npm package.
+
+### Verify
+
+```sh
+codex plugin list --json
+npm run doctor
+npm run smoke
+```
+
+The list should show `ratatoskr@ratatoskr-local` installed/enabled. Doctor checks the runtime, writable data directory and Chromium. Smoke connects through stdio, discovers **three tools** and runs a local workflow; expect `"success":true`. Neither needs a model account. Start a **new Codex session**, then `/skills` should include Ratatoskr and `/mcp` should show its browser tools. For a structured discovery check: `node scripts/codex-discovery.mjs`.
+
+### Try it
+
+Start your application normally and ask Codex:
+
+> Use Ratatoskr to test my application's login flow. Sign in with my configured test credentials, verify the dashboard loads, and tell me where it fails. Only request additional browser evidence if the compact result is insufficient.
+
+Codex derives routes/locators from your source and constructs the plan; you do not need to write workflow JSON. Configure credential references as described below first. For a no-credential demo, run `npm run fixture`, then ask Codex to verify `http://127.0.0.1:3000/dashboard` contains the heading “Welcome to the dashboard” and text “Ready”.
+
+## What Ratatoskr does
+
+It executes deterministic app tests: login, forms, CRUD, navigation, regression reproduction and compact browser-side diagnosis. It is best suited to source-known workflows that can be batched. General research, open-ended discovery and a single trivial action may be better served by other tools. There is no proven universal action-count crossover.
+
+## How it works
+
+```text
+You → Codex + Ratatoskr skill → one MCP workflow → local executor / Playwright
+                                                        ↓
+                                                   browser actions
+                                                        ↓
+                                               rich evidence stored locally
+                                                        ↓
+                                                   evidence reducer
+                                                        ↓
+                                               compact result → Codex
+```
+
+Codex plans; Ratatoskr executes. Additional evidence is pull-based: `inspect_browser_run` selects bounded categories; `get_browser_artifact` retrieves one explicit artifact. Success normally needs no follow-up.
+
+## Configuration
+
+The plugin stores registration at `~/.ratatoskr/runtime.json` and runs/evidence/screenshots/traces/downloads under `~/.ratatoskr/data/`, **outside its replaceable cache**. `RATATOSKR_HOME` overrides the registration directory; `RATATOSKR_DATA_DIR` overrides run storage. Standalone CLI/MCP defaults remain the current directory's `.ratatoskr/`. Artifacts are not automatically deleted; review and remove only the generated run directories you no longer need. Browser data can be sensitive even with redaction.
+
+For environment-backed values, prepare the plugin with **names**, not secret values:
+
+```sh
+npm run setup -- --value-refs TEST_EMAIL,TEST_PASSWORD
+```
+
+Define those variables privately in the environment that launches Codex. Bash example: `export TEST_EMAIL='your-test-account'` and `read -rs TEST_PASSWORD; export TEST_PASSWORD`. PowerShell: use `$env:TEST_EMAIL` and `$env:TEST_PASSWORD`, populated from your credential provider. Don't put credentials in prompts, JSON plans, manifests or committed config. Setup adds the names to the plugin's forwarding/allowlist; it never reads or saves their values. No dotenv loader is used. `.env` files are ignored but **not loaded**.
+
+After changing setup options or updating the clone, reinstall the cached plugin:
+
+```sh
+codex plugin remove ratatoskr@ratatoskr-local
+codex plugin add ratatoskr@ratatoskr-local
+```
+
+Then start a new session. Rerun setup with the same `--value-refs` on upgrades; plain `npm run build` restores the default plugin config. Only one prepared runtime per `RATATOSKR_HOME` is selected. `RATATOSKR_UPLOAD_DIR` permits uploads of basenames directly in one configured directory, not filesystem browsing. Codex tool calls may submit forms and mutate applications; review tool approval requests.
+
+## Troubleshooting
+
+| Symptom                       | Action                                                                                                                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing plugin/skill/tools    | Check `codex --version`, `codex plugin list --json`; enable the plugin if disabled, start a new session, check `/skills` and `/mcp`. Managed policy may disallow local plugins.                |
+| MCP won't start               | Run `npm ci`, `npm run setup`, then `npm run doctor`; retain the clone, ensure Node is on PATH. Read stderr, not MCP stdout. Use the manual fallback below if plugin commands are unavailable. |
+| Missing Chromium/libraries    | `npx playwright install chromium`; on Linux, `npx playwright install --with-deps chromium`.                                                                                                    |
+| Missing/denied valueRef       | Rerun setup with that name in `--value-refs`, define it before launching Codex, reinstall the plugin and restart the session. Never pass its value through MCP.                                |
+| Element not found             | Derive exact accessible names/labels/test IDs from source; role locators use exact names. CSS is only an escape hatch.                                                                         |
+| No automatic screenshot/trace | Expected: request one artifact only when useful. Traces are disabled for secret-bearing plans.                                                                                                 |
+| Permission/path error         | Use writable `RATATOSKR_HOME`/`RATATOSKR_DATA_DIR`; rerun setup after moving the clone. Paths with spaces are supported.                                                                       |
+
+## Manual MCP setup
+
+Use the same clone, `npm ci`, `npm run setup`, doctor and smoke commands above. Register only this server (do not overwrite your existing Codex config):
+
+```sh
+codex mcp add ratatoskr -- node "/ABSOLUTE/PATH/TO/Ratatoskr/scripts/mcp.mjs"
+codex mcp list
+```
+
+Replace the visibly marked path with your clone's absolute path (Windows paths may contain spaces). In the generated `[mcp_servers.ratatoskr]` table in your Codex config, add:
+
+```toml
+env_vars = ["RATATOSKR_HOME", "RATATOSKR_DATA_DIR", "RATATOSKR_UPLOAD_DIR", "TEST_EMAIL", "TEST_PASSWORD"]
+startup_timeout_sec = 20
+tool_timeout_sec = 210
+env = { RATATOSKR_ALLOWED_VALUE_REFS = "TEST_EMAIL,TEST_PASSWORD" }
+```
+
+Change/omit credential **names** as appropriate. Do not configure both manual and plugin servers at once: duplicate definitions cost context. `npm run mcp` starts the bare compiled stdio server for debugging and waits for an MCP client; stdout must remain protocol-only. See [current official MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+## Uninstall or upgrade
+
+Remove just this plugin with `codex plugin remove ratatoskr@ratatoskr-local`, then optionally `codex plugin marketplace remove ratatoskr-local`. Manual users use `codex mcp remove ratatoskr`. Restart Codex. Once unregistered, you may delete the retained clone and separately review/delete Ratatoskr-owned generated data and `runtime.json`; do not delete your Codex config. To upgrade, update the clone, rerun `npm ci` and setup, reinstall the plugin, then doctor/smoke.
 
 ## Use the CLI without Codex
 
@@ -85,26 +189,9 @@ Prefer targets by role/accessibility name, label, text, or test ID; CSS is an es
 }
 ```
 
-## Use from Codex through MCP
+## MCP tools and compact workflows
 
-Build first, then the stdio server can be started manually with `npm run mcp` (it waits for an MCP client; stdout is protocol-only). Restart Codex after upgrading/building to refresh its cached MCP definitions. This repository has been registered locally as `ratatoskr`. For another machine, build and register with absolute paths:
-
-```sh
-npm run build
-codex mcp add ratatoskr --env RATATOSKR_DATA_DIR=/absolute/path/to/repo/.ratatoskr --env RATATOSKR_ALLOWED_VALUE_REFS=TEST_EMAIL,TEST_PASSWORD -- /absolute/path/to/node /absolute/path/to/repo/dist/src/mcp/server.js
-codex mcp list
-```
-
-In `~/.codex/config.toml`, add the following fields to the generated `[mcp_servers.ratatoskr]` table; do not put secret values in committed config:
-
-```toml
-cwd = "/absolute/path/to/repo"
-env_vars = ["TEST_EMAIL", "TEST_PASSWORD", "RATATOSKR_UPLOAD_DIR"]
-startup_timeout_sec = 20
-tool_timeout_sec = 660
-```
-
-Set the allowlisted reference variables in the local environment that launches Codex; `env_vars` forwards only their names and current values to the server. The MCP tools are:
+The three tools are:
 
 - `run_browser_workflow`: accepts the compact MCP format below, normalizes it into the strict canonical BrowserPlan, and returns a compact structured result.
 - `inspect_browser_run`: returns only requested, bounded categories for one run.
@@ -133,6 +220,8 @@ The MCP input deliberately differs from CLI JSON. Locators are flat; exactly one
 `has` checks target text against `contains`; `url` checks the URL against `contains`. `select` accepts one of `option` (value), `optionLabel`, or `optionIndex`. `press` needs `key`; `upload` needs an allowed `fileName`. `download` expects a download from clicking its target. Extraction uses `save` (and `attribute` for `extractAttribute`), implicitly requesting an output: up to five unique identifiers, 200 characters each. Completed values return as `values` on success **and failure**, without a separate `outputs` field. Default success remains just `success` and `runId`.
 
 MCP supports up to 300 steps with 5-second actions and a 180-second workflow deadline, without model-facing timeout/evidence knobs. Invalid calls receive a short repair rather than raw schema errors; CLI remains independently strict and configurable.
+
+Other normal requests: “Use Ratatoskr to reproduce the profile-save bug; update the display name, save, reload and verify persistence.” “Create a project, open it, rename it and verify the updated name.” “Test checkout; investigate source using compact failure evidence before requesting more browser data.” Only automate actions the user authorized.
 
 ## Storage, safety, and limits
 
@@ -168,3 +257,11 @@ BENCHMARK_SUITE=my-token-comparison npm run benchmark:tokens
 ```
 
 See the [benchmark guide](benchmarks/browser-evidence/README.md) for prerequisites, token provenance, and complete commands. Results use medians across all attempts, with success/diagnosis counts and token distributions. Fixed overhead, retries, and additional inspection can still erase batching benefits; measurements do not establish universal savings.
+
+## Development and architecture
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks, fixtures, plugin development and clean-install tests. Architecture/dependency boundaries are in [docs/architecture.md](docs/architecture.md). Installation verification and platform limitations are recorded in [docs/distribution.md](docs/distribution.md).
+
+## License
+
+[MIT](LICENSE). Playwright and its downloaded browsers have their own third-party licenses; review them when redistributing a runtime. No npm release or public plugin submission has been made.
