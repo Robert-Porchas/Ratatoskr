@@ -7,7 +7,7 @@ Ratatoskr is a local browser tool for Codex. It batches known multi-step applica
 ### Prerequisites
 
 - **Codex CLI** with plugin commands (tested: **0.160.0**); authenticate with `codex login` to use a model.
-- **Node.js 22+**, npm, and Git. Keep Node available on the PATH of the process that starts Codex.
+- **Node.js 24 recommended** (22.12+ in the 22.x line also supported), npm, and Git. Keep Node on the PATH of the process that starts Codex.
 - **Chromium**, downloaded by setup. Linux also needs Playwright's system libraries; if missing, run `npx playwright install --with-deps chromium` after `npm ci` (may require administrator access).
 - **Tested:** Linux x86-64 (Ubuntu 26.04), Node 24. Windows/macOS are expected to work but are **not yet installation-tested**. No API key is required for doctor/smoke; model tasks require a Codex account/login.
 
@@ -257,6 +257,8 @@ BENCHMARK_SUITE=my-token-comparison npm run benchmark:tokens
 ```
 
 See the [benchmark guide](benchmarks/browser-evidence/README.md) for prerequisites, token provenance, and complete commands. Results use medians across all attempts, with success/diagnosis counts and token distributions. Fixed overhead, retries, and additional inspection can still erase batching benefits; measurements do not establish universal savings.
+
+The [clean-install plugin validation](docs/distribution.md#authenticated-codex-and-token-check) also records matched fresh medium tasks: 41,000 plugin tokens versus 101,238 direct tokens, with correct diagnoses. That is one sample per configuration, not a repeated benchmark. The plugin/skill adds measured overhead versus manual Ratatoskr MCP; its definitions remain the same size.
 
 ## Development and architecture
 

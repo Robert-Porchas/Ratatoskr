@@ -14,10 +14,11 @@ interface Check {
 
 /** Installation probes never print environment values or start an application workflow. */
 export async function doctor(root: string): Promise<Check[]> {
+  const [major, minor] = process.versions.node.split('.').map(Number);
   const checks: Check[] = [
     {
       name: `Node ${process.versions.node}`,
-      ok: Number(process.versions.node.split('.')[0]) >= 22,
+      ok: major! >= 24 || (major === 22 && minor! >= 12),
     },
   ];
   for (const [name, path] of [

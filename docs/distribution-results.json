@@ -1,0 +1,175 @@
+{
+  "date": "2026-10-02",
+  "testedCommit": "96591932eb4a9f846830f5e0fadabb5ea0279f3a",
+  "platform": "linux-x64 / Ubuntu 26.04",
+  "node": "24.19.0",
+  "npm": "12.0.2",
+  "codex": "0.160.0",
+  "model": "gpt-6.1-sol",
+  "reasoning": "medium",
+  "browser": "Chromium 153.0.8010.12",
+  "scenario": "medium profile settings; four fields",
+  "accountingSource": "codex-json-events / turn.completed.usage",
+  "notes": "Authoritative usage projections captured from four fresh clean-install tasks. Total is input plus output; cache/reasoning are subsets. One sample per configuration, not a repeated benchmark. No credentials or raw browser artifacts are retained here.",
+  "skillBytes": 2057,
+  "skillMetadataBytes": 280,
+  "mcpDefinitionBytesBefore": 4034,
+  "mcpDefinitionBytesAfter": 4034,
+  "schemas": [
+    {
+      "name": "run_browser_workflow",
+      "inputSchemaBytes": 1276,
+      "definitionBytes": 2013
+    },
+    {
+      "name": "inspect_browser_run",
+      "inputSchemaBytes": 493,
+      "definitionBytes": 1024
+    },
+    {
+      "name": "get_browser_artifact",
+      "inputSchemaBytes": 211,
+      "definitionBytes": 993
+    }
+  ],
+  "runs": [
+    {
+      "mode": "control",
+      "outcome": "http_failure",
+      "inputTokens": 38825,
+      "outputTokens": 419,
+      "totalTokens": 39244,
+      "cachedInputTokens": 12032,
+      "uncachedInputTokens": 26793,
+      "reasoningTokens": 0,
+      "toolCalls": 1,
+      "invalidCalls": 0,
+      "toolArgumentBytes": 715,
+      "toolResultBytes": 521,
+      "skillRead": false,
+      "correct": true,
+      "report": {
+        "persisted": false,
+        "method": "POST",
+        "path": "/api/profile",
+        "status": 500,
+        "errorCode": "INTERNAL_ERROR"
+      }
+    },
+    {
+      "mode": "plugin",
+      "outcome": "http_failure",
+      "inputTokens": 40513,
+      "outputTokens": 487,
+      "totalTokens": 41000,
+      "cachedInputTokens": 35840,
+      "uncachedInputTokens": 4673,
+      "reasoningTokens": 0,
+      "toolCalls": 1,
+      "invalidCalls": 0,
+      "toolArgumentBytes": 735,
+      "toolResultBytes": 521,
+      "skillRead": true,
+      "correct": true,
+      "report": {
+        "persisted": false,
+        "method": "POST",
+        "path": "/api/profile",
+        "status": 500,
+        "errorCode": "INTERNAL_ERROR"
+      }
+    },
+    {
+      "mode": "plugin",
+      "outcome": "success",
+      "inputTokens": 40409,
+      "outputTokens": 612,
+      "totalTokens": 41021,
+      "cachedInputTokens": 25856,
+      "uncachedInputTokens": 14553,
+      "reasoningTokens": 94,
+      "toolCalls": 1,
+      "invalidCalls": 0,
+      "toolArgumentBytes": 735,
+      "toolResultBytes": 116,
+      "skillRead": true,
+      "correct": true,
+      "report": {
+        "persisted": true,
+        "method": "",
+        "path": "/profile",
+        "status": 0,
+        "errorCode": ""
+      }
+    },
+    {
+      "mode": "direct",
+      "outcome": "http_failure",
+      "inputTokens": 100657,
+      "outputTokens": 581,
+      "totalTokens": 101238,
+      "cachedInputTokens": 84864,
+      "uncachedInputTokens": 15793,
+      "reasoningTokens": 116,
+      "toolCalls": 7,
+      "invalidCalls": 0,
+      "toolArgumentBytes": 524,
+      "toolResultBytes": 1546,
+      "skillRead": false,
+      "correct": true,
+      "report": {
+        "persisted": false,
+        "method": "POST",
+        "path": "/api/profile",
+        "status": 500,
+        "errorCode": "INTERNAL_ERROR"
+      }
+    }
+  ],
+  "prototype": {
+    "testedCommit": "93085b0",
+    "dirty": true,
+    "notes": "Earlier development-tree trials, not the clean-install acceptance run. Their instructions named Ratatoskr; the final matched runs use generic browser instructions. Included to retain observed packaging overhead variation.",
+    "runs": [
+      {
+        "mode": "control",
+        "outcome": "http_failure",
+        "inputTokens": 38804,
+        "outputTokens": 428,
+        "totalTokens": 39232,
+        "cachedInputTokens": 12032,
+        "uncachedInputTokens": 26772,
+        "reasoningTokens": 0,
+        "toolCalls": 1,
+        "invalidCalls": 0,
+        "correct": true
+      },
+      {
+        "mode": "plugin",
+        "outcome": "http_failure",
+        "inputTokens": 42620,
+        "outputTokens": 496,
+        "totalTokens": 43116,
+        "cachedInputTokens": 27264,
+        "uncachedInputTokens": 15356,
+        "reasoningTokens": 0,
+        "toolCalls": 1,
+        "invalidCalls": 0,
+        "correct": true
+      },
+      {
+        "mode": "plugin",
+        "outcome": "success",
+        "inputTokens": 40142,
+        "outputTokens": 539,
+        "totalTokens": 40681,
+        "cachedInputTokens": 35712,
+        "uncachedInputTokens": 4430,
+        "reasoningTokens": 54,
+        "toolCalls": 1,
+        "invalidCalls": 0,
+        "correct": true
+      }
+    ]
+  }
+}

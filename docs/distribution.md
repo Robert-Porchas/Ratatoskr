@@ -18,7 +18,7 @@ scripts/{setup,doctor,smoke}.mjs   local setup and verification
 dist/plugin/                      generated small cacheable bundle
 ```
 
-Node 22+ and npm/Git are required; setup downloads Chromium. Linux system libraries must be installed separately if absent. Codex login is needed only for model execution, not standalone CLI/doctor/smoke. Installation has been exercised on Linux x86-64, Ubuntu 26.04, Node 24.19.0, npm 12.0.2 and Codex 0.160.0. Windows/macOS installation remains unverified; added CI covers Node/build/unit/package logic but has not yet run remotely.
+Node 24 is recommended; Node 22.12+ in the 22.x line is also supported. The minimum matches locked Vite tooling rather than assuming all Node 22 patch releases work. npm/Git are required; setup downloads Chromium. Linux system libraries must be installed separately if absent. Codex login is needed only for model execution, not standalone CLI/doctor/smoke. Installation has been exercised on Linux x86-64, Ubuntu 26.04, Node 24.19.0, npm 12.0.2 and Codex 0.160.0. Windows/macOS installation remains unverified; added CI covers Node/build/unit/package logic but has not yet run remotely.
 
 ## Reproducible clean-room procedure
 
@@ -30,7 +30,26 @@ Token accounting uses authoritative `turn.completed.usage` from each fresh `code
 
 ## Verification results
 
-The initial isolated clean-clone run passed setup, new Chromium launch, doctor, smoke, actual skill discovery (`ratatoskr:ratatoskr`), three MCP tools, all 59 unit tests, type/lint/package checks, explicit screenshot retrieval and trace metadata. The bundle contained no dependencies, build/runtime evidence or secrets. Final authenticated clean-room and token results are recorded below after verification.
+Two independent clean-clone installations passed, including a final authenticated run of commit `9659193`, in paths containing spaces with freshly downloaded Chromium. Setup, doctor, clone/cached-launcher smoke, actual skill discovery (`ratatoskr:ratatoskr`), all three MCP tools, all 59 unit tests, type/lint/package checks, explicit screenshot retrieval and trace metadata passed. Both normal CLI examples and the browser/benchmark integration suites also passed. Temporary credentials and test trees were removed; global Codex configuration was untouched. One initial unexpected-popup timing assertion failed, then passed on reruns; late popup detection remains a timing-sensitive limitation, not an installation requirement.
+
+The staged bundle is about 20 KB on disk, versus a 166 MB accidental whole-repository copy discovered during the audit. The npm dry-run inventory includes only runtime JS, metadata, skill/bootstrap, README/license and architecture notes—not test/benchmark dumps, `.env`, dependencies or browser artifacts. MIT was explicitly selected by the maintainer. Updating Vitest to patched 4.1.11 removed its development-only mocker advisory; the final npm audit reported zero vulnerabilities.
+
+### Authenticated Codex and token check
+
+The final fresh processes read the skill automatically, generated valid compact plans on the first attempt, executed one workflow, and stopped without inspection/artifact calls. Success was verified after reload; failure correctly identified `POST /api/profile`, HTTP 500 and `INTERNAL_ERROR`. Normal browser approval policy remains enabled in production; unattended tests modify only their disposable fixture installation.
+
+The [machine-readable records](distribution-results.json) contain authoritative usage projections, reproducibility metadata and earlier prototype trials. One sample per configuration is **not** a replacement for the repeated benchmark:
+
+| Medium task / configuration              | Input tokens | Output tokens | Total tokens | Browser tool calls | Invalid calls |
+| ---------------------------------------- | -----------: | ------------: | -----------: | -----------------: | ------------: |
+| Direct Playwright MCP / failure          |      100,657 |           581 |      101,238 |                  7 |             0 |
+| Manual Ratatoskr MCP, no skill / failure |       38,825 |           419 |       39,244 |                  1 |             0 |
+| Ratatoskr plugin + skill / failure       |       40,513 |           487 |       41,000 |                  1 |             0 |
+| Ratatoskr plugin + skill / success       |       40,409 |           612 |       41,021 |                  1 |             0 |
+
+For this matched failure sample, plugin tokens were **59.5% below direct**, but **4.5% above manual Ratatoskr**. The skill read is additional model-visible work. Prototype manual/plugin tasks showed a 9.9% observed delta, so overhead varies; no universal savings claim follows from these samples. Previously optimized medium-failure median was 31,959.5 tokens against 78,372 direct (ten tasks each), under a different shell-disabled wrapper configuration. Do not attribute that configuration difference solely to packaging.
+
+Skill metadata is **280 bytes**, full skill **2,057 bytes**. MCP definitions stayed **4,034 bytes** before/after: run 2,013 (input schema 1,276), inspect 1,024 (493), artifact 993 (211). Packaging adds no tools or production response fields. Full token usage includes the skill read; its byte size is not a token estimate. To reproduce installation and these four task checks: `npm run test:install -- --codex`. It requires file-based Codex login, network access for dependency/browser downloads and consumes account usage. Set `BENCHMARK_MODEL`/`BENCHMARK_CODEX_REASONING_EFFORT` if changing model settings; do not compare unmatched runs.
 
 ## Remaining release work
 

@@ -13,8 +13,12 @@ export function installationHome(environment = process.env, home = homedir()) {
 }
 
 export function assertNode(version = process.versions.node) {
-  if (!/^\d+\.\d+\.\d+$/.test(version) || Number(version.split('.')[0]) < 22)
-    throw new Error('Ratatoskr requires Node.js 22 or newer.');
+  const [major, minor] = version.split('.').map(Number);
+  if (
+    !/^\d+\.\d+\.\d+$/.test(version) ||
+    !(major >= 24 || (major === 22 && minor >= 12))
+  )
+    throw new Error('Ratatoskr requires Node.js 22.12+ (22.x) or 24+.');
 }
 
 export async function registeredRoot(environment = process.env) {

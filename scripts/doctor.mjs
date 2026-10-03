@@ -44,7 +44,7 @@ try {
   if (!ready) process.exitCode = 1;
 } catch {
   process.stderr.write(
-    'Ratatoskr doctor could not load the build. Use Node 22+, npm ci, then npm run setup.\n',
+    'Ratatoskr doctor could not load the build. Use Node 22.12+ (22.x) or 24+, npm ci, then npm run setup.\n',
   );
   process.exitCode = 1;
 }

@@ -6,7 +6,7 @@ This is one TypeScript package. `src/protocol.ts` defines plans; `src/browser.ts
 
 ## Build, Test, and Development Commands
 
-Run `npm install` and `npx playwright install chromium` once. Use `npm test` (Vitest), `npm run test:e2e` (Chromium), `npm run test:mcp` (stdio client), `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run build`. Start the fixture with `npm run fixture`; then run `npm run cli -- run examples/login-success.json` with local `TEST_EMAIL` and `TEST_PASSWORD`. `npm run mcp` starts the built server; keep its stdout protocol-only.
+Run `npm ci` and `npm run setup` once (builds/downloads Chromium; does not edit Codex config). Use `npm run doctor` and `npm run smoke` for installation checks; `npm run test:dist` audits package/plugin contents and `npm run test:install` verifies committed HEAD in an isolated clone. `npm test` (Vitest), `npm run test:e2e`, `npm run test:mcp`, `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run build` cover development. Start `npm run fixture`, then `npm run cli -- run examples/login-success.json` with local `TEST_EMAIL`/`TEST_PASSWORD`. CLI/MCP run compiled JavaScript; rebuild after edits. Keep MCP stdout protocol-only. Plugin sources are `.codex-plugin/`, `.mcp.json`, and `skills/`; build stages `dist/plugin/`, never dependencies or run data.
 
 ## Coding Style & Naming Conventions
 

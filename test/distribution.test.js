@@ -16,7 +16,9 @@ describe('distribution boundaries', () => {
   it('rejects unsupported Node versions', () => {
     expect(() => assertNode('20.19.0')).toThrow('22');
     expect(() => assertNode('invalid')).toThrow('22');
-    expect(() => assertNode('22.0.0')).not.toThrow();
+    expect(() => assertNode('22.0.0')).toThrow('22.12');
+    expect(() => assertNode('23.0.0')).toThrow();
+    expect(() => assertNode('22.12.0')).not.toThrow();
     expect(() => assertNode('24.0.0')).not.toThrow();
   });
   it('reads the release version from package metadata', () => {
@@ -25,6 +27,6 @@ describe('distribution boundaries', () => {
     );
     expect(VERSION).toBe(metadata.version);
     expect(metadata.license).toBe('MIT');
-    expect(metadata.engines.node).toBe('>=22');
+    expect(metadata.engines.node).toBe('^22.12.0 || >=24.0.0');
   });
 });

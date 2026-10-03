@@ -9,7 +9,7 @@
     "url": "https://github.com/Robert-Porchas/Ratatoskr.git"
   },
   "engines": {
-    "node": ">=22"
+    "node": "^22.12.0 || >=24.0.0"
   },
   "files": [
     "dist/src/",

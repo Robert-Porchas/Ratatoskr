@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node 22+ and npm. User installation is at the top of [README](README.md); contributor checks are separate:
+Use Node 24 (or 22.12+ in the 22.x line) and npm. User installation is at the top of [README](README.md); contributor checks are separate:
 
 ```sh
 npm ci
