@@ -83,6 +83,36 @@ describe('session benchmark', () => {
       gradeSession(
         'missing',
         requests,
+        report,
+        '{"cookies":[]} UNAUTHENTICATED',
+      ).diagnosisCorrect,
+    ).toBe(false);
+    expect(
+      gradeSession(
+        'missing',
+        requests,
+        report,
+        JSON.stringify({
+          structuredContent: {
+            sections: {
+              session: { cookieSnapshot: { observedCount: 0, complete: true } },
+            },
+          },
+        }),
+      ).diagnosisCorrect,
+    ).toBe(true);
+    expect(
+      gradeSession(
+        'missing',
+        requests,
+        report,
+        'No cookies found before login; UNAUTHENTICATED',
+      ).diagnosisCorrect,
+    ).toBe(false);
+    expect(
+      gradeSession(
+        'missing',
+        requests,
         {
           ...report,
           evidence: [

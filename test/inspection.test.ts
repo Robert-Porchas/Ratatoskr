@@ -109,6 +109,7 @@ describe('run inspection', () => {
     expect(response.sections.session).toMatchObject({
       returnedCount: 2,
       availableCount: 81,
+      cookieSnapshot: { observedCount: 81, complete: true },
       truncated: true,
       items: [{ expired: true }, { expired: true }],
     });

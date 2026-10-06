@@ -117,6 +117,15 @@ function section(
       return {
         ...selected,
         available: true,
+        ...(final
+          ? {
+              cookieSnapshot: {
+                at: final.at,
+                observedCount: final.cookies.length,
+                complete: final.cookiesComplete,
+              },
+            }
+          : {}),
         captureTruncated:
           safe.truncated || !final?.cookiesComplete || !final?.storageComplete,
       };

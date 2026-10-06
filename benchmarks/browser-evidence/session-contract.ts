@@ -63,6 +63,32 @@ export function gradeSession(
   const authFailure =
     scenario === 'missing' || scenario === 'loss' || scenario === 'scope';
   const explanation = report?.evidence.join(' ') ?? '';
+  const emptyCookieSnapshot = observed.split('\n').some((line) => {
+    try {
+      const result = z
+        .object({
+          structuredContent: z.object({
+            sections: z.object({
+              session: z.object({
+                cookieSnapshot: z.object({
+                  observedCount: z.number(),
+                  complete: z.boolean(),
+                }),
+              }),
+            }),
+          }),
+        })
+        .parse(JSON.parse(line));
+      const snapshot = result.structuredContent.sections.session.cookieSnapshot;
+      return snapshot.complete && snapshot.observedCount === 0;
+    } catch {
+      return false;
+    }
+  });
+  const cookiesAfterFailure =
+    observed.lastIndexOf('No cookies found') >
+      observed.indexOf('UNAUTHENTICATED') &&
+    observed.includes('UNAUTHENTICATED');
   const falseHeaderClaim =
     /(?:contained|sent|returned|included)\s+no\s+set-cookie|(?:server|login response).{0,40}(?:did not|didn't|never)\s+(?:send|set)/i.test(
       explanation,
@@ -77,9 +103,9 @@ export function gradeSession(
         report.status === 401 &&
         report.errorCode === 'UNAUTHENTICATED' &&
         (scenario === 'missing'
-          ? /cookie_not_retained|No cookies found|"cookies":\s*\[\]/i.test(
-              observed,
-            ) &&
+          ? (/cookie_not_retained/.test(observed) ||
+              emptyCookieSnapshot ||
+              cookiesAfterFailure) &&
             /not.retained|not.persist|not.stored|absent|missing|reject|no.*cookie/i.test(
               explanation,
             )

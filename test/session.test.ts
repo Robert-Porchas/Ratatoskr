@@ -177,6 +177,18 @@ describe('session comparison and sanitization', () => {
     });
     record.responses[0]!.cookies[0]!.deletion = true;
     expect(reduceSession(record, failed, [])).toBeUndefined();
+    const uncertain = reduceSession(record, failed, [
+      {
+        type: 'http',
+        method: 'GET',
+        path: '/protected',
+        status: 401,
+        at: 1100,
+        stepIndex: failed.index,
+      },
+    ]);
+    expect(uncertain?.findings[0]).toMatchObject({ kind: 'auth_http_failure' });
+    expect(uncertain?.findings[0]).not.toHaveProperty('cookiePresent');
     record.changes = [
       { at: 1200, stepIndex: 2, type: 'cookie', change: 'removed', cookie },
     ];
@@ -212,12 +224,27 @@ describe('session comparison and sanitization', () => {
       truncated: false,
     };
     expect(reduceSession(record, failed, [])).toBeUndefined();
+    record.snapshots[0]!.at = 1400;
+    expect(
+      reduceSession(record, failed, [
+        {
+          type: 'http',
+          method: 'GET',
+          path: '/protected',
+          status: 401,
+          at: 1100,
+          stepIndex: failed.index,
+        },
+      ])?.findings[0],
+    ).not.toHaveProperty('cookiePresent');
     record.snapshots = [
       snapshot([{ ...cookie, domain: 'other.test', fingerprint: 'x' }]),
     ];
     expect(reduceSession(record, failed, [])?.findings[0]?.kind).toBe(
       'cookie_not_retained',
     );
+    record.truncated = true;
+    expect(reduceSession(record, failed, [])).toBeUndefined();
   });
   it('does not mislabel a later logout as cookie non-retention', () => {
     const before = {

@@ -366,7 +366,9 @@ export function reduceSession(
         (event.status === 401 || event.status === 403) &&
         near(event),
     );
-  for (const response of record.responses.filter(near)) {
+  for (const response of record.truncated
+    ? []
+    : record.responses.filter(near)) {
     // Do not confuse an initially retained cookie with a subsequent logout.
     const retainedState = record.snapshots.find(
       (snapshot) => snapshot.at >= response.at && snapshot.cookiesComplete,
@@ -405,7 +407,9 @@ export function reduceSession(
     findings.push({
       kind: 'auth_http_failure',
       response: { method: auth.method, path: auth.path, status: auth.status },
-      cookiePresent: Boolean(final?.cookies.length),
+      ...(final?.cookiesComplete && final.at >= auth.at
+        ? { cookiePresent: Boolean(final.cookies.length) }
+        : {}),
     });
   for (const delta of record.changes
     .filter(near)
