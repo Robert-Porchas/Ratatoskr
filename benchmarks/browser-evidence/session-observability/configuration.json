@@ -1,0 +1,51 @@
+{
+  "runs": 10,
+  "concurrency": 2,
+  "model": "gpt-6.1-sol",
+  "reasoning": "medium",
+  "scenarios": ["success", "missing", "loss", "scope", "unrelated"],
+  "cases": ["without", "with", "direct"],
+  "directScenarios": ["missing", "scope"],
+  "commit": "5436d2cd5e9c59bf161660bf292dcb28876d4ad3",
+  "codexVersion": "codex-cli 0.160.1",
+  "browserVersion": "153.0.8010.12",
+  "timeoutMs": 180000,
+  "maxToolCalls": 24,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "dirty": false,
+  "lockfileHash": "1a75841d4b34da8ce87d77b26b17712b3965cfefa37abb83eeddb3d626b0ac58",
+  "nodeVersion": "v24.19.0",
+  "tokenAccounting": "codex-json-events",
+  "baseline": "@playwright/mcp@0.0.83 core + read-only cookie/localStorage/sessionStorage lists + request detail (21 tools)",
+  "comparison": "without disables automatic Level 1 only; same observer, safe persistence, Level 2 and MCP definitions",
+  "taskContracts": {
+    "success": {
+      "prompt": "Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. Open the dashboard and verify Dashboard ready. If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails.",
+      "plannedSteps": 8,
+      "sourceContext": "Source contract: route /auth; buttons Sign in, Account details, Settings, Sign out, Open dashboard. Sign in acceptance is role=status text Sign-in accepted. Account details confirmation is testId=detail text Account active. Settings confirmation is testId=settings text Settings ready. Sign out confirmation is role=status text Signed out. Dashboard confirmation is testId=dashboard text Dashboard ready. API routes: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/protected. These are application contracts, not statements that this run succeeds. Use report.persisted for verified dashboard access. For success use errorCode NONE; for a missing control use LOCATOR_NOT_FOUND with status 0. For HTTP failures report the observed response error code. Stop when evidence supports the requested facts; describe observations, not speculative root causes. Header listings may omit credential-bearing headers: absence there does not prove the server sent none. Do not guess cookie values or causes."
+    },
+    "missing": {
+      "prompt": "Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. Open the dashboard and verify Dashboard ready. If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails.",
+      "plannedSteps": 8,
+      "sourceContext": "Source contract: route /auth; buttons Sign in, Account details, Settings, Sign out, Open dashboard. Sign in acceptance is role=status text Sign-in accepted. Account details confirmation is testId=detail text Account active. Settings confirmation is testId=settings text Settings ready. Sign out confirmation is role=status text Signed out. Dashboard confirmation is testId=dashboard text Dashboard ready. API routes: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/protected. These are application contracts, not statements that this run succeeds. Use report.persisted for verified dashboard access. For success use errorCode NONE; for a missing control use LOCATOR_NOT_FOUND with status 0. For HTTP failures report the observed response error code. Stop when evidence supports the requested facts; describe observations, not speculative root causes. Header listings may omit credential-bearing headers: absence there does not prove the server sent none. Do not guess cookie values or causes."
+    },
+    "loss": {
+      "prompt": "Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. Sign out and verify Signed out, then Open the dashboard and verify Dashboard ready. If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails.",
+      "plannedSteps": 10,
+      "sourceContext": "Source contract: route /auth; buttons Sign in, Account details, Settings, Sign out, Open dashboard. Sign in acceptance is role=status text Sign-in accepted. Account details confirmation is testId=detail text Account active. Settings confirmation is testId=settings text Settings ready. Sign out confirmation is role=status text Signed out. Dashboard confirmation is testId=dashboard text Dashboard ready. API routes: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/protected. These are application contracts, not statements that this run succeeds. Use report.persisted for verified dashboard access. For success use errorCode NONE; for a missing control use LOCATOR_NOT_FOUND with status 0. For HTTP failures report the observed response error code. Stop when evidence supports the requested facts; describe observations, not speculative root causes. Header listings may omit credential-bearing headers: absence there does not prove the server sent none. Do not guess cookie values or causes."
+    },
+    "scope": {
+      "prompt": "Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. Open the dashboard and verify Dashboard ready. If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails. Identify whether the session cookie path covers the protected request and cite that path.",
+      "plannedSteps": 8,
+      "sourceContext": "Source contract: route /auth; buttons Sign in, Account details, Settings, Sign out, Open dashboard. Sign in acceptance is role=status text Sign-in accepted. Account details confirmation is testId=detail text Account active. Settings confirmation is testId=settings text Settings ready. Sign out confirmation is role=status text Signed out. Dashboard confirmation is testId=dashboard text Dashboard ready. API routes: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/protected. These are application contracts, not statements that this run succeeds. Use report.persisted for verified dashboard access. For success use errorCode NONE; for a missing control use LOCATOR_NOT_FOUND with status 0. For HTTP failures report the observed response error code. Stop when evidence supports the requested facts; describe observations, not speculative root causes. Header listings may omit credential-bearing headers: absence there does not prove the server sent none. Do not guess cookie values or causes."
+    },
+    "unrelated": {
+      "prompt": "Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. Open the dashboard and verify Dashboard ready. Then verify the Download report button is visible. If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails.",
+      "plannedSteps": 9,
+      "sourceContext": "Source contract: route /auth; buttons Sign in, Account details, Settings, Sign out, Open dashboard. Sign in acceptance is role=status text Sign-in accepted. Account details confirmation is testId=detail text Account active. Settings confirmation is testId=settings text Settings ready. Sign out confirmation is role=status text Signed out. Dashboard confirmation is testId=dashboard text Dashboard ready. API routes: POST /api/auth/login, POST /api/auth/logout, GET /api/auth/protected. These are application contracts, not statements that this run succeeds. Use report.persisted for verified dashboard access. For success use errorCode NONE; for a missing control use LOCATOR_NOT_FOUND with status 0. For HTTP failures report the observed response error code. Stop when evidence supports the requested facts; describe observations, not speculative root causes. Header listings may omit credential-bearing headers: absence there does not prove the server sent none. Do not guess cookie values or causes."
+    }
+  }
+}

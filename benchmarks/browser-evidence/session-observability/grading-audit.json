@@ -1,0 +1,80 @@
+{
+  "executionCommit": "5436d2cd5e9c59bf161660bf292dcb28876d4ad3",
+  "verificationCommit": "8f65af7790b07c89d603286aecf0baa331e09b14",
+  "verifiedTasks": 120,
+  "reason": "Accept cookie inspection after UI/HTTP failure, before body retrieval",
+  "changes": [
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 4,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 3,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 5,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 6,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 8,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 7,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 10,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    },
+    {
+      "scenario": "missing",
+      "sessionCase": "direct",
+      "run": 9,
+      "previousSuccess": false,
+      "verifiedSuccess": true,
+      "previousDiagnosisCorrect": false,
+      "verifiedDiagnosisCorrect": true
+    }
+  ]
+}

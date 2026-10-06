@@ -1,0 +1,220 @@
+[
+  {
+    "benchmarkVersion": "1",
+    "suiteId": "session-pre-cb13bf1",
+    "mode": "baseline",
+    "driver": "codex",
+    "run": 1,
+    "timestamp": "2026-10-06T02:24:53.526Z",
+    "gitCommit": "cb13bf189e9ee86f9ad6accdd86f0bd7fcab407b",
+    "configurationHash": "72a3c99993a38888045f4e9ce219facf6f0f6261e5f151858452ee7864bb675e",
+    "model": "gpt-6.1-sol",
+    "browserVersion": "153.0.8010.12",
+    "success": true,
+    "diagnosisCorrect": true,
+    "criteria": {
+      "opened": true,
+      "submittedAllValues": true,
+      "verified": true
+    },
+    "modelCalls": null,
+    "toolInteractions": 7,
+    "browserInteractions": 7,
+    "inputTokens": 76420,
+    "outputTokens": 615,
+    "totalTokens": 77035,
+    "tokenSource": "codex-json-events",
+    "tokenAuthoritative": true,
+    "tokenScope": "isolated-codex-task",
+    "cachedInputTokens": 61440,
+    "uncachedInputTokens": 14980,
+    "reasoningTokens": 102,
+    "codexVersion": "codex-cli 0.160.0",
+    "scenario": "medium-http_failure",
+    "plannedSteps": 10,
+    "baselineId": "playwright",
+    "rawEvidenceBytes": 2739,
+    "artifactBytes": 0,
+    "modelEvidenceBytes": 1548,
+    "returnedEvidenceBytes": 1548,
+    "cumulativeContextEvidenceBytes": null,
+    "toolDefinitionsBytes": 13081,
+    "invalidToolCalls": 0,
+    "failedToolCalls": 1,
+    "toolArgumentBytes": 509,
+    "toolResultBytes": 1548,
+    "maxToolErrorBytes": 134,
+    "schemaByTool": [
+      {
+        "name": "browser_close",
+        "inputSchemaBytes": 119,
+        "descriptionBytes": 14,
+        "definitionBytes": 294
+      },
+      {
+        "name": "browser_resize",
+        "inputSchemaBytes": 290,
+        "descriptionBytes": 25,
+        "definitionBytes": 485
+      },
+      {
+        "name": "browser_console_messages",
+        "inputSchemaBytes": 716,
+        "descriptionBytes": 28,
+        "definitionBytes": 923
+      },
+      {
+        "name": "browser_handle_dialog",
+        "inputSchemaBytes": 312,
+        "descriptionBytes": 15,
+        "definitionBytes": 498
+      },
+      {
+        "name": "browser_fill_form",
+        "inputSchemaBytes": 968,
+        "descriptionBytes": 25,
+        "definitionBytes": 1154
+      },
+      {
+        "name": "browser_press_key",
+        "inputSchemaBytes": 257,
+        "descriptionBytes": 27,
+        "definitionBytes": 447
+      },
+      {
+        "name": "browser_type",
+        "inputSchemaBytes": 752,
+        "descriptionBytes": 31,
+        "definitionBytes": 939
+      },
+      {
+        "name": "browser_navigate",
+        "inputSchemaBytes": 200,
+        "descriptionBytes": 17,
+        "definitionBytes": 385
+      },
+      {
+        "name": "browser_network_requests",
+        "inputSchemaBytes": 615,
+        "descriptionBytes": 132,
+        "definitionBytes": 927
+      },
+      {
+        "name": "browser_take_screenshot",
+        "inputSchemaBytes": 1331,
+        "descriptionBytes": 123,
+        "definitionBytes": 1629
+      },
+      {
+        "name": "browser_snapshot",
+        "inputSchemaBytes": 698,
+        "descriptionBytes": 82,
+        "definitionBytes": 944
+      },
+      {
+        "name": "browser_click",
+        "inputSchemaBytes": 770,
+        "descriptionBytes": 27,
+        "definitionBytes": 950
+      },
+      {
+        "name": "browser_drag",
+        "inputSchemaBytes": 717,
+        "descriptionBytes": 42,
+        "definitionBytes": 916
+      },
+      {
+        "name": "browser_hover",
+        "inputSchemaBytes": 401,
+        "descriptionBytes": 26,
+        "definitionBytes": 586
+      },
+      {
+        "name": "browser_select_option",
+        "inputSchemaBytes": 568,
+        "descriptionBytes": 30,
+        "definitionBytes": 767
+      },
+      {
+        "name": "browser_tabs",
+        "inputSchemaBytes": 453,
+        "descriptionBytes": 45,
+        "definitionBytes": 656
+      },
+      {
+        "name": "browser_wait_for",
+        "inputSchemaBytes": 340,
+        "descriptionBytes": 64,
+        "definitionBytes": 563
+      }
+    ],
+    "durationMs": 32948
+  },
+  {
+    "benchmarkVersion": "1",
+    "suiteId": "session-pre-cb13bf1",
+    "mode": "ratatoskr",
+    "driver": "codex",
+    "run": 1,
+    "timestamp": "2026-10-06T02:25:26.481Z",
+    "gitCommit": "cb13bf189e9ee86f9ad6accdd86f0bd7fcab407b",
+    "configurationHash": "72a3c99993a38888045f4e9ce219facf6f0f6261e5f151858452ee7864bb675e",
+    "model": "gpt-6.1-sol",
+    "browserVersion": "153.0.8010.12",
+    "success": true,
+    "diagnosisCorrect": true,
+    "criteria": {
+      "opened": true,
+      "submittedAllValues": true,
+      "verified": true
+    },
+    "modelCalls": null,
+    "toolInteractions": 1,
+    "browserInteractions": 7,
+    "inputTokens": 31520,
+    "outputTokens": 400,
+    "totalTokens": 31920,
+    "tokenSource": "codex-json-events",
+    "tokenAuthoritative": true,
+    "tokenScope": "isolated-codex-task",
+    "cachedInputTokens": 20224,
+    "uncachedInputTokens": 11296,
+    "reasoningTokens": 0,
+    "codexVersion": "codex-cli 0.160.0",
+    "scenario": "medium-http_failure",
+    "plannedSteps": 10,
+    "baselineId": "playwright",
+    "rawEvidenceBytes": 660,
+    "artifactBytes": 19607,
+    "modelEvidenceBytes": 521,
+    "returnedEvidenceBytes": 521,
+    "cumulativeContextEvidenceBytes": null,
+    "toolDefinitionsBytes": 4034,
+    "invalidToolCalls": 0,
+    "failedToolCalls": 0,
+    "toolArgumentBytes": 715,
+    "toolResultBytes": 521,
+    "maxToolErrorBytes": 0,
+    "schemaByTool": [
+      {
+        "name": "run_browser_workflow",
+        "inputSchemaBytes": 1276,
+        "descriptionBytes": 264,
+        "definitionBytes": 2013
+      },
+      {
+        "name": "inspect_browser_run",
+        "inputSchemaBytes": 493,
+        "descriptionBytes": 121,
+        "definitionBytes": 1024
+      },
+      {
+        "name": "get_browser_artifact",
+        "inputSchemaBytes": 211,
+        "descriptionBytes": 114,
+        "definitionBytes": 993
+      }
+    ],
+    "durationMs": 21871
+  }
+]

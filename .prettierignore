@@ -2,3 +2,4 @@ benchmarks/browser-evidence/sample/
 benchmarks/browser-evidence/codex-sample/
 benchmarks/browser-evidence/optimization/*-summary.md
 benchmarks/browser-evidence/session-observability/**/summary.md
+benchmarks/browser-evidence/session-observability/**/original-summary.md

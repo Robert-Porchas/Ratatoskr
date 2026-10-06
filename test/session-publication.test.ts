@@ -8,6 +8,7 @@ import {
   summarizeSessions,
 } from '../benchmarks/browser-evidence/session-contract.js';
 import { codexAccounting } from '../benchmarks/browser-evidence/usage.js';
+import { GradingAuditSchema } from '../benchmarks/browser-evidence/audit-session.js';
 import {
   FAKE_SESSION_SECRET,
   FAKE_STORAGE_SECRET,
@@ -64,6 +65,38 @@ describe('published session measurements', () => {
       expect(await readFile(join(folder, 'summary.md'), 'utf8')).toBe(
         summarizeSessions(rows),
       );
+      if ((await readdir(folder)).includes('grading-audit.json')) {
+        const audit = GradingAuditSchema.parse(
+          JSON.parse(
+            await readFile(join(folder, 'grading-audit.json'), 'utf8'),
+          ),
+        );
+        expect(audit.verifiedTasks).toBe(rows.length);
+        expect(audit.executionCommit).toBe(rows[0]?.gitCommit);
+        const originals = rows.map((row) => {
+          const change = audit.changes.find(
+            (item) =>
+              item.scenario === row.scenario &&
+              item.sessionCase === row.sessionCase &&
+              item.run === row.run,
+          );
+          if (!change) return row;
+          expect(row.success).toBe(change.verifiedSuccess);
+          expect(row.diagnosisCorrect).toBe(change.verifiedDiagnosisCorrect);
+          return {
+            ...row,
+            success: change.previousSuccess,
+            diagnosisCorrect: change.previousDiagnosisCorrect,
+            criteria: {
+              ...row.criteria,
+              diagnosed: change.previousDiagnosisCorrect,
+            },
+          };
+        });
+        expect(
+          await readFile(join(folder, 'original-summary.md'), 'utf8'),
+        ).toBe(summarizeSessions(originals));
+      }
       const usage = (await readFile(join(folder, 'native-usage.jsonl'), 'utf8'))
         .trim()
         .split('\n')
