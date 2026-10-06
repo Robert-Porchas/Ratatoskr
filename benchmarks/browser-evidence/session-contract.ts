@@ -43,7 +43,7 @@ export function parseSessionResults(raw: string): SessionBenchmarkResult[] {
 }
 
 export function sessionTask(scenario: AuthScenario) {
-  const prompt = `Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. ${scenario === 'loss' ? 'Sign out and verify Signed out, then ' : ''}Open the dashboard and verify Dashboard ready. ${scenario === 'unrelated' ? 'Then verify the Download report button is visible. ' : ''}If it fails, determine what changed in the browser session and report relevant HTTP and cookie evidence.${scenario === 'scope' ? ' Identify whether the session cookie path covers the protected request and cite that path.' : ''}`;
+  const prompt = `Open the account page, sign in and verify the sign-in is accepted. Open Account details and verify Account active, then open Settings and verify Settings ready. ${scenario === 'loss' ? 'Sign out and verify Signed out, then ' : ''}Open the dashboard and verify Dashboard ready. ${scenario === 'unrelated' ? 'Then verify the Download report button is visible. ' : ''}If it fails, report the failed operation and relevant browser evidence, including HTTP and cookie observations when authentication fails.${scenario === 'scope' ? ' Identify whether the session cookie path covers the protected request and cite that path.' : ''}`;
   return {
     prompt,
     plannedSteps: scenario === 'loss' ? 10 : scenario === 'unrelated' ? 9 : 8,
@@ -147,6 +147,7 @@ export function summarizeSessions(rows: SessionBenchmarkResult[]): string {
       ? 'N/A'
       : value.toLocaleString('en-US', { maximumFractionDigits: 1 });
   let text = `# Session diagnostic token comparison\n\nCodex-reported turn.completed.usage from fresh isolated tasks. Total=input+output; cache and reasoning are subsets. No byte-to-token conversion. All failures remain in statistics. Model: ${rows[0]!.model}; Codex: ${rows[0]!.codexVersion}; browser: ${rows[0]!.browserVersion}; commit: ${rows[0]!.gitCommit}; started: ${rows[0]!.timestamp}.\n\n| Scenario | Case | Runs | Median tokens | Min–max | Mean ± SD | Median calls | Inspect calls | Invalid | Success | Diagnosis |\n| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n`;
+  const comparisons: string[] = [];
   for (const scenario of [...new Set(rows.map((row) => row.scenario))]) {
     const groups = [
       ...new Set(
@@ -188,9 +189,12 @@ export function summarizeSessions(rows: SessionBenchmarkResult[]): string {
       for (const group of groups.filter((group) => group !== withRows)) {
         const a = tokenMedian(group),
           b = tokenMedian(withRows);
-        text += `\n${scenario}: with versus ${group[0]!.sessionCase}: ${a === null || b === null || a === 0 ? 'N/A' : fmt((1 - b / a) * 100) + '% total-token reduction'}. Diagnostic correctness must be comparable.\n\n`;
+        comparisons.push(
+          `${scenario}: with versus ${group[0]!.sessionCase}: ${a === null || b === null || a === 0 ? 'N/A' : fmt((1 - b / a) * 100) + '% total-token reduction'}. Diagnostic correctness must be comparable.`,
+        );
       }
   }
+  text += '\n' + comparisons.join('\n\n') + '\n';
   text +=
     '\n## Supporting medians (bytes are not tokens)\n\n| Scenario / case | Input / cached / uncached / output / reasoning tokens | Evidence bytes | Session L1 / L2 bytes | Capture / diff ms | Local session bytes | Schema bytes | Args bytes | Workflow ms |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n';
   for (const key of [

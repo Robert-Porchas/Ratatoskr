@@ -65,7 +65,10 @@ export async function runCodex(options: CodexOptions): Promise<{
     .join(',');
   // Unattended approval is scoped to this fixture-only server, not global tools.
   const mcp = `{benchmark={command=${JSON.stringify(config.command)},args=${JSON.stringify(config.args)},env={${envTable}},required=true,default_tools_approval_mode="approve",startup_timeout_sec=20,tool_timeout_sec=60}}`;
-  const instructions = `You are testing a local application. ${options.sessionDiagnostics ? 'Application page' : 'Profile page'}: ${options.url}. ${options.sessionDiagnostics ? '' : 'Desired name is available locally as valueRef BENCHMARK_NAME. '}Perform the task using only the benchmark MCP browser tools. Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis. Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${options.sourceContext ?? ''}`;
+  const verification = options.sessionDiagnostics
+    ? 'Verify the requested UI states rather than clicks alone. Passed workflow assertions count as verification. Use compact findings when sufficient; inspect only missing facts.'
+    : 'Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis.';
+  const instructions = `You are testing a local application. ${options.sessionDiagnostics ? 'Application page' : 'Profile page'}: ${options.url}. ${options.sessionDiagnostics ? '' : 'Desired name is available locally as valueRef BENCHMARK_NAME. '}Perform the task using only the benchmark MCP browser tools. ${verification} Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${options.sourceContext ?? ''}`;
   const args = [
     'exec',
     '--json',

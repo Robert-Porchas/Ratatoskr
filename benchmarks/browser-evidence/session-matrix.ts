@@ -93,6 +93,9 @@ const configuration = {
     '@playwright/mcp@0.0.83 core + read-only cookie/localStorage/sessionStorage lists + request detail (21 tools)',
   comparison:
     'without disables automatic Level 1 only; same observer, safe persistence, Level 2 and MCP definitions',
+  taskContracts: Object.fromEntries(
+    scenarios.map((scenario) => [scenario, sessionTask(scenario)]),
+  ),
 };
 const hash = createHash('sha256')
   .update(JSON.stringify(configuration))
