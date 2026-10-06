@@ -109,6 +109,27 @@ describe('session benchmark', () => {
         'No cookies found before login; UNAUTHENTICATED',
       ).diagnosisCorrect,
     ).toBe(false);
+    for (const boundary of [
+      'Unable to open dashboard',
+      '[GET] http://localhost/api/auth/protected => [401] Unauthorized',
+    ]) {
+      expect(
+        gradeSession(
+          'missing',
+          requests,
+          report,
+          `${boundary}\nNo cookies found\nUNAUTHENTICATED`,
+        ).diagnosisCorrect,
+      ).toBe(true);
+      expect(
+        gradeSession(
+          'missing',
+          requests,
+          report,
+          `No cookies found before login\n${boundary}`,
+        ).diagnosisCorrect,
+      ).toBe(false);
+    }
     expect(
       gradeSession(
         'missing',

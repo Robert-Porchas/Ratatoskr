@@ -4,6 +4,7 @@ import { parseSessionResults, summarizeSessions } from './session-contract.js';
 import { parseResults } from './metrics.js';
 import { codexAccounting } from './usage.js';
 import { z } from 'zod';
+import { GradingAuditSchema } from './audit-session.js';
 
 const currentFile = process.argv[2];
 const preFile = process.argv[3];
@@ -89,6 +90,50 @@ await writeFile(
   await readFile(join(dirname(currentFile), 'configuration.json')),
 );
 await writeFile(join(destination, 'summary.md'), summarizeSessions(rows));
+try {
+  const audit = GradingAuditSchema.parse(
+    JSON.parse(
+      await readFile(join(dirname(currentFile), 'grading-audit.json'), 'utf8'),
+    ),
+  );
+  if (
+    audit.verifiedTasks !== rows.length ||
+    audit.executionCommit !== rows[0]?.gitCommit
+  )
+    throw new Error('Grading audit does not match published tasks');
+  for (const change of audit.changes) {
+    const row = rows.find(
+      (item) =>
+        item.scenario === change.scenario &&
+        item.sessionCase === change.sessionCase &&
+        item.run === change.run,
+    );
+    if (
+      row?.success !== change.verifiedSuccess ||
+      row.diagnosisCorrect !== change.verifiedDiagnosisCorrect
+    )
+      throw new Error('Published grade differs from its audit');
+  }
+  await writeFile(
+    join(destination, 'grading-audit.json'),
+    JSON.stringify(audit, null, 2) + '\n',
+  );
+  const original = parseSessionResults(
+    await readFile(join(dirname(currentFile), 'results.jsonl'), 'utf8'),
+  );
+  await writeFile(
+    join(destination, 'original-summary.md'),
+    summarizeSessions(original),
+  );
+} catch (error) {
+  if (
+    !error ||
+    typeof error !== 'object' ||
+    !('code' in error) ||
+    error.code !== 'ENOENT'
+  )
+    throw error;
+}
 try {
   const number = z.number().nonnegative();
   const stats = z.object({

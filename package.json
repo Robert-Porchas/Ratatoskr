@@ -53,6 +53,7 @@
     "benchmark:tokens:audit": "tsx benchmarks/browser-evidence/audit-matrix.ts",
     "benchmark:session": "npm run build && node dist/benchmarks/browser-evidence/session-matrix.js",
     "benchmark:session:summary": "tsx benchmarks/browser-evidence/session-summary.ts",
+    "benchmark:session:audit": "tsx benchmarks/browser-evidence/audit-session.ts",
     "benchmark:session:publish": "tsx benchmarks/browser-evidence/publish-session.ts"
   },
   "dependencies": {

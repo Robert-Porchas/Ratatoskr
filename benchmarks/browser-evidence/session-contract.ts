@@ -85,10 +85,16 @@ export function gradeSession(
       return false;
     }
   });
+  // Cookie inspection may precede request-detail/body retrieval. A visible
+  // dashboard failure or its HTTP status is already a valid failure boundary.
+  const failureOffsets = [
+    observed.indexOf('UNAUTHENTICATED'),
+    observed.indexOf('Unable to open dashboard'),
+    observed.search(/\/api\/auth\/protected[^\n]{0,160}\b(?:401|403)\b/),
+  ].filter((offset) => offset >= 0);
   const cookiesAfterFailure =
-    observed.lastIndexOf('No cookies found') >
-      observed.indexOf('UNAUTHENTICATED') &&
-    observed.includes('UNAUTHENTICATED');
+    failureOffsets.length > 0 &&
+    observed.lastIndexOf('No cookies found') > Math.min(...failureOffsets);
   const falseHeaderClaim =
     /(?:contained|sent|returned|included)\s+no\s+set-cookie|(?:server|login response).{0,40}(?:did not|didn't|never)\s+(?:send|set)/i.test(
       explanation,
