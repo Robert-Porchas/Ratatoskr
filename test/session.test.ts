@@ -191,7 +191,6 @@ describe('session comparison and sanitization', () => {
       },
     ]);
     expect(reduced?.findings.map((item) => item.kind)).toEqual([
-      'auth_http_failure',
       'cookie_removed',
     ]);
     record.changes[0]!.at = -10000;
@@ -232,6 +231,25 @@ describe('session comparison and sanitization', () => {
       responses: [response],
       truncated: false,
     };
+    expect(reduceSession(record, failed, [])).toBeUndefined();
+  });
+  it('handles redacted origins defensively and case-insensitive cookie domains', () => {
+    const record: SessionRecord = {
+      snapshots: [snapshot()],
+      changes: [],
+      responses: [{ ...response, origin: '[REDACTED]' }],
+      truncated: false,
+    };
+    expect(reduceSession(record, failed, [])).toBeUndefined();
+    record.responses = [
+      {
+        ...response,
+        cookies: [
+          { name: 'session', domain: 'LOCALHOST', path: '/', deletion: false },
+        ],
+      },
+    ];
+    record.snapshots = [snapshot([{ ...cookie, fingerprint: 'x' }])];
     expect(reduceSession(record, failed, [])).toBeUndefined();
   });
   it('does not compare sessionStorage across active tabs', () => {

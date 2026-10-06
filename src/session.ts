@@ -250,7 +250,8 @@ export function observeSetCookie(
     const [key, ...parts] = attribute.trim().split('=');
     const value = parts.join('=');
     if (key?.toLowerCase() === 'domain') result.domain = value.slice(0, 128);
-    if (key?.toLowerCase() === 'path') result.path = value.slice(0, 128);
+    if (key?.toLowerCase() === 'path' && value.startsWith('/'))
+      result.path = value.slice(0, 128);
     if (key?.toLowerCase() === 'max-age' && Number(value) <= 0)
       result.deletion = true;
     if (key?.toLowerCase() === 'expires' && Date.parse(value) <= Date.now())
@@ -372,8 +373,13 @@ export function reduceSession(
     );
     if (!retainedState) continue;
     for (const cookie of response.cookies) {
-      const host = new URL(response.origin).hostname;
-      const domain = (cookie.domain ?? host).replace(/^\./, '');
+      let host: string;
+      try {
+        host = new URL(response.origin).hostname;
+      } catch {
+        continue;
+      }
+      const domain = (cookie.domain ?? host).replace(/^\./, '').toLowerCase();
       const path =
         cookie.path ??
         (response.path.slice(0, response.path.lastIndexOf('/')) || '/');
@@ -381,7 +387,7 @@ export function reduceSession(
         (item) =>
           item.name === cookie.name &&
           item.path === path &&
-          item.domain.replace(/^\./, '') === domain,
+          item.domain.replace(/^\./, '').toLowerCase() === domain,
       );
       if (!cookie.deletion && !retained)
         findings.push({
@@ -439,9 +445,29 @@ export function reduceSession(
         ...(delta.stepIndex !== null ? { step: delta.stepIndex } : {}),
       });
   }
-  const unique = [
+  let unique = [
     ...new Map(findings.map((item) => [JSON.stringify(item), item])).values(),
-  ].slice(0, 3);
+  ];
+  const notRetained = unique.filter(
+    (item) => item.kind === 'cookie_not_retained',
+  );
+  const changed = unique.filter((item) =>
+    [
+      'cookie_removed',
+      'cookie_value_changed',
+      'cookie_metadata_changed',
+    ].includes(item.kind),
+  );
+  // HTTP errors are already in the compact result. Prefer one new, decisive fact.
+  unique = (
+    notRetained.length
+      ? notRetained
+      : changed.length
+        ? changed
+        : auth
+          ? unique.filter((item) => item.kind === 'auth_http_failure')
+          : unique
+  ).slice(0, 3);
   while (Buffer.byteLength(JSON.stringify({ findings: unique })) >= 750)
     unique.pop();
   return unique.length ? { findings: unique } : undefined;
