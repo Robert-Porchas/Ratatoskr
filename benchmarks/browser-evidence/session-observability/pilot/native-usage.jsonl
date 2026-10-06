@@ -1,0 +1,10 @@
+{"scenario":"success","sessionCase":"with","run":1,"usage":{"input_tokens":31115,"cached_input_tokens":25984,"cache_write_input_tokens":0,"output_tokens":384,"reasoning_output_tokens":70}}
+{"scenario":"missing","sessionCase":"with","run":1,"usage":{"input_tokens":42750,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":434,"reasoning_output_tokens":43}}
+{"scenario":"success","sessionCase":"without","run":1,"usage":{"input_tokens":31075,"cached_input_tokens":27776,"cache_write_input_tokens":0,"output_tokens":391,"reasoning_output_tokens":81}}
+{"scenario":"missing","sessionCase":"without","run":1,"usage":{"input_tokens":43128,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":464,"reasoning_output_tokens":59}}
+{"scenario":"scope","sessionCase":"with","run":1,"usage":{"input_tokens":42920,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":417,"reasoning_output_tokens":0}}
+{"scenario":"loss","sessionCase":"with","run":1,"usage":{"input_tokens":43366,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":425,"reasoning_output_tokens":0}}
+{"scenario":"scope","sessionCase":"without","run":1,"usage":{"input_tokens":42821,"cached_input_tokens":30720,"cache_write_input_tokens":0,"output_tokens":406,"reasoning_output_tokens":0}}
+{"scenario":"loss","sessionCase":"without","run":1,"usage":{"input_tokens":43356,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":456,"reasoning_output_tokens":0}}
+{"scenario":"unrelated","sessionCase":"with","run":1,"usage":{"input_tokens":42867,"cached_input_tokens":35584,"cache_write_input_tokens":0,"output_tokens":432,"reasoning_output_tokens":0}}
+{"scenario":"unrelated","sessionCase":"without","run":1,"usage":{"input_tokens":42771,"cached_input_tokens":36736,"cache_write_input_tokens":0,"output_tokens":463,"reasoning_output_tokens":29}}
