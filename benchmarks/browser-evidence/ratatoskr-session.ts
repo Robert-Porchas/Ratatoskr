@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { normalizeWirePlan } from '../../src/mcp/wire-plan.js';
 import { FilesystemRunStore } from '../../src/storage.js';
 import type { BrowserSession } from './tools.js';
+import { SessionJournal } from '../../src/session.js';
 
 export async function startRatatoskrSession(
   url: string,
@@ -22,6 +23,8 @@ export async function startRatatoskrSession(
     args: [fileURLToPath(new URL('../../src/mcp/server.js', import.meta.url))],
     env: {
       RATATOSKR_DATA_DIR: root,
+      RATATOSKR_SESSION_DIAGNOSTICS:
+        process.env.BENCHMARK_SESSION_DIAGNOSTICS === 'off' ? 'off' : 'on',
       RATATOSKR_ALLOWED_VALUE_REFS: process.env.BENCHMARK_VALUES
         ? Object.keys(
             JSON.parse(process.env.BENCHMARK_VALUES) as Record<string, string>,
@@ -96,6 +99,9 @@ export async function startRatatoskrSession(
       let rawEvidenceBytes = 0,
         artifactBytes = 0,
         browserInteractions = 0;
+      const sessionMetrics = new SessionJournal().metrics;
+      let compactFailureBytes = 0,
+        workflowDurationMs = 0;
       for (const id of runIds) {
         const run = await runs.load(id);
         rawEvidenceBytes += run.record.metrics.rawEvidenceBytes;
@@ -105,8 +111,23 @@ export async function startRatatoskrSession(
         );
         // Count all attempted primitive steps, including assertions and initial navigation; production metrics omit assertions.
         browserInteractions += 1 + run.steps.length;
+        workflowDurationMs += run.record.metrics.durationMs;
+        if (!run.result.success)
+          compactFailureBytes += Buffer.byteLength(JSON.stringify(run.result));
+        if (run.record.metrics.session)
+          for (const key of Object.keys(sessionMetrics) as Array<
+            keyof typeof sessionMetrics
+          >)
+            sessionMetrics[key] += run.record.metrics.session[key];
       }
-      return { rawEvidenceBytes, artifactBytes, browserInteractions };
+      return {
+        rawEvidenceBytes,
+        artifactBytes,
+        browserInteractions,
+        sessionMetrics,
+        compactFailureBytes,
+        workflowDurationMs,
+      };
     },
     async close() {
       try {

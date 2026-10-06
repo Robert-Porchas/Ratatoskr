@@ -50,7 +50,9 @@
     "benchmark:browser:summary": "tsx benchmarks/browser-evidence/summary.ts",
     "benchmark:tokens": "npm run build && node dist/benchmarks/browser-evidence/matrix.js",
     "benchmark:tokens:summary": "tsx benchmarks/browser-evidence/matrix-summary.ts",
-    "benchmark:tokens:audit": "tsx benchmarks/browser-evidence/audit-matrix.ts"
+    "benchmark:tokens:audit": "tsx benchmarks/browser-evidence/audit-matrix.ts",
+    "benchmark:session": "npm run build && node dist/benchmarks/browser-evidence/session-matrix.js",
+    "benchmark:session:summary": "tsx benchmarks/browser-evidence/session-summary.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",

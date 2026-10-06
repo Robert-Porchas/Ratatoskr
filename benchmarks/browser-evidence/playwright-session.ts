@@ -34,6 +34,9 @@ export async function startPlaywrightSession(
       '--no-webmcp',
       '--output-dir',
       directory,
+      ...(process.env.BENCHMARK_STORAGE_BASELINE === '1'
+        ? ['--caps', 'storage']
+        : []),
     ],
     cwd: directory,
     stderr: 'pipe',
@@ -71,6 +74,15 @@ export async function startPlaywrightSession(
     'browser_resize',
     'browser_drag',
   ]);
+  if (process.env.BENCHMARK_STORAGE_BASELINE === '1') {
+    for (const name of [
+      'browser_network_request',
+      'browser_cookie_list',
+      'browser_localstorage_list',
+      'browser_sessionstorage_list',
+    ])
+      allow.add(name);
+  }
   const tools = (await client.listTools()).tools.filter((tool) =>
     allow.has(tool.name),
   );

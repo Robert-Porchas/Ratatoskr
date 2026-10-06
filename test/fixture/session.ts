@@ -19,6 +19,24 @@ export function createSessionFixture() {
     const url = new URL(request.url ?? '/', 'http://localhost');
     const scenario = url.searchParams.get('scenario') ?? 'success';
     response.setHeader('Content-Type', 'application/json');
+    if (
+      url.pathname === '/api/auth/account' ||
+      url.pathname === '/api/auth/settings'
+    ) {
+      requests.push({
+        method: request.method ?? '',
+        path: url.pathname,
+        status: 200,
+      });
+      response.end(
+        JSON.stringify({
+          message: url.pathname.endsWith('account')
+            ? 'Account active'
+            : 'Settings ready',
+        }),
+      );
+      return;
+    }
     if (url.pathname === '/api/auth/login') {
       const suffix =
         scenario === 'missing'
@@ -71,6 +89,11 @@ export function createSessionFixture() {
       return;
     }
     if (url.pathname === '/auth') {
+      requests.push({
+        method: request.method ?? '',
+        path: url.pathname,
+        status: 200,
+      });
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
       response.end(`<!doctype html><html><head><title>Session test</title></head><body>
         <h1>Account</h1><button id="login">Sign in</button><button id="logout">Sign out</button><button id="open">Open dashboard</button>
@@ -98,8 +121,8 @@ export function createSessionFixture() {
             if (!reply.ok) console.error('Dashboard request failed: ' + body.error);
             document.querySelector('[data-testid=dashboard]').textContent = reply.ok ? body.message : 'Unable to open dashboard';
           };
-          document.querySelector('#details').onclick = () => document.querySelector('[data-testid=detail]').textContent = 'Account active';
-          document.querySelector('#settings').onclick = () => document.querySelector('[data-testid=settings]').textContent = 'Settings ready';
+          document.querySelector('#details').onclick = async () => document.querySelector('[data-testid=detail]').textContent = (await (await fetch('/api/auth/account')).json()).message;
+          document.querySelector('#settings').onclick = async () => document.querySelector('[data-testid=settings]').textContent = (await (await fetch('/api/auth/settings')).json()).message;
           // Exercise late discovery / credential echoes; not part of benchmark flows.
           if (${JSON.stringify(url.searchParams.has('echo'))}) {
             localStorage.setItem('echo_secret', '${FAKE_SESSION_SECRET}');

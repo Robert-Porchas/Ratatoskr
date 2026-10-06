@@ -1,4 +1,5 @@
 import type { Client } from '@modelcontextprotocol/client';
+import type { SessionMetrics } from '../../src/session.js';
 type DiscoveredTool = Awaited<ReturnType<Client['listTools']>>['tools'][number];
 
 export interface ToolDefinition {
@@ -22,6 +23,9 @@ export interface BrowserSession {
     rawEvidenceBytes: number;
     artifactBytes: number;
     browserInteractions: number;
+    sessionMetrics?: SessionMetrics;
+    compactFailureBytes?: number;
+    workflowDurationMs?: number;
   }>;
 }
 export const bytes = (value: unknown): number =>
