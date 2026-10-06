@@ -1,0 +1,24 @@
+{
+  "runs": 10,
+  "concurrency": 2,
+  "model": "gpt-6.1-sol",
+  "reasoning": "medium",
+  "scenarios": ["success", "missing", "loss", "scope", "unrelated"],
+  "cases": ["without", "with", "direct"],
+  "directScenarios": ["missing", "scope"],
+  "commit": "5d7cb44d23866e9210fab7ccbd0dda3ad97821ca",
+  "codexVersion": "codex-cli 0.160.1",
+  "browserVersion": "153.0.8010.12",
+  "timeoutMs": 180000,
+  "maxToolCalls": 24,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "dirty": false,
+  "lockfileHash": "1a75841d4b34da8ce87d77b26b17712b3965cfefa37abb83eeddb3d626b0ac58",
+  "nodeVersion": "v24.19.0",
+  "tokenAccounting": "codex-json-events",
+  "baseline": "@playwright/mcp@0.0.83 core + read-only cookie/localStorage/sessionStorage lists + request detail (21 tools)",
+  "comparison": "without disables automatic Level 1 only; same observer, safe persistence, Level 2 and MCP definitions"
+}

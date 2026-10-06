@@ -3,12 +3,19 @@ import { dirname, join } from 'node:path';
 import { parseSessionResults, summarizeSessions } from './session-contract.js';
 import { parseResults } from './metrics.js';
 import { codexAccounting } from './usage.js';
+import { z } from 'zod';
 
 const currentFile = process.argv[2];
 const preFile = process.argv[3];
 if (!currentFile || !preFile)
   throw new Error('Pass session results.jsonl and pre-change results.jsonl');
-const destination = 'benchmarks/browser-evidence/session-observability';
+const label = process.argv[4];
+if (label && !/^[a-zA-Z0-9_-]+$/.test(label))
+  throw new Error('Invalid publication label');
+const destination = join(
+  'benchmarks/browser-evidence/session-observability',
+  label ?? '',
+);
 const rows = parseSessionResults(await readFile(currentFile, 'utf8'));
 const pre = parseResults(await readFile(preFile, 'utf8'));
 const usage: unknown[] = [];
@@ -82,6 +89,56 @@ await writeFile(
   await readFile(join(dirname(currentFile), 'configuration.json')),
 );
 await writeFile(join(destination, 'summary.md'), summarizeSessions(rows));
+try {
+  const number = z.number().nonnegative();
+  const stats = z.object({
+    median: number,
+    min: number,
+    max: number,
+    mean: number,
+    standardDeviation: number,
+  });
+  const timing = z
+    .object({
+      runs: number.int().positive(),
+      timeoutMs: number.int().positive(),
+      rows: z.array(
+        z.object({
+          mode: z.enum(['before', 'after']),
+          scenario: z.enum(['success', 'missing']),
+          run: number.int().positive(),
+          workflowMs: number,
+          captureMs: number.nullable(),
+          diffMs: number.nullable(),
+          compactResultBytes: number.int(),
+          sessionBytes: number.int(),
+        }),
+      ),
+      groups: z.array(
+        z.object({
+          key: z.string().regex(/^(success|missing)\/(before|after)$/),
+          durationMs: stats,
+        }),
+      ),
+    })
+    .parse(
+      JSON.parse(
+        await readFile(join(dirname(currentFile), 'timing.json'), 'utf8'),
+      ),
+    );
+  await writeFile(
+    join(destination, 'timing.json'),
+    JSON.stringify(timing, null, 2) + '\n',
+  );
+} catch (error) {
+  if (
+    !error ||
+    typeof error !== 'object' ||
+    !('code' in error) ||
+    error.code !== 'ENOENT'
+  )
+    throw error;
+}
 process.stdout.write(
   `Published verified counts only (no tool bodies, browser artifacts, session IDs or credentials): ${destination}\n`,
 );
