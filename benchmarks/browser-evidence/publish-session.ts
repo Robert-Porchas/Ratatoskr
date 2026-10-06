@@ -38,13 +38,31 @@ for (const row of rows) {
     scenario: row.scenario,
     sessionCase: row.sessionCase,
     run: row.run,
-    usage:
-      events.find((event) => event.type === 'turn.completed')?.usage ?? null,
+    usage: (() => {
+      const raw = events.find(
+        (event) => event.type === 'turn.completed',
+      )?.usage;
+      if (!raw || typeof raw !== 'object') return null;
+      return Object.fromEntries(
+        Object.entries(raw).filter(
+          ([key, value]) =>
+            [
+              'input_tokens',
+              'cached_input_tokens',
+              'cache_write_input_tokens',
+              'output_tokens',
+              'reasoning_output_tokens',
+              'total_tokens',
+            ].includes(key) && typeof value === 'number',
+        ),
+      );
+    })(),
   });
 }
-const safe = <T extends { codexThreadId?: string }>(row: T) => {
-  const { codexThreadId: _id, ...rest } = row;
-  return rest;
+const safe = <T extends { codexThreadId?: string | undefined }>(row: T) => {
+  const copy = { ...row };
+  delete copy.codexThreadId;
+  return copy;
 };
 await mkdir(destination, { recursive: true });
 await writeFile(
