@@ -55,7 +55,7 @@ async function main(args: string[]): Promise<void> {
         ? await app.artifacts.copyTo(first, second, resolve(fourth))
         : await app.artifacts.get(first, second);
     process.stdout.write(
-      `${JSON.stringify({ ...artifact, ...(third === '--out' && fourth ? { copiedTo: resolve(fourth) } : {}) }, null, 2)}\n`,
+      `${JSON.stringify({ ...artifact, ...(artifact.sensitive ? { path: undefined } : {}), ...(third === '--out' && fourth ? { copiedTo: resolve(fourth) } : {}) }, null, 2)}\n`,
     );
     return;
   }

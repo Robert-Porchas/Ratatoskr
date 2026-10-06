@@ -61,6 +61,9 @@ function artifactSummary(artifact: ArtifactReference): Record<string, unknown> {
     sizeBytes: artifact.sizeBytes,
     createdAt: artifact.createdAt,
     ...(artifact.fileName ? { fileName: artifact.fileName } : {}),
+    ...(artifact.sensitive
+      ? { sensitive: true, inlineRetrievalAllowed: false }
+      : {}),
   };
 }
 

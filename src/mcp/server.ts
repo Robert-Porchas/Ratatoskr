@@ -35,13 +35,15 @@ const inspectionOutput = z.object({
 const artifactOutput = z.object({
   id: artifactId,
   runId,
-  type: z.enum(['screenshot', 'trace', 'download']),
+  type: z.enum(['screenshot', 'trace', 'download', 'browser_storage_state']),
   mimeType: z.string(),
   sizeBytes: z.number(),
   createdAt: z.string(),
   fileName: z.string().optional(),
   localPath: z.string().optional(),
   inline: z.boolean(),
+  sensitive: z.boolean().optional(),
+  inlineRetrievalAllowed: z.boolean().optional(),
 });
 
 function toolError(error: unknown) {
@@ -183,6 +185,21 @@ export function createMcpServer(): McpServer {
           createdAt: artifact.createdAt,
           ...(artifact.fileName ? { fileName: artifact.fileName } : {}),
         };
+        if (artifact.sensitive || artifact.inlineRetrievalAllowed === false)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'Sensitive local authentication state; inline retrieval prohibited.',
+              },
+            ],
+            structuredContent: {
+              ...metadata,
+              sensitive: true,
+              inlineRetrievalAllowed: false,
+              inline: false,
+            },
+          };
         if (artifact.type === 'screenshot' && artifact.sizeBytes <= 5_000_000) {
           const bytes = await app.artifacts.read(id, 5_000_000);
           return {

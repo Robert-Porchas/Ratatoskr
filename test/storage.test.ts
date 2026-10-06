@@ -1,4 +1,11 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -6,6 +13,65 @@ import { FilesystemArtifactStore, FilesystemRunStore } from '../src/storage.js';
 import type { BrowserPlan, RunRecord, RunResult } from '../src/protocol.js';
 
 describe('filesystem storage', () => {
+  it('protects authentication state, permissions and registry/path boundaries', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ratatoskr-auth-store-'));
+    try {
+      const store = new FilesystemArtifactStore(root);
+      const secret = 'SUPER_SECRET_SESSION_VALUE_123';
+      const artifact = await store.save(
+        'run_auth',
+        'browser_storage_state',
+        Buffer.from(
+          JSON.stringify({ cookies: [{ name: 'session', value: secret }] }),
+        ),
+      );
+      expect(artifact).toMatchObject({
+        sensitive: true,
+        inlineRetrievalAllowed: false,
+        mimeType: 'application/json',
+      });
+      expect(JSON.stringify(artifact)).not.toContain(secret);
+      expect(
+        (await store.readProtectedState(artifact.id)).toString(),
+      ).toContain(secret);
+      await expect(store.read(artifact.id, 10000)).rejects.toThrow(
+        'prohibited',
+      );
+      await expect(
+        store.copyTo('run_auth', artifact.id, join(root, 'export')),
+      ).rejects.toThrow('prohibited');
+      if (process.platform !== 'win32')
+        expect((await stat(artifact.path)).mode & 0o777).toBe(0o600);
+      // Tampered sensitivity flags cannot downgrade a storage-state artifact.
+      await writeFile(
+        join(root, 'runs', 'run_auth', 'artifacts', `${artifact.id}.json`),
+        JSON.stringify({
+          ...artifact,
+          sensitive: false,
+          inlineRetrievalAllowed: true,
+        }),
+      );
+      await expect(store.read(artifact.id, 10000)).rejects.toThrow(
+        'prohibited',
+      );
+      await expect(store.find('../../secret')).rejects.toThrow();
+      const reserved = await store.reservePath(
+        'run_auth',
+        'browser_storage_state',
+      );
+      await symlink(artifact.path, reserved.path);
+      await expect(
+        store.register(
+          'run_auth',
+          'browser_storage_state',
+          reserved.id,
+          reserved.path,
+        ),
+      ).rejects.toThrow('symbolic link');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it('round trips run data and artifact metadata', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ratatoskr-test-'));
     try {

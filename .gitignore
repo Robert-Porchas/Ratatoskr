@@ -7,3 +7,5 @@ coverage/
 *.log
 *.tgz
 benchmarks/browser-evidence/results/
+playwright/.auth/
+*.storage-state.json

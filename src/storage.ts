@@ -80,7 +80,10 @@ export class FilesystemRunStore implements RunStore {
     return join(this.root, 'runs', runId);
   }
   async prepare(runId: string): Promise<void> {
-    await mkdir(join(this.directory(runId), 'artifacts'), { recursive: true });
+    await mkdir(join(this.directory(runId), 'artifacts'), {
+      recursive: true,
+      mode: 0o700,
+    });
   }
 
   async save(
@@ -161,6 +164,7 @@ export class FilesystemArtifactStore implements ArtifactStore {
     return join(this.root, 'runs', runId, 'artifacts');
   }
   private extension(type: ArtifactType): string {
+    if (type === 'browser_storage_state') return '.storage-state.json';
     return type === 'screenshot' ? '.png' : type === 'trace' ? '.zip' : '.bin';
   }
   private indexPath(id: string): string {
@@ -177,7 +181,7 @@ export class FilesystemArtifactStore implements ArtifactStore {
     type: ArtifactType,
   ): Promise<{ id: string; path: string }> {
     const id = `artifact_${randomUUID().replaceAll('-', '')}`;
-    await mkdir(this.directory(runId), { recursive: true });
+    await mkdir(this.directory(runId), { recursive: true, mode: 0o700 });
     return {
       id,
       path: join(this.directory(runId), `${id}${this.extension(type)}`),
@@ -191,12 +195,15 @@ export class FilesystemArtifactStore implements ArtifactStore {
     path: string,
     details: { fileName?: string; mimeType?: string } = {},
   ): Promise<ArtifactReference> {
+    safeId(id);
     const expected = join(
       this.directory(runId),
       `${id}${this.extension(type)}`,
     );
     if (resolve(path) !== resolve(expected))
       throw new Error('Artifact path is outside its run');
+    if ((await realpath(expected)) !== resolve(expected))
+      throw new Error('Artifact path must not be a symbolic link');
     const info = await stat(path);
     const artifact: ArtifactReference = {
       id,
@@ -209,17 +216,25 @@ export class FilesystemArtifactStore implements ArtifactStore {
           ? 'image/png'
           : type === 'trace'
             ? 'application/zip'
-            : 'application/octet-stream'),
+            : type === 'browser_storage_state'
+              ? 'application/json'
+              : 'application/octet-stream'),
       sizeBytes: info.size,
       createdAt: new Date().toISOString(),
       ...(details.fileName ? { fileName: details.fileName } : {}),
+      ...(type === 'browser_storage_state'
+        ? { sensitive: true, inlineRetrievalAllowed: false }
+        : {}),
     };
     await writeFile(
       this.metadataPath(runId, id),
       JSON.stringify(artifact, null, 2),
+      { mode: 0o600 },
     );
-    await mkdir(join(this.root, 'artifacts'), { recursive: true });
-    await writeFile(this.indexPath(id), JSON.stringify({ runId }));
+    await mkdir(join(this.root, 'artifacts'), { recursive: true, mode: 0o700 });
+    await writeFile(this.indexPath(id), JSON.stringify({ runId }), {
+      mode: 0o600,
+    });
     return artifact;
   }
 
@@ -229,8 +244,13 @@ export class FilesystemArtifactStore implements ArtifactStore {
     content: Buffer,
   ): Promise<ArtifactReference> {
     const reserved = await this.reservePath(runId, type);
-    await writeFile(reserved.path, content);
-    return this.register(runId, type, reserved.id, reserved.path);
+    try {
+      await writeFile(reserved.path, content, { mode: 0o600, flag: 'wx' });
+      return await this.register(runId, type, reserved.id, reserved.path);
+    } catch (error) {
+      await this.discard(runId, type, reserved.id);
+      throw error;
+    }
   }
 
   async get(runId: string, artifactId: string): Promise<ArtifactReference> {
@@ -241,7 +261,9 @@ export class FilesystemArtifactStore implements ArtifactStore {
       if (
         stored.id !== artifactId ||
         stored.runId !== runId ||
-        !['screenshot', 'trace', 'download'].includes(stored.type)
+        !['screenshot', 'trace', 'download', 'browser_storage_state'].includes(
+          stored.type,
+        )
       )
         throw new ArtifactNotFoundError(artifactId);
       const expected = join(
@@ -250,7 +272,13 @@ export class FilesystemArtifactStore implements ArtifactStore {
       );
       if ((await realpath(expected)) !== resolve(expected))
         throw new ArtifactNotFoundError(artifactId);
-      return { ...stored, path: expected };
+      return {
+        ...stored,
+        path: expected,
+        ...(stored.type === 'browser_storage_state'
+          ? { sensitive: true, inlineRetrievalAllowed: false }
+          : {}),
+      };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT')
         throw new ArtifactNotFoundError(artifactId);
@@ -273,8 +301,18 @@ export class FilesystemArtifactStore implements ArtifactStore {
 
   async read(artifactId: string, maxBytes: number): Promise<Buffer> {
     const artifact = await this.find(artifactId);
+    if (artifact.sensitive || artifact.inlineRetrievalAllowed === false)
+      throw new Error('Sensitive artifact inline retrieval is prohibited');
     if (artifact.sizeBytes > maxBytes)
       throw new Error('Artifact is too large for inline delivery');
+    return readFile(artifact.path);
+  }
+
+  /** Local capability only; never wired to a CLI/MCP inline/export endpoint. */
+  async readProtectedState(artifactId: string): Promise<Buffer> {
+    const artifact = await this.find(artifactId);
+    if (artifact.type !== 'browser_storage_state')
+      throw new Error('Not a protected browser storage-state artifact');
     return readFile(artifact.path);
   }
 
@@ -293,6 +331,8 @@ export class FilesystemArtifactStore implements ArtifactStore {
     destination: string,
   ): Promise<ArtifactReference> {
     const artifact = await this.get(runId, artifactId);
+    if (artifact.sensitive || artifact.inlineRetrievalAllowed === false)
+      throw new Error('Sensitive artifact export is prohibited');
     await copyFile(artifact.path, destination, constants.COPYFILE_EXCL);
     return artifact;
   }

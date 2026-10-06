@@ -53,7 +53,7 @@ assert(files.includes('dist/src/mcp/server.js'));
 assert(files.includes('LICENSE'));
 for (const file of files)
   assert(
-    !/(^|\/)(node_modules|test|benchmarks|\.env[^/]*|\.ratatoskr|\.codex)(\/|$)|\.(zip|png|jsonl|log)$/.test(
+    !/(^|\/)(node_modules|test|benchmarks|\.env[^/]*|\.ratatoskr|\.codex|\.auth)(\/|$)|\.(zip|png|jsonl|log)$|\.storage-state\.json$/.test(
       file,
     ),
     `Unexpected package file: ${file}`,

@@ -194,7 +194,8 @@ export const BrowserPlanSchema = z
 export type BrowserPlan = z.infer<typeof BrowserPlanSchema>;
 
 export type RunIdentifier = string;
-export type ArtifactType = 'screenshot' | 'trace' | 'download';
+export type ArtifactType =
+  'screenshot' | 'trace' | 'download' | 'browser_storage_state';
 export interface ArtifactReference {
   id: string;
   runId: RunIdentifier;
@@ -204,6 +205,8 @@ export interface ArtifactReference {
   sizeBytes: number;
   createdAt: string;
   fileName?: string;
+  sensitive?: boolean;
+  inlineRetrievalAllowed?: boolean;
 }
 
 export type Evidence =
