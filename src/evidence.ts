@@ -21,7 +21,11 @@ export class EvidenceCollector {
   }
 
   protect(value: string): void {
-    if (value.length > 0) this.secrets.add(value);
+    if (value.length === 0 || this.secrets.has(value)) return;
+    this.secrets.add(value);
+    // Console events can precede the asynchronous storage/header snapshot.
+    for (let index = 0; index < this.events.length; index++)
+      this.events[index] = this.sanitize(this.events[index]!);
   }
 
   redact(value: string): string {
@@ -29,6 +33,22 @@ export class EvidenceCollector {
     for (const secret of [...this.secrets].sort((a, b) => b.length - a.length))
       redacted = redacted.replaceAll(secret, '[REDACTED]');
     return redacted;
+  }
+
+  sanitize<T>(value: T): T {
+    const visit = (item: unknown): unknown => {
+      if (typeof item === 'string') return this.redact(item);
+      if (Array.isArray(item)) return item.map(visit);
+      if (item && typeof item === 'object')
+        return Object.fromEntries(
+          Object.entries(item).map(([key, field]) => [
+            this.redact(key),
+            visit(field),
+          ]),
+        );
+      return item;
+    };
+    return visit(value) as T;
   }
 
   record(input: EvidenceInput): void {

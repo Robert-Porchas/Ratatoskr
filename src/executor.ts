@@ -21,6 +21,12 @@ import type {
 import type { ArtifactStore, RunStore } from './storage.js';
 import type { ValueResolver } from './values.js';
 import type { UploadResolver } from './uploads.js';
+import {
+  SessionJournal,
+  reduceSession,
+  sanitizeSessionRecord,
+  type SessionRecord,
+} from './session.js';
 
 export interface ExecutionDependencies {
   browser: BrowserAdapter;
@@ -29,6 +35,8 @@ export interface ExecutionDependencies {
   values: ValueResolver;
   uploads?: UploadResolver;
   signal?: AbortSignal;
+  sessionDiagnostics?: boolean;
+  captureAuthState?: boolean;
 }
 
 async function executeStep(
@@ -153,9 +161,7 @@ async function executeStep(
       return;
     }
     case 'extract_text':
-      return evidence
-        .redact(await browser.text(step.target, timeout))
-        .slice(0, step.maxChars ?? 200);
+      return await browser.text(step.target, timeout);
     case 'extract_attribute': {
       const value = await browser.attribute(
         step.target,
@@ -166,7 +172,7 @@ async function executeStep(
         throw new BrowserAssertionError(
           `Attribute ${step.attribute} was not present`,
         );
-      return evidence.redact(value).slice(0, step.maxChars ?? 200);
+      return value;
     }
   }
 }
@@ -202,6 +208,31 @@ export async function executePlan(
   const runId = `run_${randomUUID().replaceAll('-', '')}`;
   const startedAt = Date.now();
   const evidence = new EvidenceCollector();
+  const session = new SessionJournal();
+  let failureSession: SessionRecord | undefined;
+  const captureSession = async (
+    full: boolean,
+    stepIndex: number | null,
+  ): Promise<void> => {
+    if (!deps.browser.sessionSnapshot || deps.signal?.aborted) return;
+    const started = performance.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const snapshot = await Promise.race([
+        deps.browser.sessionSnapshot(full, { at: Date.now(), stepIndex }),
+        new Promise<undefined>((resolve) => {
+          timer = setTimeout(() => resolve(undefined), 1000);
+        }),
+      ]);
+      if (snapshot) session.add(snapshot);
+      else session.record.truncated = true;
+    } catch {
+      session.record.truncated = true;
+    } finally {
+      if (timer) clearTimeout(timer);
+      session.metrics.captureDurationMs += performance.now() - started;
+    }
+  };
   const steps: StepResult[] = [];
   const extractions = Object.create(null) as Record<string, string>;
   const artifacts: ArtifactReference[] = [];
@@ -215,6 +246,33 @@ export async function executePlan(
   );
   const deadline = startedAt + (plan.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS);
   const captureFailure = async (): Promise<void> => {
+    await captureSession(true, firstFailure?.index ?? null);
+    failureSession = sanitizeSessionRecord(session.record, (value) =>
+      evidence.redact(value),
+    );
+    if (
+      deps.captureAuthState &&
+      firstFailure &&
+      deps.browser.authenticationState &&
+      reduceSession(
+        failureSession,
+        { ...firstFailure, endedAt: Date.now() },
+        evidence.events,
+      )
+    ) {
+      try {
+        artifacts.push(
+          await deps.artifacts.save(
+            runId,
+            'browser_storage_state',
+            await deps.browser.authenticationState(),
+          ),
+        );
+        session.metrics.sensitiveArtifactsCreated++;
+      } catch {
+        /* Protected state capture is opt-in and best effort. */
+      }
+    }
     try {
       artifacts.push(
         await deps.artifacts.save(
@@ -235,8 +293,13 @@ export async function executePlan(
   try {
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
-    await deps.browser.start((event) => evidence.record(event), traceAllowed);
+    await deps.browser.start((event) => evidence.record(event), traceAllowed, {
+      protect: (value) => evidence.protect(value),
+      fingerprint: (value) => session.fingerprint(value),
+      response: (response) => session.response(response),
+    });
     browserStarted = true;
+    await captureSession(true, -1);
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
     const execute = async (
@@ -244,6 +307,7 @@ export async function executePlan(
       index: number,
     ): Promise<StepResult> => {
       evidence.setStep(index);
+      deps.browser.setSessionStep?.(index);
       const start = Date.now();
       let failure: StepResult['failure'];
       try {
@@ -312,26 +376,29 @@ export async function executePlan(
       }
       if (failure && step.action === 'assert_text' && !deps.signal?.aborted) {
         try {
-          actualText = evidence
-            .redact(
-              await deps.browser.text(
-                step.target,
-                Math.min(250, Math.max(1, deadline - Date.now())),
-              ),
-            )
-            .slice(0, 200);
+          actualText = await deps.browser.text(
+            step.target,
+            Math.min(250, Math.max(1, deadline - Date.now())),
+          );
         } catch {
           /* Missing targets carry no fabricated text. */
         }
       }
+      if (
+        ['navigate', 'click', 'press', 'expect_download'].includes(step.action)
+      )
+        await captureSession(index === -1, index);
       const end = Date.now();
       let actualUrl: string | undefined;
       try {
         actualUrl = evidence.redact(await deps.browser.currentUrl());
-      } catch {
-        /* browser may have closed */
+      } catch (error) {
+        // A late popup/dialog event can arrive after click has resolved.
+        if (error instanceof RatatoskrError && !failure)
+          failure = failureFor(error, step.action);
       }
       evidence.setStep(null);
+      deps.browser.setSessionStep?.(null);
       return {
         index,
         action: step.action,
@@ -382,12 +449,15 @@ export async function executePlan(
       if (browserStarted && !deps.signal?.aborted) await captureFailure();
     }
   } finally {
+    if (browserStarted && !deps.signal?.aborted)
+      await captureSession(true, firstFailure?.index ?? null);
     deps.signal?.removeEventListener('abort', onAbort);
     let reserved: { id: string; path: string } | undefined;
     try {
       if (
         firstFailure &&
         traceAllowed &&
+        !deps.browser.hasSensitiveSession?.() &&
         browserStarted &&
         !deps.signal?.aborted
       )
@@ -411,6 +481,48 @@ export async function executePlan(
     }
   }
 
+  const sanitizeStep = (step: StepResult): StepResult => {
+    const safe = evidence.sanitize(step);
+    if (safe.actualText !== undefined)
+      safe.actualText = safe.actualText.slice(0, 200);
+    return safe;
+  };
+  for (let index = 0; index < steps.length; index++)
+    steps[index] = sanitizeStep(steps[index]!);
+  for (const step of plan.steps) {
+    if (
+      (step.action === 'extract_text' || step.action === 'extract_attribute') &&
+      Object.hasOwn(extractions, step.saveAs)
+    )
+      extractions[step.saveAs] = evidence
+        .redact(extractions[step.saveAs]!)
+        .slice(0, step.maxChars ?? 200);
+  }
+  if (firstFailure) firstFailure = sanitizeStep(firstFailure);
+  const sessionRecord = sanitizeSessionRecord(session.record, (value) =>
+    evidence.redact(value),
+  );
+  const sessionDiagnosis =
+    firstFailure && deps.sessionDiagnostics !== false
+      ? reduceSession(
+          failureSession
+            ? sanitizeSessionRecord(failureSession, (value) =>
+                evidence.redact(value),
+              )
+            : sessionRecord,
+          { ...firstFailure, endedAt: firstFailure.endedAt + 1000 },
+          evidence.events,
+        )
+      : undefined;
+  session.metrics.sessionFindingsReturned =
+    sessionDiagnosis?.findings.length ?? 0;
+  session.metrics.sessionFindingBytes = sessionDiagnosis
+    ? Buffer.byteLength(JSON.stringify(sessionDiagnosis))
+    : 0;
+  session.metrics.rawLocalSessionEvidenceBytes = Buffer.byteLength(
+    JSON.stringify(sessionRecord),
+  );
+
   const screenshot = artifacts.find(
     (artifact) => artifact.type === 'screenshot',
   );
@@ -431,6 +543,7 @@ export async function executePlan(
           ? { actualUrl: firstFailure.actualUrl }
           : {}),
         relevantErrors: relevantErrors(evidence.events, firstFailure),
+        ...(sessionDiagnosis ? { session: sessionDiagnosis } : {}),
         ...(firstFailure.actualText !== undefined
           ? { actualText: firstFailure.actualText }
           : {}),
@@ -482,13 +595,15 @@ export async function executePlan(
     ),
     artifacts,
   };
+  if (deps.browser.sessionSnapshot) record.metrics.session = session.metrics;
   await deps.runs.save(
     record,
-    plan,
+    evidence.sanitize(plan),
     steps,
     evidence.events,
     result,
     extractions,
+    deps.browser.sessionSnapshot ? sessionRecord : undefined,
   );
   return result;
 }

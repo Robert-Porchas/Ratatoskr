@@ -25,7 +25,11 @@ const runOutput = z
   .passthrough();
 const inspectionInput = z.strictObject({
   runId,
-  include: z.array(InspectionCategorySchema).min(1).max(9).default(['summary']),
+  include: z
+    .array(InspectionCategorySchema)
+    .min(1)
+    .max(10)
+    .default(['summary']),
   offset: z.number().int().min(0).max(10_000).optional(),
 });
 const inspectionOutput = z.object({

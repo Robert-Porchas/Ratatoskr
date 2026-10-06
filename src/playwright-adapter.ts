@@ -11,7 +11,12 @@ import type {
   BrowserTarget,
   DialogExpectation,
 } from './protocol.js';
-import type { BrowserAdapter } from './browser.js';
+import type { BrowserAdapter, SessionObservation } from './browser.js';
+import {
+  observeSetCookie,
+  type SessionSnapshot,
+  type SessionStamp,
+} from './session.js';
 import type { EvidenceInput } from './evidence.js';
 import { basename, extname } from 'node:path';
 import { RatatoskrError } from './errors.js';
@@ -43,6 +48,11 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private emit: ((event: EvidenceInput) => void) | undefined;
   private unexpectedIssue: string | undefined;
   private stopPromise: Promise<void> | undefined;
+  private session: SessionObservation | undefined;
+  private sessionStep: number | null = null;
+  private sensitiveSession = false;
+  private tabId = 0;
+  private readonly pendingResponses = new Set<Promise<void>>();
   private activeClick:
     | {
         dialog?: DialogExpectation & { value?: string };
@@ -56,9 +66,12 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   async start(
     emit: (event: EvidenceInput) => void,
     trace: boolean,
+    session?: SessionObservation,
   ): Promise<void> {
     this.stopPromise = undefined;
     this.emit = emit;
+    this.session = session;
+    this.sensitiveSession = false;
     try {
       this.browser = await chromium.launch({ headless: true });
       this.context = await this.browser.newContext();
@@ -78,14 +91,24 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
 
   private attachPage(page: Page, emit: (event: EvidenceInput) => void): void {
     this.page = page;
-    page.on('request', (request) =>
+    this.tabId++;
+    page.on('request', (request) => {
+      for (const name of ['authorization', 'proxy-authorization']) {
+        const authorization = request.headers()[name];
+        if (authorization) {
+          this.protectSessionValue(authorization);
+          this.protectSessionValue(authorization.replace(/^\S+\s+/, ''));
+        }
+      }
       emit({
         type: 'request',
         method: request.method(),
         path: safePath(request.url()),
-      }),
-    );
+      });
+    });
     page.on('response', (response) => {
+      const at = Date.now();
+      const stepIndex = this.sessionStep;
       const mime = response.headers()['content-type'];
       if (mime)
         this.responseMime.set(response.url(), mime.split(';', 1)[0] ?? mime);
@@ -96,6 +119,36 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
           path: safePath(response.url()),
           status: response.status(),
         });
+      const observation = (async () => {
+        const headers = await response.headerValues('set-cookie');
+        const cookies = headers.flatMap((header) => {
+          this.sensitiveSession = true;
+          const observed = observeSetCookie(header, (value) =>
+            this.protectSessionValue(value),
+          );
+          return observed ? [observed] : [];
+        });
+        if (
+          cookies.length ||
+          response.status() === 401 ||
+          response.status() === 403 ||
+          response.request().method() === 'POST' ||
+          (response.status() >= 300 && response.status() < 400)
+        )
+          this.session?.response({
+            at,
+            stepIndex,
+            method: response.request().method(),
+            path: safePath(response.url()),
+            origin: new URL(response.url()).origin,
+            status: response.status(),
+            cookies: cookies.slice(0, 20),
+          });
+      })().catch(() => {
+        /* Closed/crashed responses supply no invented header evidence. */
+      });
+      this.pendingResponses.add(observation);
+      void observation.finally(() => this.pendingResponses.delete(observation));
     });
     page.on('requestfailed', (request) =>
       emit({
@@ -162,7 +215,8 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private async stopInternal(tracePath?: string): Promise<void> {
     try {
       if (this.tracing && this.context) {
-        if (tracePath) await this.context.tracing.stop({ path: tracePath });
+        if (tracePath && !this.sensitiveSession)
+          await this.context.tracing.stop({ path: tracePath });
         else await this.context.tracing.stop();
       }
     } finally {
@@ -176,7 +230,116 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       this.activeClick = undefined;
       this.unexpectedIssue = undefined;
       this.emit = undefined;
+      this.session = undefined;
+      this.pendingResponses.clear();
     }
+  }
+
+  private protectSessionValue(value: string): void {
+    if (!value) return;
+    this.sensitiveSession = true;
+    this.session?.protect(value);
+    this.filledValues.add(value);
+  }
+
+  setSessionStep(stepIndex: number | null): void {
+    this.sessionStep = stepIndex;
+  }
+  hasSensitiveSession(): boolean {
+    return this.sensitiveSession;
+  }
+
+  async sessionSnapshot(
+    full: boolean,
+    stamp: SessionStamp,
+  ): Promise<SessionSnapshot> {
+    const context = this.context;
+    const page = this.page;
+    if (!context || !page || !this.session)
+      throw new Error('Session observation unavailable');
+    // Flush response-header observations before comparing browser-retained cookies.
+    await Promise.all([...this.pendingResponses]);
+    const state = full
+      ? await context.storageState({ indexedDB: false })
+      : undefined;
+    const cookies = await context.cookies();
+    const storage: SessionSnapshot['storage'] = [];
+    const storageOrigins: string[] = [];
+    for (const cookie of cookies) this.protectSessionValue(cookie.value);
+    let storageComplete = full;
+    if (state) {
+      for (const origin of state.origins) {
+        storageOrigins.push(origin.origin);
+        for (const entry of origin.localStorage) {
+          this.protectSessionValue(entry.value);
+          storage.push({
+            origin: origin.origin,
+            area: 'local',
+            key: entry.name,
+            fingerprint: this.session.fingerprint(entry.value),
+          });
+        }
+      }
+      // Fixed, read-only code. No workflow can supply or alter this expression.
+      const tab = await page.evaluate(() => {
+        const origin = location.origin;
+        const entries: Array<{ key: string; value: string }> = [];
+        let complete = true;
+        try {
+          const count = Math.min(sessionStorage.length, 100);
+          complete = sessionStorage.length <= 100;
+          for (let index = 0; index < count; index++) {
+            const key = sessionStorage.key(index);
+            if (key === null) continue;
+            entries.push({ key, value: sessionStorage.getItem(key) ?? '' });
+          }
+        } catch {
+          complete = false;
+        }
+        return { origin, entries, complete };
+      });
+      if (/^https?:/.test(tab.origin)) {
+        if (!storageOrigins.includes(tab.origin))
+          storageOrigins.push(tab.origin);
+        for (const entry of tab.entries) {
+          this.protectSessionValue(entry.value);
+          storage.push({
+            origin: tab.origin,
+            area: 'session',
+            key: entry.key,
+            fingerprint: this.session.fingerprint(entry.value),
+          });
+        }
+      }
+      storageComplete = tab.complete && storage.length <= 200;
+    }
+    return {
+      ...stamp,
+      tabId: this.tabId,
+      at: Date.now(),
+      cookies: cookies.slice(0, 200).map((cookie) => ({
+        name: cookie.name,
+        domain: cookie.domain,
+        path: cookie.path,
+        expires: cookie.expires,
+        httpOnly: cookie.httpOnly,
+        secure: cookie.secure,
+        sameSite: cookie.sameSite,
+        ...(cookie.partitionKey ? { partitionKey: cookie.partitionKey } : {}),
+        fingerprint: this.session!.fingerprint(cookie.value),
+      })),
+      storage: storage.slice(0, 200),
+      storageOrigins,
+      storageComplete,
+      cookiesComplete: cookies.length <= 200,
+    };
+  }
+
+  async authenticationState(): Promise<Buffer> {
+    if (!this.context) throw new Error('Browser has not started');
+    return Buffer.from(
+      JSON.stringify(await this.context.storageState({ indexedDB: false })),
+    );
   }
 
   private getPage(): Page {

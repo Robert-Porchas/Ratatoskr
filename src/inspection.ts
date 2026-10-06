@@ -6,6 +6,7 @@ import type {
   StepResult,
 } from './protocol.js';
 import type { RunStore } from './storage.js';
+import { sanitizeSessionRecord, type SessionRecord } from './session.js';
 
 export const InspectionCategorySchema = z.enum([
   'summary',
@@ -17,11 +18,16 @@ export const InspectionCategorySchema = z.enum([
   'artifacts',
   'extracted_values',
   'metrics',
+  'session',
 ]);
 export type InspectionCategory = z.infer<typeof InspectionCategorySchema>;
 
 export const InspectionOptionsSchema = z.strictObject({
-  include: z.array(InspectionCategorySchema).min(1).max(9).default(['summary']),
+  include: z
+    .array(InspectionCategorySchema)
+    .min(1)
+    .max(10)
+    .default(['summary']),
   maxItemsPerCategory: z.number().int().min(1).max(25).default(10),
   offset: z.number().int().min(0).max(10_000).default(0),
 });
@@ -76,8 +82,45 @@ function section(
   extractions: Record<string, string>,
   offset: number,
   limit: number,
+  session?: SessionRecord,
 ): InspectionSection {
   switch (category) {
+    case 'session': {
+      if (!session) return { ...page([], offset, limit), available: false };
+      const safe = sanitizeSessionRecord(session, (value) => value);
+      const final = safe.snapshots[safe.snapshots.length - 1];
+      const items = [
+        ...safe.changes.map((change) => ({ kind: 'change', ...change })),
+        ...safe.responses.map((response) => ({
+          kind: 'response',
+          ...response,
+          cookies: response.cookies.slice(0, 3),
+          cookieCount: response.cookies.length,
+          cookiesTruncated: response.cookies.length > 3,
+        })),
+        ...(final?.cookies ?? []).map((cookie) => ({
+          kind: 'cookie',
+          ...cookie,
+          expired:
+            cookie.expires !== -1 && cookie.expires * 1000 <= (final?.at ?? 0),
+        })),
+        ...(final?.storage ?? []).map((storage) => ({
+          kind: 'storage_key',
+          ...storage,
+        })),
+      ];
+      const selected = page(items, offset, limit);
+      while (Buffer.byteLength(JSON.stringify(selected.items)) > 6000)
+        selected.items.pop();
+      selected.returnedCount = selected.items.length;
+      selected.truncated = offset + selected.returnedCount < items.length;
+      return {
+        ...selected,
+        available: true,
+        captureTruncated:
+          safe.truncated || !final?.cookiesComplete || !final?.storageComplete,
+      };
+    }
     case 'summary':
       return {
         status: record.status,
@@ -167,6 +210,7 @@ export async function inspectRun(
       run.extractions,
       parsed.offset,
       parsed.maxItemsPerCategory,
+      run.session,
     );
   }
   return { runId, sections };

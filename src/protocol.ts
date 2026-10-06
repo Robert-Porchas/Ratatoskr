@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SessionFinding, SessionMetrics } from './session.js';
 
 export const MAX_WORKFLOW_STEPS = 300;
 export const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
@@ -305,6 +306,7 @@ export type RunResult =
       outputs?: Record<string, string>;
       actualText?: string;
       artifacts?: { screenshot?: string; trace?: string };
+      session?: { findings: SessionFinding[] };
     };
 
 export interface RunMetrics {
@@ -322,6 +324,7 @@ export interface RunMetrics {
   reducedResponseBytes: number;
   artifactCount: number;
   compressionRatio: number;
+  session?: SessionMetrics;
 }
 
 export interface RunRecord {

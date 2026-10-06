@@ -25,6 +25,8 @@ export function createRatatoskrApplication(
         artifacts,
         values: new EnvironmentValueResolver(environment, allowedValueRefs),
         uploads: new DirectoryUploadResolver(environment.RATATOSKR_UPLOAD_DIR),
+        sessionDiagnostics: environment.RATATOSKR_SESSION_DIAGNOSTICS !== 'off',
+        captureAuthState: environment.RATATOSKR_CAPTURE_AUTH_STATE === '1',
         ...(signal ? { signal } : {}),
       }),
     inspect: (runId: string, options: InspectionOptions) =>

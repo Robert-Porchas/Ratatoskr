@@ -27,6 +27,7 @@ export interface SessionSnapshot extends SessionStamp {
   cookiesComplete: boolean;
   storageOrigins: string[];
   storageComplete: boolean;
+  tabId?: number;
 }
 export type SessionChange = SessionStamp &
   (
@@ -39,6 +40,7 @@ export type SessionChange = SessionStamp &
         type: 'storage';
         change: 'added' | 'removed' | 'value_changed';
         storage: StorageMetadata;
+        since?: number;
       }
   );
 export interface SessionResponse extends SessionStamp {
@@ -182,12 +184,20 @@ export function diffSessions(
     );
     const old = new Map(
       before.storage
-        .filter((item) => comparable.has(item.origin))
+        .filter(
+          (item) =>
+            comparable.has(item.origin) &&
+            (item.area === 'local' || before.tabId === after.tabId),
+        )
         .map((item) => [storageIdentity(item), item]),
     );
     const next = new Map(
       after.storage
-        .filter((item) => comparable.has(item.origin))
+        .filter(
+          (item) =>
+            comparable.has(item.origin) &&
+            (item.area === 'local' || before.tabId === after.tabId),
+        )
         .map((item) => [storageIdentity(item), item]),
     );
     for (const [id, item] of next) {
@@ -202,6 +212,8 @@ export function diffSessions(
           ...stamp,
           type: 'storage',
           change,
+          stepIndex: null,
+          since: before.at,
           storage: sanitizeStorage(item),
         });
     }
@@ -211,6 +223,8 @@ export function diffSessions(
           ...stamp,
           type: 'storage',
           change: 'removed',
+          stepIndex: null,
+          since: before.at,
           storage: sanitizeStorage(item),
         });
   }
@@ -246,9 +260,9 @@ export function observeSetCookie(
 }
 
 export class SessionJournal {
-  private readonly comparisonKey = randomBytes(32);
-  private previousCookies: SessionSnapshot | undefined;
-  private previousStorage: SessionSnapshot | undefined;
+  readonly #comparisonKey = randomBytes(32);
+  #previousCookies: SessionSnapshot | undefined;
+  #previousStorage: SessionSnapshot | undefined;
   readonly record: SessionRecord = {
     snapshots: [],
     changes: [],
@@ -268,26 +282,28 @@ export class SessionJournal {
     diffDurationMs: 0,
   };
   fingerprint(value: string): string {
-    return createHmac('sha256', this.comparisonKey).update(value).digest('hex');
+    return createHmac('sha256', this.#comparisonKey)
+      .update(value)
+      .digest('hex');
   }
   add(snapshot: SessionSnapshot): void {
     const started = performance.now();
     const changes = [
-      ...(this.previousCookies
-        ? diffSessions(this.previousCookies, {
+      ...(this.#previousCookies
+        ? diffSessions(this.#previousCookies, {
             ...snapshot,
             storageComplete: false,
           })
         : []),
-      ...(this.previousStorage && snapshot.storageComplete
+      ...(this.#previousStorage && snapshot.storageComplete
         ? diffSessions(
-            { ...this.previousStorage, cookiesComplete: false },
+            { ...this.#previousStorage, cookiesComplete: false },
             snapshot,
           )
         : []),
     ];
-    if (snapshot.cookiesComplete) this.previousCookies = snapshot;
-    if (snapshot.storageComplete) this.previousStorage = snapshot;
+    if (snapshot.cookiesComplete) this.#previousCookies = snapshot;
+    if (snapshot.storageComplete) this.#previousStorage = snapshot;
     this.metrics.sessionSnapshotsCaptured++;
     this.metrics.cookieCountObserved = Math.max(
       this.metrics.cookieCountObserved,
@@ -350,14 +366,18 @@ export function reduceSession(
         near(event),
     );
   for (const response of record.responses.filter(near)) {
-    if (!final?.cookiesComplete || final.at < response.at) continue;
+    // Do not confuse an initially retained cookie with a subsequent logout.
+    const retainedState = record.snapshots.find(
+      (snapshot) => snapshot.at >= response.at && snapshot.cookiesComplete,
+    );
+    if (!retainedState) continue;
     for (const cookie of response.cookies) {
       const host = new URL(response.origin).hostname;
       const domain = (cookie.domain ?? host).replace(/^\./, '');
       const path =
         cookie.path ??
         (response.path.slice(0, response.path.lastIndexOf('/')) || '/');
-      const retained = final.cookies.some(
+      const retained = retainedState.cookies.some(
         (item) =>
           item.name === cookie.name &&
           item.path === path &&
@@ -375,13 +395,29 @@ export function reduceSession(
         });
     }
   }
+  if (auth?.type === 'http')
+    findings.push({
+      kind: 'auth_http_failure',
+      response: { method: auth.method, path: auth.path, status: auth.status },
+      cookiePresent: Boolean(final?.cookies.length),
+    });
   for (const delta of record.changes
     .filter(near)
     .sort(
       (a, b) =>
-        Number(b.type === 'cookie' && b.change === 'removed') -
-          Number(a.type === 'cookie' && a.change === 'removed') || b.at - a.at,
+        Number(b.type === 'cookie') - Number(a.type === 'cookie') ||
+        Number(b.change === 'removed') - Number(a.change === 'removed') ||
+        b.at - a.at,
     )) {
+    // Stable login earlier in a fast workflow must not tax an unrelated failure.
+    if (
+      !auth &&
+      !findings.some((item) => item.kind === 'cookie_not_retained') &&
+      (delta.type === 'storage' ||
+        delta.stepIndex === null ||
+        delta.stepIndex < failed.index - 1)
+    )
+      continue;
     if (delta.type === 'storage')
       findings.push({
         kind: 'storage_changed',
@@ -403,12 +439,6 @@ export function reduceSession(
         ...(delta.stepIndex !== null ? { step: delta.stepIndex } : {}),
       });
   }
-  if (auth?.type === 'http')
-    findings.push({
-      kind: 'auth_http_failure',
-      response: { method: auth.method, path: auth.path, status: auth.status },
-      cookiePresent: Boolean(final?.cookies.length),
-    });
   const unique = [
     ...new Map(findings.map((item) => [JSON.stringify(item), item])).values(),
   ].slice(0, 3);
@@ -446,6 +476,7 @@ export function sanitizeSessionRecord(
             type: 'storage',
             change: change.change,
             storage: sanitizeStorage(change.storage, redact),
+            ...(change.since !== undefined ? { since: change.since } : {}),
           },
     ),
     responses: record.responses.map((response) => ({

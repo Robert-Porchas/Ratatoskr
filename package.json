@@ -39,6 +39,7 @@
     "test": "vitest run --passWithNoTests",
     "test:e2e": "tsx test/integration.ts",
     "test:mcp": "npm run build && node dist/test/mcp-integration.js",
+    "test:session": "npm run build && node dist/test/session-integration.js && node dist/test/session-mcp-integration.js",
     "test:benchmark": "npm run build && node dist/test/benchmark-integration.js",
     "cli": "node dist/src/cli.js",
     "mcp": "node dist/src/mcp/server.js",

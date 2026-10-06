@@ -4,9 +4,24 @@ import type {
   DialogExpectation,
 } from './protocol.js';
 import type { EvidenceInput } from './evidence.js';
+import type {
+  SessionSnapshot,
+  SessionResponse,
+  SessionStamp,
+} from './session.js';
+
+export interface SessionObservation {
+  protect(value: string): void;
+  fingerprint(value: string): string;
+  response(response: SessionResponse): void;
+}
 
 export interface BrowserAdapter {
-  start(emit: (event: EvidenceInput) => void, trace: boolean): Promise<void>;
+  start(
+    emit: (event: EvidenceInput) => void,
+    trace: boolean,
+    session?: SessionObservation,
+  ): Promise<void>;
   stop(tracePath?: string): Promise<void>;
   navigate(url: string, timeoutMs: number): Promise<void>;
   click(
@@ -58,4 +73,12 @@ export interface BrowserAdapter {
   /** Optional diagnostic probe; never returns page content or chooses another target. */
   targetExists?(target: BrowserTarget): Promise<boolean>;
   screenshot(): Promise<Buffer>;
+  /** Internal observation only; unavailable in BrowserPlan. */
+  setSessionStep?(stepIndex: number | null): void;
+  sessionSnapshot?(
+    full: boolean,
+    stamp: SessionStamp,
+  ): Promise<SessionSnapshot>;
+  hasSensitiveSession?(): boolean;
+  authenticationState?(): Promise<Buffer>;
 }

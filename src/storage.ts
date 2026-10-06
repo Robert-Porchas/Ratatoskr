@@ -11,6 +11,7 @@ import {
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ArtifactNotFoundError } from './errors.js';
+import type { SessionRecord } from './session.js';
 import type {
   ArtifactReference,
   ArtifactType,
@@ -34,6 +35,7 @@ export interface RunStore {
     evidence: Evidence[],
     result: RunResult,
     extractions?: Record<string, string>,
+    session?: SessionRecord,
   ): Promise<void>;
   load(runId: string): Promise<{
     record: RunRecord;
@@ -42,6 +44,7 @@ export interface RunStore {
     evidence: Evidence[];
     result: RunResult;
     extractions: Record<string, string>;
+    session?: SessionRecord;
   }>;
 }
 
@@ -93,6 +96,7 @@ export class FilesystemRunStore implements RunStore {
     evidence: Evidence[],
     result: RunResult,
     extractions: Record<string, string> = {},
+    session?: SessionRecord,
   ): Promise<void> {
     const directory = this.directory(record.id);
     await this.prepare(record.id);
@@ -119,6 +123,12 @@ export class FilesystemRunStore implements RunStore {
         JSON.stringify(extractions, null, 2),
       ),
     ]);
+    if (session)
+      await writeFile(
+        join(directory, 'session.json'),
+        JSON.stringify(session),
+        { mode: 0o600 },
+      );
   }
 
   async load(runId: string): Promise<{
@@ -128,6 +138,7 @@ export class FilesystemRunStore implements RunStore {
     evidence: Evidence[];
     result: RunResult;
     extractions: Record<string, string>;
+    session?: SessionRecord;
   }> {
     const directory = this.directory(runId);
     const [metadata, workflow, steps, evidence, result, extractions] =
@@ -144,6 +155,13 @@ export class FilesystemRunStore implements RunStore {
           },
         ),
       ]);
+    const session = await readFile(
+      join(directory, 'session.json'),
+      'utf8',
+    ).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    });
     return {
       record: JSON.parse(metadata) as RunRecord,
       plan: JSON.parse(workflow) as BrowserPlan,
@@ -153,6 +171,7 @@ export class FilesystemRunStore implements RunStore {
         : [],
       result: JSON.parse(result) as RunResult,
       extractions: JSON.parse(extractions) as Record<string, string>,
+      ...(session ? { session: JSON.parse(session) as SessionRecord } : {}),
     };
   }
 }

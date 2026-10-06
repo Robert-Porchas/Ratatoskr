@@ -139,6 +139,7 @@ describe('session comparison and sanitization', () => {
     expect(JSON.stringify(sanitizeCookie(raw))).not.toContain('SECRET');
     const journal = new SessionJournal();
     journal.add(snapshot([raw]));
+    expect(JSON.stringify(journal)).not.toContain('DO_NOT_PERSIST_HASH');
     const record = sanitizeSessionRecord(journal.record, (value) =>
       value.replaceAll('localhost', '[REDACTED]'),
     );
@@ -190,8 +191,8 @@ describe('session comparison and sanitization', () => {
       },
     ]);
     expect(reduced?.findings.map((item) => item.kind)).toEqual([
-      'cookie_removed',
       'auth_http_failure',
+      'cookie_removed',
     ]);
     record.changes[0]!.at = -10000;
     expect(reduceSession(record, failed, [])).toBeUndefined();
@@ -218,6 +219,34 @@ describe('session comparison and sanitization', () => {
     expect(reduceSession(record, failed, [])?.findings[0]?.kind).toBe(
       'cookie_not_retained',
     );
+  });
+  it('does not mislabel a later logout as cookie non-retention', () => {
+    const before = {
+      ...snapshot([{ ...cookie, fingerprint: 'old' }]),
+      at: 1050,
+    };
+    const after = { ...snapshot(), at: 1500 };
+    const record: SessionRecord = {
+      snapshots: [before, after],
+      changes: [],
+      responses: [response],
+      truncated: false,
+    };
+    expect(reduceSession(record, failed, [])).toBeUndefined();
+  });
+  it('does not compare sessionStorage across active tabs', () => {
+    const item = {
+      origin: 'http://localhost',
+      key: 'auth_state',
+      area: 'session' as const,
+      fingerprint: 'old',
+    };
+    expect(
+      diffSessions(
+        { ...snapshot([], [item]), tabId: 1 },
+        { ...snapshot(), tabId: 2 },
+      ),
+    ).toEqual([]);
   });
   it('bounds findings, local retention and serialized Level 1 size', () => {
     const journal = new SessionJournal();

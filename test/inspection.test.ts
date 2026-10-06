@@ -8,6 +8,7 @@ import type {
   StepResult,
 } from '../src/protocol.js';
 import type { RunStore } from '../src/storage.js';
+import type { SessionRecord } from '../src/session.js';
 
 const runId = 'run_example';
 const record: RunRecord = {
@@ -68,6 +69,52 @@ const store: RunStore = {
 };
 
 describe('run inspection', () => {
+  it('bounds session items and strips raw values even from injected snapshots', async () => {
+    const session: SessionRecord = {
+      snapshots: [
+        {
+          at: 1000,
+          stepIndex: 0,
+          cookiesComplete: true,
+          storageComplete: true,
+          cookies: Array.from({ length: 81 }, (_, index) => ({
+            name: `session_${index}`,
+            domain: 'localhost',
+            path: '/',
+            expires: 1,
+            httpOnly: true,
+            secure: false,
+            sameSite: 'Lax',
+            value: 'SUPER_SECRET_SESSION_VALUE_123',
+          })),
+          storage: [],
+        },
+      ],
+      changes: [],
+      responses: [],
+      truncated: false,
+    };
+    const loaded = await store.load(runId);
+    const sessionStore: RunStore = {
+      ...store,
+      async load() {
+        return { ...loaded, session };
+      },
+    };
+    const response = await inspectRun(
+      runId,
+      { include: ['session'], maxItemsPerCategory: 2 },
+      sessionStore,
+    );
+    expect(response.sections.session).toMatchObject({
+      returnedCount: 2,
+      availableCount: 81,
+      truncated: true,
+      items: [{ expired: true }, { expired: true }],
+    });
+    expect(JSON.stringify(response)).not.toContain('SUPER_SECRET');
+    expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThan(1500);
+  });
   it('selects and pages only requested categories', async () => {
     const inspected = await inspectRun(
       runId,
