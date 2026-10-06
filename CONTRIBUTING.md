@@ -13,6 +13,7 @@ npm run build
 npm run test:dist
 npm run test:e2e
 npm run test:mcp
+npm run test:session
 npm run test:benchmark
 ```
 

@@ -26,6 +26,8 @@ History uses Conventional Commit subjects such as `feat(browser): ...`, `fix(evi
 
 Plans use `valueRef` names, never plaintext secrets. Do not log resolved values or commit generated `.ratatoskr/`, `dist/`, or `node_modules/`. Review redaction when changing screenshots.
 
+Session metadata/deltas are sanitized; raw auth state belongs only in opt-in sensitive artifacts, never ordinary persistence or MCP delivery. Run `npm run test:session` when changing observation/redaction. Use compact session findings first; inspect `session` only when needed, never request protected auth state for routine diagnosis.
+
 ## Browser Testing with Codex
 
 For known app tests, derive routes, labels, accessible names and test IDs from relevant source/tests first; do not rediscover those facts through browser calls. With `ratatoskr` MCP, submit one complete workflow: `url`, `steps` with `do` and flat semantic locators. `fill` uses local `valueRef`; `has` checks text with `contains`; `extractText` + `save` explicitly requests a bounded output, including on failure. Assert persisted state, not just edited inputs. On success stop; on failure use compact evidence to inspect source first. Request only necessary inspection categories or one diagnostic artifact. Never automatically fetch screenshots/traces/logs. Codex plans; Ratatoskr executes.

@@ -27,4 +27,6 @@ Use configured local `valueRef` names, never plaintext secrets. `has` asserts ta
 
 On success, stop unless the user requested more. On failure, use compact errors to investigate source first. Call `inspect_browser_run` only for necessary categories; call `get_browser_artifact` only for one useful artifact. Never fetch screenshots, traces or full logs automatically.
 
+Use compact session findings before further inspection. Request the `session` category only if cookie/storage metadata is still needed. Raw session values are deliberately withheld; protected auth-state artifacts are not for ordinary debugging and cannot be retrieved inline.
+
 If the tools are unavailable, explain that setup needs repair; do not pretend a workflow ran. Use the installed project's README (`npm run doctor`, `npm run smoke`) for diagnostics.

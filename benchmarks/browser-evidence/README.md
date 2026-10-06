@@ -1,5 +1,9 @@
 # Browser evidence benchmark
 
+## Session diagnostics experiment
+
+The [session-observability experiment](session-observability/README.md) compares automatic findings off/on and native Playwright MCP cookie/storage investigation. Run `npm run test:session` without model credentials, or `BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=1 BENCHMARK_SESSION_SCENARIOS=missing BENCHMARK_SUITE=my-session-pilot npm run benchmark:session` for three isolated Codex tasks. Actual Codex tokens, safe local session bytes, inspection calls and capture timings are separate measurements. Default repeated coverage uses ten attempts per case, preserving unsuccessful diagnoses.
+
 ## Token optimization matrix
 
 The current token-first comparison is `npm run benchmark:tokens`. It uses fresh Codex tasks with shared source-known routes, locators and values, and increasing real form sizes (1, 2, 4, or 9 fields). These facts are supplied identically and counted in both model contexts; setup/source exploration is not measured. Each task must submit every changed field and verify persisted state or correctly diagnose the failure.
