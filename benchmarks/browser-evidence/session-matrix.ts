@@ -47,6 +47,11 @@ const scenarios = (
 const cases = (process.env.BENCHMARK_SESSION_CASES ?? 'without,with,direct')
   .split(',')
   .map((value) => SessionCaseSchema.parse(value));
+const directScenarios = (
+  process.env.BENCHMARK_SESSION_DIRECT_SCENARIOS ?? 'missing,scope'
+)
+  .split(',')
+  .map((value) => z.enum(authScenarios).parse(value));
 const suite = z
   .string()
   .regex(/^[a-zA-Z0-9_-]+$/)
@@ -69,6 +74,7 @@ const configuration = {
   reasoning,
   scenarios,
   cases,
+  directScenarios,
   commit,
   codexVersion,
   browserVersion,
@@ -167,7 +173,7 @@ async function task(
         ),
       );
     const observed = tools.interactions
-      .map((item) => item.reply.text)
+      .map((item) => JSON.stringify(item.arguments) + '\n' + item.reply.text)
       .join('\n');
     const graded = gradeSession(
       scenario,
@@ -190,7 +196,9 @@ async function task(
       benchmarkVersion: '1',
       suiteId: suite,
       sessionCase,
-      expectedCases: cases,
+      expectedCases: cases.filter(
+        (key) => key !== 'direct' || directScenarios.includes(scenario),
+      ),
       expectedRuns: runs,
       mode: sessionCase === 'direct' ? 'baseline' : 'ratatoskr',
       driver: 'codex',
@@ -276,8 +284,16 @@ const jobs: Array<() => Promise<void>> = [];
 for (const scenario of scenarios)
   for (let run = 1; run <= runs; run++)
     jobs.push(async () => {
-      const rotation = run % cases.length;
-      for (const key of [...cases.slice(rotation), ...cases.slice(0, rotation)])
+      const selected = cases.filter(
+        (key) => key !== 'direct' || directScenarios.includes(scenario),
+      );
+      if (!selected.length)
+        throw new Error('No benchmark cases selected for scenario');
+      const rotation = run % selected.length;
+      for (const key of [
+        ...selected.slice(rotation),
+        ...selected.slice(0, rotation),
+      ])
         await task(scenario, key, run);
     });
 for (let index = 0; index < jobs.length; index += concurrency)

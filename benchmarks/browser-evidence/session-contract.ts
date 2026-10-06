@@ -160,8 +160,8 @@ export function summarizeSessions(rows: SessionBenchmarkResult[]): string {
       ),
     );
     if (
-      groups.length !== rows[0]!.expectedCases.length ||
-      groups.some((group) => group.length !== rows[0]!.expectedRuns) ||
+      groups.length !== groups[0]![0]!.expectedCases.length ||
+      groups.some((group) => group.length !== groups[0]![0]!.expectedRuns) ||
       groups.some(
         (group) =>
           group.length !== groups[0]!.length ||
