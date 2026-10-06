@@ -4,11 +4,11 @@
 
 `src/session.ts` is independent of Playwright: it defines sanitized metadata, an ephemeral comparison snapshot, pure cookie/storage differs, a bounded journal and the failure reducer. The adapter owns observation, the executor owns capture timing, and the existing shared inspector serves CLI/MCP. There are still exactly three MCP tools and no new BrowserPlan actions.
 
-| Level | What is available                                                                                                       | What is withheld                                                        |
-| ----- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 1     | Relevant failure findings; maximum three, subsection under 750 bytes                                                    | Full cookie/key lists, all values, hashes, screenshots and trace bodies |
-| 2     | Explicit `session` inspection: cookie name/domain/path/security/expiry, changes, key names, sanitized response metadata | Cookie/storage values, raw headers, state files                         |
-| 3     | Opt-in local Playwright cookie/localStorage state; registered sensitive artifact metadata                               | Body and local path through MCP; CLI export                             |
+| Level | What is available                                                                                                             | What is withheld                                                        |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1     | Relevant failure findings; maximum three, subsection under 750 bytes                                                          | Full cookie/key lists, all values, hashes, screenshots and trace bodies |
+| 2     | Explicit `session` inspection: cookie attributes/expiry, changes, key names, sanitized responses, snapshot count/completeness | Cookie/storage values, raw headers, state files                         |
+| 3     | Opt-in local Playwright cookie/localStorage state; registered sensitive artifact metadata                                     | Body and local path through MCP; CLI export                             |
 
 Snapshots are complete initially, after initial navigation, at first failure and at completion. Cookie-only comparisons follow navigation, click, press and download boundaries. There is a one-second capture budget; retained metadata is bounded to 200 cookies, 200 storage entries, 100 active-tab sessionStorage keys, 64 snapshots, 500 changes and 100 responses. Exceeding bounds/inaccessible state is flagged; incomplete snapshots cannot prove removals or non-retention.
 
@@ -80,16 +80,55 @@ Direct missing-cookie scored 4/10 and direct path scored 2/10; remaining tasks h
 
 Review found that the benchmark's shared generic persistence warning encouraged re-inspection of completed assertions, while its task asked about session changes even for unrelated control failures. A narrowly corrected task/instruction contract is now shared identically by all configurations: assert state rather than clicks alone; passed assertions count as evidence; investigate cookies when authentication fails. Fixture causes, success criteria, tool behavior and token accounting are unchanged. The original series remains above and is not mixed with corrected-contract measurements.
 
+### Final repeated findings
+
+The [final generated summary](summary.md), [120 per-task records](results.jsonl), [native usage fields](native-usage.jsonl) and [configuration](configuration.json) are the primary matched comparison. They use production code at `5436d2c`, gpt-6.1-sol with medium reasoning, Codex 0.160.1, Chromium 153.0.8010.12 and ten fresh tasks per case. All 120 tasks completed with authoritative usage and correct diagnoses. All Ratatoskr calls were valid; there were no artifact requests. Median workflow calls remained one on success, two on failure.
+
+| Scenario          | Without Level 1 median tokens | With Level 1 median tokens |  Change | Median calls, off/on | Median inspections, off/on |
+| ----------------- | ----------------------------: | -------------------------: | ------: | -------------------: | -------------------------: |
+| Success           |                      31,479.5 |                     31,496 |  +0.05% |                1 / 1 |                      0 / 0 |
+| Missing cookie    |                      43,067.5 |                     43,154 |  +0.20% |                2 / 2 |                      1 / 1 |
+| Session loss      |                      43,778.5 |                     43,260 |  −1.18% |                2 / 2 |                      1 / 1 |
+| Cookie path       |                      43,263.5 |                   43,786.5 |  +1.21% |                2 / 2 |                      1 / 1 |
+| Unrelated failure |                      43,344.5 |                   43,346.5 | +0.005% |                2 / 2 |                      1 / 1 |
+
+Negative change means fewer tokens. These small, mixed differences do not demonstrate consistent incremental token savings from session findings. The session category was requested 10→9 times for missing cookies, 10→10 for session loss and 10→10 for cookie path; the overall median inspection count did not fall. One unrelated task in each mode unnecessarily requested session inspection. Success averaged 1.2 calls in both modes despite a median of one. Agent variability remains visible in the summary's mean, min/max and standard deviation.
+
+The direct comparison uses the same task/state/accounting and the official scoped Playwright MCP baseline, sharing the pinned Chromium executable and viewport:
+
+| Scenario       | Direct median tokens | Ratatoskr median tokens | Reduction | Median calls, direct/Ratatoskr | Correct diagnoses |
+| -------------- | -------------------: | ----------------------: | --------: | -----------------------------: | ----------------: |
+| Missing cookie |              150,509 |                  43,154 |     71.3% |                         18 / 2 |     10/10 in both |
+| Cookie path    |              137,955 |                43,786.5 |     68.3% |                         19 / 2 |     10/10 in both |
+
+This demonstrates Ratatoskr's existing batching advantage on these multi-step tasks, **not** that the session feature caused the full reduction, nor a comparison with Codex's built-in browser. Plugins/skills are disabled for all measured tasks. Individual input/cache/uncached/output/reasoning medians are in the generated summary; field medians must not be added to reconstruct the median of per-task totals.
+
+The frozen execution used a grader that wrongly required cookie inspection after response-body retrieval. Eight direct diagnoses had valid cookie observations after UI/HTTP failure but before body retrieval. The [grading audit](grading-audit.json) records every changed verdict and the verification revision (`8f65af7`); the [original summary](original-summary.md) retains the old scores. Every task was rechecked against native tool events and fixture requests, without changing any model execution, tokens, bytes or counters. Tests still reject pre-login observations and unsupported claims about missing Set-Cookie. The original process exited 1 because of those old grades; the complete immutable audit passes.
+
+### Context and local evidence volume
+
+| Scenario          | All model-visible tool payload bytes, off/on | Compact failure JSON bytes, off/on | Session Level 1 bytes | Typical Level 2 session bytes |
+| ----------------- | -------------------------------------------: | ---------------------------------: | --------------------: | ----------------------------: |
+| Success           |                                    116 / 116 |                                  — |                     0 |                             0 |
+| Missing cookie    |                                2,084 / 2,224 |                          472 / 612 |                   129 |                         1,205 |
+| Session loss      |                                3,937 / 2,228 |                          472 / 549 |                    66 |                         1,272 |
+| Cookie path       |                              2,441 / 3,320.5 |                          472 / 617 |                   134 |                         1,562 |
+| Unrelated failure |                                2,434 / 2,434 |                          279 / 279 |                     0 |                             0 |
+
+These are medians; they count every native tool reply, not just the initial result. Success/unrelated failures have no automatic session subsection. Evidence bytes are unchanged in meaning and are not used to estimate tokens. Both controls capture the same local metadata; the ordinary event log is measured separately (552–1,036 median bytes on Ratatoskr). Session metadata retained locally is 1,894–2,807 bytes depending on the case. Full auth artifacts are default-off and none were created by this native suite.
+
+The observer captures seven to nine snapshots per fixture workflow, observes a peak of zero or one cookie, detects zero to two cookie changes and zero to two storage-key changes. Total capture medians are about 77–97 ms with Level 1 enabled; diff medians are under 1.3 ms. Workflow-step counts include assertions and initial navigation; no claim is made about low-level Playwright polling counts.
+
 ### Runtime overhead
 
 The developer timing runner uses the **actual old executor** extracted from `cb13bf1` plus the current executor against identical fresh fixture contexts, alternating execution order. Ten attempts per mode/scenario, a 600 ms assertion timeout, and no model calls produced:
 
 | Scenario         | Old median workflow ms | New median workflow ms |     Difference |
 | ---------------- | ---------------------: | ---------------------: | -------------: |
-| Successful login |                    484 |                    533 | +49 ms (10.1%) |
-| Missing cookie   |                  1,128 |                  1,160 |  +32 ms (2.8%) |
+| Successful login |                  462.5 |                  509.5 | +47 ms (10.2%) |
+| Missing cookie   |                1,108.5 |                1,164.5 |  +56 ms (5.1%) |
 
-These timings include browser startup/cleanup and ran alongside the two-slot native suite; they are local measurements, not universal overhead guarantees. Capture/diff timings are separately recorded per task. Off/on token controls both observe state, so they cannot isolate observer runtime cost. No expensive full storage snapshot runs after every action.
+The [final 40 timing records](timing.json) compare the pre-change executor at `cb13bf1` with frozen production code at `5436d2c`. These timings include browser startup/cleanup and ran alongside the two-slot native suite; they are local measurements, not universal overhead guarantees. The [earlier timing series](initial/timing.json) remains archived. Capture/diff timings are separately recorded per task. Off/on token controls both observe state, so they cannot isolate observer runtime cost. No expensive full storage snapshot runs after every action.
 
 ## Limits and next work
 
@@ -99,6 +138,8 @@ These timings include browser startup/cleanup and ran alongside the two-slot nat
 - Full state is plaintext; local owners/admins can read it. POSIX modes are tested on Linux, not a claim of Windows ACL hardening, encryption or OS credential-manager integration.
 - Local artifacts have no TTL/automatic cleanup. Remove only Ratatoskr-owned generated runs when no longer needed; never commit/share state files.
 - Agent behavior varies. Compact findings may still lead to redundant inspection, and the native CLI does not expose per-inference attribution. A lower byte count alone proves no token savings.
+
+The largest remaining measured token bottleneck is the extra inspection on ordinary authentication failures: two calls in both controls even when the 129/66-byte finding already supplies the requested fact. More targeted Level 1 metadata might help particular cases, but adding it everywhere would tax the common response and has not been benchmarked here. The path-scope task deliberately requires Level 2 attributes. Observer overhead and the 110-byte definition increase are small measured costs, not eliminated costs. Session reuse remains a possible future optimization, not an implemented feature.
 
 ## Reproduce verification
 
@@ -118,3 +159,7 @@ npm run smoke
 ```
 
 The [methodology guide](README.md) provides one-task and repeated Codex commands, accounting boundaries and publication commands. The local timing runner accepts an old compiled `application.js` and an ignored output JSON path: `BENCHMARK_RUNS=10 npx tsx benchmarks/browser-evidence/session-timing.ts /ABSOLUTE/old/dist/src/application.js benchmarks/browser-evidence/results/YOUR_SUITE/timing.json`. It shares installed dependencies; preserve the old commit and lockfile provenance when interpreting it.
+
+Verified on Linux with Node 24.19.0: 80 unit tests, browser integrations, stdio MCP integrations, session security tests, benchmark fixture/replay tests, type checking, lint, formatting, build and distribution audit. Doctor and smoke pass using an isolated `RATATOSKR_HOME`; no global Codex configuration was changed. Generated summaries and every published token field are checked against native records. Package contents exclude browser/session artifacts. Sprint commits are listed by `git log --reverse --oneline cb13bf1..HEAD`.
+
+**Conclusion B: Session diagnostics improve diagnosis but are approximately token-neutral.** Ratatoskr preserves its measured advantage over direct browser tooling in this experiment. Further savings from Level 1 are not established; this milestone adds useful protected diagnostics, with token efficiency retained as a guardrail.
