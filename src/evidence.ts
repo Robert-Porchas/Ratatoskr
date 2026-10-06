@@ -4,6 +4,50 @@ import type {
   RunMetrics,
   StepResult,
 } from './protocol.js';
+import { BrowserStepSchema } from './protocol.js';
+
+// Public protocol literals are not credentials, even if a short storage value
+// happens to equal one. Free-form messages/targets still undergo redaction.
+const protocolLiterals: Record<string, ReadonlySet<string>> = {
+  type: new Set([
+    'request',
+    'http',
+    'request_failed',
+    'console',
+    'page_error',
+    'navigation',
+    'dialog',
+    'popup',
+    'alert',
+    'confirm',
+    'prompt',
+  ]),
+  kind: new Set([
+    'role',
+    'label',
+    'text',
+    'testId',
+    'css',
+    'value',
+    'index',
+    'browser_execution',
+    'element_not_found',
+    'timeout',
+    'assertion',
+    'navigation',
+    'secret_resolution',
+    'invalid_plan',
+    'artifact_not_found',
+    'cancelled',
+  ]),
+  action: new Set([
+    ...BrowserStepSchema.options.map((schema) => schema.shape.action.value),
+    'accept',
+    'dismiss',
+  ]),
+  status: new Set(['passed', 'failed']),
+  level: new Set(['error', 'warning', 'info', 'debug', 'log']),
+};
 
 export type EvidenceInput = Evidence extends infer E
   ? E extends Evidence
@@ -36,15 +80,15 @@ export class EvidenceCollector {
   }
 
   sanitize<T>(value: T): T {
-    const visit = (item: unknown): unknown => {
-      if (typeof item === 'string') return this.redact(item);
-      if (Array.isArray(item)) return item.map(visit);
+    const visit = (item: unknown, fieldName?: string): unknown => {
+      if (typeof item === 'string')
+        return fieldName && protocolLiterals[fieldName]?.has(item)
+          ? item
+          : this.redact(item);
+      if (Array.isArray(item)) return item.map((field) => visit(field));
       if (item && typeof item === 'object')
         return Object.fromEntries(
-          Object.entries(item).map(([key, field]) => [
-            this.redact(key),
-            visit(field),
-          ]),
+          Object.entries(item).map(([key, field]) => [key, visit(field, key)]),
         );
       return item;
     };
@@ -52,12 +96,7 @@ export class EvidenceCollector {
   }
 
   record(input: EvidenceInput): void {
-    const fields = Object.fromEntries(
-      Object.entries(input).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? this.redact(value) : value,
-      ]),
-    );
+    const fields = this.sanitize(input);
     const event = {
       ...fields,
       at: Date.now(),

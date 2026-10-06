@@ -12,6 +12,7 @@ import type {
 } from '../src/protocol.js';
 import type { ArtifactStore, RunStore } from '../src/storage.js';
 import { EnvironmentValueResolver } from '../src/values.js';
+import type { SessionSnapshot, SessionStamp } from '../src/session.js';
 
 class FakeBrowser implements BrowserAdapter {
   private emit: ((event: EvidenceInput) => void) | undefined;
@@ -138,6 +139,112 @@ function stores(): {
 }
 
 describe('workflow executor', () => {
+  it('does not retain oversized extraction/probe text before late session redaction', async () => {
+    class LargeTextBrowser extends FakeBrowser {
+      override async text(): Promise<string> {
+        return 'SECRET'.repeat(4000);
+      }
+      override async waitForTextContains(): Promise<void> {
+        throw Object.assign(new Error('Timeout'), { name: 'TimeoutError' });
+      }
+    }
+    for (const action of ['extract_text', 'assert_text'] as const) {
+      const state = stores();
+      const result = await executePlan(
+        {
+          startUrl: 'http://localhost',
+          steps: [
+            action === 'extract_text'
+              ? {
+                  action,
+                  target: { kind: 'text', text: 'target' },
+                  saveAs: 'value',
+                }
+              : {
+                  action,
+                  target: { kind: 'text', text: 'target' },
+                  contains: 'expected',
+                },
+          ],
+          outputs: action === 'extract_text' ? ['value'] : [],
+        },
+        {
+          browser: new LargeTextBrowser(),
+          runs: state.runs,
+          artifacts: state.artifacts,
+          values: new EnvironmentValueResolver({}),
+        },
+      );
+      expect(result.success).toBe(false);
+      expect(JSON.stringify(state.saved)).not.toContain('SECRET');
+      expect(result).not.toHaveProperty('actualText');
+      expect(result).not.toHaveProperty('outputs');
+    }
+  });
+
+  it('bounds opt-in authentication-state capture and finalizes a hung capture', async () => {
+    class HungStateBrowser extends FakeBrowser {
+      dispatch: ((event: EvidenceInput) => void) | undefined;
+      override async start(
+        emit: (event: EvidenceInput) => void,
+      ): Promise<void> {
+        await super.start(emit);
+        this.dispatch = emit;
+      }
+      override async click(): Promise<void> {
+        this.dispatch?.({
+          type: 'http',
+          method: 'GET',
+          path: '/protected',
+          status: 401,
+        });
+      }
+      async sessionSnapshot(
+        full: boolean,
+        stamp: SessionStamp,
+      ): Promise<SessionSnapshot> {
+        return {
+          ...stamp,
+          cookies: [],
+          storage: [],
+          cookiesComplete: true,
+          storageComplete: full,
+          storageOrigins: [],
+        };
+      }
+      async authenticationState(): Promise<Buffer> {
+        return new Promise(() => undefined);
+      }
+    }
+    const state = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://localhost',
+        steps: [
+          { action: 'click', target: { kind: 'text', text: 'Open' } },
+          { action: 'assert_url', contains: '/dashboard' },
+        ],
+      },
+      {
+        browser: new HungStateBrowser(),
+        runs: state.runs,
+        artifacts: state.artifacts,
+        values: new EnvironmentValueResolver({}),
+        captureAuthState: true,
+      },
+    );
+    expect(result.success).toBe(false);
+    expect(state.saved.record?.metrics.session?.sensitiveArtifactsCreated).toBe(
+      0,
+    );
+    expect(state.saved.record?.status).toBe('failed');
+    expect(
+      state.saved.record?.artifacts.every(
+        (artifact) => artifact.type !== 'browser_storage_state',
+      ),
+    ).toBe(true);
+  });
+
   it('defaults to a 180-second deadline while retaining explicit plan timeouts', async () => {
     let clock = 0;
     const timeouts: Array<number | undefined> = [];

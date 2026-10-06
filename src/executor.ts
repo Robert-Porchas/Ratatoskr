@@ -28,6 +28,18 @@ import {
   type SessionRecord,
 } from './session.js';
 
+// Keep complete text until final redaction, but never retain an unbounded DOM
+// string or truncate a still-unknown credential into an unrecognizable prefix.
+const MAX_EPHEMERAL_TEXT_CHARS = 16_384;
+function boundedExtraction(value: string): string {
+  if (value.length > MAX_EPHEMERAL_TEXT_CHARS)
+    throw new RatatoskrError(
+      'browser_execution',
+      'Extraction target exceeds the local text capture limit',
+    );
+  return value;
+}
+
 export interface ExecutionDependencies {
   browser: BrowserAdapter;
   runs: RunStore;
@@ -161,7 +173,7 @@ async function executeStep(
       return;
     }
     case 'extract_text':
-      return await browser.text(step.target, timeout);
+      return boundedExtraction(await browser.text(step.target, timeout));
     case 'extract_attribute': {
       const value = await browser.attribute(
         step.target,
@@ -172,7 +184,7 @@ async function executeStep(
         throw new BrowserAssertionError(
           `Attribute ${step.attribute} was not present`,
         );
-      return value;
+      return boundedExtraction(value);
     }
   }
 }
@@ -260,17 +272,24 @@ export async function executePlan(
         evidence.events,
       )
     ) {
+      let stateTimer: ReturnType<typeof setTimeout> | undefined;
       try {
-        artifacts.push(
-          await deps.artifacts.save(
-            runId,
-            'browser_storage_state',
-            await deps.browser.authenticationState(),
-          ),
-        );
-        session.metrics.sensitiveArtifactsCreated++;
+        const state = await Promise.race([
+          deps.browser.authenticationState(),
+          new Promise<undefined>((resolve) => {
+            stateTimer = setTimeout(() => resolve(undefined), 1000);
+          }),
+        ]);
+        if (state) {
+          artifacts.push(
+            await deps.artifacts.save(runId, 'browser_storage_state', state),
+          );
+          session.metrics.sensitiveArtifactsCreated++;
+        } else session.record.truncated = true;
       } catch {
         /* Protected state capture is opt-in and best effort. */
+      } finally {
+        if (stateTimer) clearTimeout(stateTimer);
       }
     }
     try {
@@ -380,6 +399,8 @@ export async function executePlan(
             step.target,
             Math.min(250, Math.max(1, deadline - Date.now())),
           );
+          if (actualText.length > MAX_EPHEMERAL_TEXT_CHARS)
+            actualText = undefined;
         } catch {
           /* Missing targets carry no fabricated text. */
         }

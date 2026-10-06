@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 
 export const FAKE_SESSION_SECRET = 'SUPER_SECRET_SESSION_VALUE_123';
 export const FAKE_STORAGE_SECRET = 'SUPER_SECRET_STORAGE_VALUE_456';
+export const FAKE_HEADER_SECRET = 'SUPER_SECRET_HEADER_VALUE_789';
 export type AuthScenario =
   'success' | 'missing' | 'loss' | 'scope' | 'unrelated';
 export const authScenarios: AuthScenario[] = [
@@ -19,6 +20,10 @@ export function createSessionFixture() {
     const url = new URL(request.url ?? '/', 'http://localhost');
     const scenario = url.searchParams.get('scenario') ?? 'success';
     response.setHeader('Content-Type', 'application/json');
+    if (url.pathname === '/api/auth/header') {
+      response.end(JSON.stringify({ ok: true }));
+      return;
+    }
     if (
       url.pathname === '/api/auth/account' ||
       url.pathname === '/api/auth/settings'
@@ -101,6 +106,13 @@ export function createSessionFixture() {
         <p role="status">Signed out</p><p data-testid="dashboard">Dashboard closed</p>
         <p data-testid="detail"></p><p data-testid="settings"></p><p data-testid="echo"></p>
         <script>
+          if (new URL(location.href).searchParams.has('headers')) {
+            const token = '${FAKE_HEADER_SECRET}';
+            fetch('/api/auth/header', { headers: { Authorization: 'Bearer ' + token } }).then(() => {
+              console.error('authorization echo: ' + token);
+              document.querySelector('[data-testid=echo]').textContent = token;
+            });
+          }
           const scenario = ${JSON.stringify(scenario)};
           document.querySelector('#login').onclick = async () => {
             const reply = await fetch('/api/auth/login?scenario=' + scenario, { method: 'POST' });

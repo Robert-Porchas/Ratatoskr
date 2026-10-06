@@ -10,6 +10,7 @@ import {
   createSessionFixture,
   FAKE_SESSION_SECRET,
   FAKE_STORAGE_SECRET,
+  FAKE_HEADER_SECRET,
   type AuthScenario,
 } from './fixture/session.js';
 
@@ -208,6 +209,29 @@ try {
     !JSON.stringify(await app.runs.load(echo.runId)).includes(
       FAKE_SESSION_SECRET,
     ),
+  );
+  const headerEcho = await app.run({
+    startUrl: `${base}/auth?headers=1`,
+    steps: [
+      {
+        action: 'assert_text',
+        target: { kind: 'testId', testId: 'echo' },
+        contains: FAKE_HEADER_SECRET,
+      },
+      {
+        action: 'extract_text',
+        target: { kind: 'testId', testId: 'echo' },
+        saveAs: 'header',
+      },
+    ],
+    outputs: ['header'],
+  });
+  assert(headerEcho.success);
+  assert.equal(headerEcho.outputs?.header, '[REDACTED]');
+  const headerSaved = await app.runs.load(headerEcho.runId);
+  assert(!JSON.stringify(headerSaved).includes(FAKE_HEADER_SECRET));
+  assert(
+    !headerSaved.record.artifacts.some((artifact) => artifact.type === 'trace'),
   );
   process.stdout.write(
     `${JSON.stringify({ sessionDemonstrations: demonstrations, echoRedacted: true })}\n`,

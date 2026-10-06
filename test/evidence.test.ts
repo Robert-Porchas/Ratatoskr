@@ -69,4 +69,35 @@ describe('evidence reduction', () => {
       },
     );
   });
+
+  it('redacts late session values without corrupting protocol keys or literals', () => {
+    const collector = new EvidenceCollector();
+    collector.record({
+      type: 'console',
+      level: 'error',
+      message: 'type console error click SECRET',
+    });
+    for (const value of ['type', 'console', 'error', 'click', 'SECRET'])
+      collector.protect(value);
+    expect(collector.events[0]).toMatchObject({
+      type: 'console',
+      level: 'error',
+      message: '[REDACTED] [REDACTED] [REDACTED] [REDACTED] [REDACTED]',
+    });
+    collector.record({ type: 'console', level: 'error', message: 'SECRET' });
+    expect(collector.events[1]).toMatchObject({
+      type: 'console',
+      level: 'error',
+      message: '[REDACTED]',
+    });
+    expect(
+      collector.sanitize({
+        action: 'click',
+        target: { kind: 'text', text: 'click' },
+      }),
+    ).toEqual({
+      action: 'click',
+      target: { kind: 'text', text: '[REDACTED]' },
+    });
+  });
 });

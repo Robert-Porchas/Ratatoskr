@@ -100,6 +100,29 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
           this.protectSessionValue(authorization.replace(/^\S+\s+/, ''));
         }
       }
+      if (this.session) {
+        // headers() omits security headers. Never persist the complete headers;
+        // use them only to protect values, including credentials on failed requests.
+        const protection = request
+          .allHeaders()
+          .then((headers) => {
+            for (const name of ['authorization', 'proxy-authorization']) {
+              const value = headers[name];
+              if (value) {
+                this.protectSessionValue(value);
+                this.protectSessionValue(value.replace(/^\S+\s+/, ''));
+              }
+            }
+            for (const pair of (headers.cookie ?? '').split(';')) {
+              const separator = pair.indexOf('=');
+              if (separator >= 0)
+                this.protectSessionValue(pair.slice(separator + 1).trim());
+            }
+          })
+          .catch(() => undefined);
+        this.pendingResponses.add(protection);
+        void protection.finally(() => this.pendingResponses.delete(protection));
+      }
       emit({
         type: 'request',
         method: request.method(),
@@ -260,7 +283,11 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     // Flush response-header observations before comparing browser-retained cookies.
     await Promise.all([...this.pendingResponses]);
     const state = full
-      ? await context.storageState({ indexedDB: false })
+      ? await context.storageState({
+          indexedDB: false,
+          credentials: false,
+          opfs: false,
+        })
       : undefined;
     const cookies = await context.cookies();
     const storage: SessionSnapshot['storage'] = [];
@@ -338,7 +365,13 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   async authenticationState(): Promise<Buffer> {
     if (!this.context) throw new Error('Browser has not started');
     return Buffer.from(
-      JSON.stringify(await this.context.storageState({ indexedDB: false })),
+      JSON.stringify(
+        await this.context.storageState({
+          indexedDB: false,
+          credentials: false,
+          opfs: false,
+        }),
+      ),
     );
   }
 
