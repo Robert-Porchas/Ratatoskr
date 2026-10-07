@@ -9,7 +9,12 @@ import {
   StepTimeoutError,
 } from './errors.js';
 import { EvidenceCollector, buildMetrics, relevantErrors } from './evidence.js';
-import { DEFAULT_WORKFLOW_TIMEOUT_MS } from './protocol.js';
+import {
+  DEFAULT_WORKFLOW_TIMEOUT_MS,
+  BrowserPlanSchema,
+  HttpUrlSchema,
+} from './protocol.js';
+import { interpolateStep } from './workflow-variables.js';
 import type {
   BrowserPlan,
   BrowserStep,
@@ -85,7 +90,7 @@ async function executeStep(
       return;
     }
     case 'fill': {
-      const value = values.resolve(step.valueRef);
+      const value = step.valueRef ? values.resolve(step.valueRef) : step.value!;
       evidence.protect(value);
       await browser.fill(step.target, value, timeout);
       return;
@@ -217,6 +222,8 @@ export async function executePlan(
   plan: BrowserPlan,
   deps: ExecutionDependencies,
 ): Promise<RunResult> {
+  plan = BrowserPlanSchema.parse(plan);
+  const variables = new Map(Object.entries(plan.parameters ?? {}));
   const runId = `run_${randomUUID().replaceAll('-', '')}`;
   const startedAt = Date.now();
   const evidence = new EvidenceCollector();
@@ -322,9 +329,10 @@ export async function executePlan(
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
     const execute = async (
-      step: BrowserStep,
+      template: BrowserStep,
       index: number,
     ): Promise<StepResult> => {
+      let step = template;
       evidence.setStep(index);
       deps.browser.setSessionStep?.(index);
       const start = Date.now();
@@ -334,6 +342,15 @@ export async function executePlan(
           throw new RatatoskrError(
             'cancelled',
             'Browser workflow was cancelled',
+          );
+        step = interpolateStep(template, variables);
+        if (
+          step.action === 'navigate' &&
+          !HttpUrlSchema.safeParse(step.url).success
+        )
+          throw new RatatoskrError(
+            'invalid_variable',
+            'Interpolated URL must be credential-free HTTP(S)',
           );
         const remaining = deadline - start;
         if (remaining <= 0) throw new StepTimeoutError(step.action);
@@ -352,8 +369,15 @@ export async function executePlan(
           value !== undefined &&
           (step.action === 'extract_text' ||
             step.action === 'extract_attribute')
-        )
+        ) {
           extractions[step.saveAs] = value;
+          if (value.length > 1000)
+            throw new RatatoskrError(
+              'invalid_variable',
+              'Variable exceeds 1000 characters',
+            );
+          variables.set(step.saveAs, value);
+        }
       } catch (error) {
         failure = failureFor(error, step.action, deps.signal?.aborted);
       }

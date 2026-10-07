@@ -53,6 +53,10 @@ export const wirePlanJsonSchema = {
           css: string,
           url: string,
           valueRef: string,
+          value: {
+            type: 'string',
+            description: 'Data interpolation ${name}; secrets use valueRef.',
+          },
           key: string,
           contains: string,
           save: {
@@ -115,7 +119,7 @@ const common = [...locatorKeys, 'name'];
 const fields: Record<keyof typeof actions, string[]> = {
   navigate: ['url'],
   click: [...common, 'popup', 'dialog'],
-  fill: [...common, 'valueRef'],
+  fill: [...common, 'valueRef', 'value'],
   press: [...common, 'key'],
   wait: common,
   url: ['contains'],
@@ -224,6 +228,14 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
         path,
         `Unsupported field for ${doAction}; use the tool schema`,
       );
+    if (
+      doAction === 'fill' &&
+      (step.value === undefined) === (step.valueRef === undefined)
+    )
+      throw new InvalidWirePlan(
+        path,
+        'fill requires exactly one of valueRef or interpolated value',
+      );
     const action = actions[doAction];
     const canonical: Record<string, unknown> = { action };
     if (doAction !== 'url' && doAction !== 'navigate')
@@ -231,12 +243,16 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
     for (const field of [
       'url',
       'valueRef',
+      'value',
       'key',
       'contains',
       'attribute',
       'fileName',
     ])
-      if (fields[doAction].includes(field))
+      if (
+        fields[doAction].includes(field) &&
+        !(doAction === 'fill' && step[field] === undefined)
+      )
         canonical[field] = requiredString(step[field], `${path}.${field}`);
     if (doAction === 'extractText' || doAction === 'extractAttribute') {
       const name = requiredString(step.save, `${path}.save`);
@@ -288,7 +304,9 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
     const path = issue?.path.slice(0, 4).join('.') ?? 'plan';
     throw new InvalidWirePlan(
       path.slice(0, 100),
-      'Invalid field; use safe HTTP(S) URLs, valid identifiers and the tool schema',
+      issue?.code === 'custom'
+        ? issue.message.slice(0, 180)
+        : 'Invalid field; use safe HTTP(S) URLs, valid identifiers and the tool schema',
     );
   }
   return parsed.data;

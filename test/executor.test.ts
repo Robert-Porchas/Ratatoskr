@@ -76,6 +76,40 @@ class MissingTargetBrowser extends FakeBrowser {
   }
 }
 
+it('propagates extracted data locally through fill, locator and navigation fields', async () => {
+  const browser = new FakeBrowser();
+  const fill = vi.spyOn(browser, 'fill');
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'extract_text',
+          target: { kind: 'testId', testId: 'id' },
+          saveAs: 'id',
+        },
+        {
+          action: 'fill',
+          target: { kind: 'label', label: '${id}' },
+          value: '${id}',
+        },
+        { action: 'navigate', url: 'http://localhost/projects/${id}' },
+        { action: 'assert_url', contains: '/projects/${id}' },
+      ],
+      outputs: ['id'],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({ success: true });
+  expect(fill).toHaveBeenCalledWith(
+    { kind: 'label', label: 'Welcome' },
+    'Welcome',
+    5000,
+  );
+  expect(browser.url).toBe('http://localhost/projects/Welcome');
+});
+
 function stores(): {
   runs: RunStore;
   artifacts: ArtifactStore;

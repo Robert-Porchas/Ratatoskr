@@ -1,12 +1,16 @@
 import { z } from 'zod';
 import type { SessionFinding, SessionMetrics } from './session.js';
+import { validateVariables } from './workflow-variables.js';
 
 export const MAX_WORKFLOW_STEPS = 300;
 export const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
 
 const nonEmpty = z.string().min(1);
-const valueName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
-const httpUrl = z
+const valueName = z
+  .string()
+  .max(64)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const HttpUrlSchema = z
   .url()
   .refine((value) => /^https?:\/\//.test(value), 'Expected an HTTP(S) URL')
   .refine((value) => {
@@ -59,7 +63,11 @@ export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
 
 export const BrowserStepSchema = z.discriminatedUnion('action', [
-  z.strictObject({ action: z.literal('navigate'), url: httpUrl, ...options }),
+  z.strictObject({
+    action: z.literal('navigate'),
+    url: HttpUrlSchema,
+    ...options,
+  }),
   z.strictObject({
     action: z.literal('click'),
     target: targetSchema,
@@ -70,7 +78,10 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('fill'),
     target: targetSchema,
-    valueRef: valueName,
+    valueRef: valueName.optional(),
+    value: nonEmpty
+      .refine((value) => value.includes('${'), 'Use interpolation or valueRef')
+      .optional(),
     ...options,
   }),
   z.strictObject({
@@ -148,12 +159,21 @@ export type BrowserStep = z.infer<typeof BrowserStepSchema>;
 
 export const BrowserPlanSchema = z
   .strictObject({
-    startUrl: httpUrl,
+    startUrl: HttpUrlSchema,
     steps: z.array(BrowserStepSchema).min(1).max(MAX_WORKFLOW_STEPS),
     outputs: z.array(valueName).max(5).optional(),
+    parameters: z
+      .record(valueName, z.string().max(1000))
+      .refine(
+        (values) => Object.keys(values).length <= 20,
+        'Maximum 20 variables',
+      )
+      .optional(),
     timeoutMs: z.number().int().min(1000).max(600_000).optional(),
   })
   .superRefine((plan, context) => {
+    for (const issue of validateVariables(plan))
+      context.addIssue({ code: 'custom', path: ['steps'], message: issue });
     const names = new Map<string, number>();
     for (const [index, step] of plan.steps.entries()) {
       if (step.action !== 'extract_text' && step.action !== 'extract_attribute')
@@ -270,7 +290,9 @@ export type FailureKind =
   | 'navigation'
   | 'secret_resolution'
   | 'cancelled'
-  | 'browser_execution';
+  | 'browser_execution'
+  | 'undefined_variable'
+  | 'invalid_variable';
 export interface StepResult {
   index: number;
   action: BrowserStep['action'];
