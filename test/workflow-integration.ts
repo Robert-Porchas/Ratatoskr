@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,7 @@ import {
   type WorkflowScenario,
 } from './fixture/workflow.js';
 import { FilesystemRunStore } from '../src/storage.js';
+import { deriveWorkflows } from '../src/derive-workflow.js';
 
 const root = await mkdtemp(join(tmpdir(), 'ratatoskr-workflows-'));
 const client = new Client({ name: 'workflow-tests', version: '1' });
@@ -36,14 +37,24 @@ try {
     'login-existing',
     'transient',
     'server-failure',
+    'generated',
     'complex',
   ] as WorkflowScenario[]) {
     const fixture = await startWorkflowFixture(scenario);
     try {
+      const generated =
+        scenario === 'generated'
+          ? deriveWorkflows(
+              await readFile('examples/project.spec.ts', 'utf8'),
+              'examples/project.spec.ts',
+              fixture.base,
+            )[0]
+          : undefined;
+      if (generated) assert(generated.ready);
       const result = await client.callTool(
         {
           name: 'run_browser_workflow',
-          arguments: workflowPlan(scenario, fixture.base),
+          arguments: generated?.plan ?? workflowPlan(scenario, fixture.base),
         },
         { timeout: 30_000 },
       );

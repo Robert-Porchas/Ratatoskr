@@ -9,6 +9,7 @@ import {
 } from './inspection.js';
 import { createRatatoskrApplication } from './application.js';
 import { VERSION } from './version.js';
+import { normalizeWirePlan } from './mcp/wire-plan.js';
 
 const app = createRatatoskrApplication();
 
@@ -18,9 +19,26 @@ async function main(args: string[]): Promise<void> {
     process.stdout.write(`${VERSION}\n`);
     return;
   }
+  if (command === 'derive-workflow' && first) {
+    if (second && (second !== '--base-url' || !third))
+      throw new Error('Usage: derive-workflow <test.ts> [--base-url <url>]');
+    const { deriveWorkflows } = await import('./derive-workflow.js');
+    const workflows = deriveWorkflows(
+      await readFile(resolve(first), 'utf8'),
+      first,
+      third,
+    );
+    process.stdout.write(`${JSON.stringify({ workflows })}\n`);
+    if (!workflows.length || workflows.some((workflow) => !workflow.ready))
+      process.exitCode = 1;
+    return;
+  }
   if (command === 'run' && first) {
+    const input: unknown = JSON.parse(await readFile(resolve(first), 'utf8'));
     const parsed = BrowserPlanSchema.safeParse(
-      JSON.parse(await readFile(resolve(first), 'utf8')),
+      input && typeof input === 'object' && 'url' in input
+        ? normalizeWirePlan(input)
+        : input,
     );
     if (!parsed.success)
       throw new InvalidPlanError(
@@ -60,7 +78,7 @@ async function main(args: string[]): Promise<void> {
     return;
   }
   throw new Error(
-    'Usage: run <plan.json> | inspect <runId> [steps,console,network,navigation,page_errors,all] | artifact <runId> <artifactId> [--out <path>]',
+    'Usage: run <plan.json> | derive-workflow <test.ts> [--base-url <url>] | inspect <runId> [categories] | artifact <runId> <artifactId> [--out <path>]',
   );
 }
 
