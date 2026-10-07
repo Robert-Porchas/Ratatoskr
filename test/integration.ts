@@ -41,6 +41,27 @@ try {
       target: { kind: 'role', role: 'button', name: 'Sign in' },
     },
   ];
+  for (const path of ['/dashboard', '/login']) {
+    const conditional = await executePlan(
+      {
+        startUrl: `${base}${path}`,
+        steps: [
+          {
+            action: 'branch',
+            condition: {
+              kind: 'visible',
+              target: { kind: 'testId', testId: 'ready' },
+            },
+            then: [],
+            else: fields,
+          },
+          { action: 'assert_url', contains: '/dashboard' },
+        ],
+      },
+      { browser: new PlaywrightBrowserAdapter(), runs, artifacts, values },
+    );
+    assert(conditional.success, JSON.stringify(conditional));
+  }
   const success = await executePlan(
     {
       startUrl: `${base}/login`,
@@ -129,6 +150,11 @@ try {
           attribute: 'href',
           saveAs: 'receiptUrl',
         },
+        {
+          action: 'navigate',
+          url: `${base}/receipt/${'${orderNumber}'}`,
+        },
+        { action: 'assert_url', contains: '/receipt/${orderNumber}' },
         { action: 'navigate', url: `${base}/delayed-assert` },
         {
           action: 'assert_text',

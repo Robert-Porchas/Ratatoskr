@@ -76,6 +76,52 @@ class MissingTargetBrowser extends FakeBrowser {
   }
 }
 
+it.each([true, false])(
+  'chooses one local branch and retains decisions only in steps (%s)',
+  async (visible) => {
+    const browser = new FakeBrowser();
+    vi.spyOn(browser, 'isVisible').mockResolvedValue(visible);
+    const fill = vi.spyOn(browser, 'fill');
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://localhost',
+        steps: [
+          {
+            action: 'branch',
+            condition: {
+              kind: 'visible',
+              target: { kind: 'testId', testId: 'dashboard' },
+            },
+            then: [],
+            else: [
+              {
+                action: 'fill',
+                target: { kind: 'label', label: 'Password' },
+                valueRef: 'TEST_PASSWORD',
+              },
+            ],
+          },
+          { action: 'assert_url', contains: 'localhost' },
+        ],
+      },
+      {
+        browser,
+        ...storage,
+        values: new EnvironmentValueResolver({ TEST_PASSWORD: 'secret' }),
+      },
+    );
+    expect(result.success).toBe(true);
+    expect(fill).toHaveBeenCalledTimes(visible ? 0 : 1);
+    expect(storage.saved.steps?.[0]?.branch).toBe(visible);
+    expect(JSON.stringify(result)).not.toContain('branch');
+    expect(browser.isVisible).toHaveBeenCalledWith(
+      { kind: 'testId', testId: 'dashboard' },
+      250,
+    );
+  },
+);
+
 it('propagates extracted data locally through fill, locator and navigation fields', async () => {
   const browser = new FakeBrowser();
   const fill = vi.spyOn(browser, 'fill');

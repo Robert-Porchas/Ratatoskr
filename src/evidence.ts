@@ -4,7 +4,7 @@ import type {
   RunMetrics,
   StepResult,
 } from './protocol.js';
-import { BrowserStepSchema } from './protocol.js';
+import { BrowserActionSchema } from './protocol.js';
 
 // Public protocol literals are not credentials, even if a short storage value
 // happens to equal one. Free-form messages/targets still undergo redaction.
@@ -41,7 +41,8 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
     'cancelled',
   ]),
   action: new Set([
-    ...BrowserStepSchema.options.map((schema) => schema.shape.action.value),
+    ...BrowserActionSchema.options.map((schema) => schema.shape.action.value),
+    'branch',
     'accept',
     'dismiss',
   ]),

@@ -63,6 +63,9 @@ function respond(request: IncomingMessage, response: ServerResponse): void {
     return;
   }
   switch (url.pathname) {
+    case '/receipt/ORD-NV-42':
+      response.end('<h1>Receipt ORD-NV-42</h1>');
+      return;
     case '/login':
       response.end(html(false));
       return;

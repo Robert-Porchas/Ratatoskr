@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SessionFinding, SessionMetrics } from './session.js';
+import { flattenSteps, structureError } from './workflow-structure.js';
 import { validateVariables } from './workflow-variables.js';
 
 export const MAX_WORKFLOW_STEPS = 300;
@@ -62,7 +63,7 @@ export type DialogExpectation = z.infer<typeof dialogExpectation>;
 export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
 
-export const BrowserStepSchema = z.discriminatedUnion('action', [
+export const BrowserActionSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('navigate'),
     url: HttpUrlSchema,
@@ -155,9 +156,55 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
     ...options,
   }),
 ]);
-export type BrowserStep = z.infer<typeof BrowserStepSchema>;
+export type BrowserAction = z.infer<typeof BrowserActionSchema>;
+export const WorkflowConditionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('visible'),
+    target: targetSchema,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('url_contains'),
+    contains: nonEmpty,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('variable_exists'),
+    variable: valueName,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('variable_equals'),
+    variable: valueName,
+    equals: z.string().max(1000),
+    not: z.boolean().optional(),
+  }),
+]);
+export type WorkflowCondition = z.infer<typeof WorkflowConditionSchema>;
+export type BrowserStep =
+  | BrowserAction
+  | {
+      action: 'branch';
+      condition: WorkflowCondition;
+      then: BrowserStep[];
+      else?: BrowserStep[] | undefined;
+      timeoutMs?: number | undefined;
+      continueOnFailure?: boolean | undefined;
+    };
+export const BrowserStepSchema: z.ZodType<BrowserStep> = z.lazy(() =>
+  z.union([
+    BrowserActionSchema,
+    z.strictObject({
+      action: z.literal('branch'),
+      condition: WorkflowConditionSchema,
+      then: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS),
+      else: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS).optional(),
+      ...options,
+    }),
+  ]),
+);
 
-export const BrowserPlanSchema = z
+const planSchema = z
   .strictObject({
     startUrl: HttpUrlSchema,
     steps: z.array(BrowserStepSchema).min(1).max(MAX_WORKFLOW_STEPS),
@@ -175,7 +222,7 @@ export const BrowserPlanSchema = z
     for (const issue of validateVariables(plan))
       context.addIssue({ code: 'custom', path: ['steps'], message: issue });
     const names = new Map<string, number>();
-    for (const [index, step] of plan.steps.entries()) {
+    for (const [index, step] of flattenSteps(plan.steps).entries()) {
       if (step.action !== 'extract_text' && step.action !== 'extract_attribute')
         continue;
       if (names.has(step.saveAs))
@@ -212,7 +259,15 @@ export const BrowserPlanSchema = z
         message: 'Output character budget exceeds 2000',
       });
   });
-export type BrowserPlan = z.infer<typeof BrowserPlanSchema>;
+export const BrowserPlanSchema = z.preprocess((input, context) => {
+  const error = structureError(input);
+  if (error) {
+    context.addIssue({ code: 'custom', message: error });
+    return z.NEVER;
+  }
+  return input;
+}, planSchema);
+export type BrowserPlan = z.infer<typeof planSchema>;
 
 export type RunIdentifier = string;
 export type ArtifactType =
@@ -302,6 +357,7 @@ export interface StepResult {
   durationMs: number;
   actualUrl?: string;
   actualText?: string;
+  branch?: boolean;
   failure?: { kind: FailureKind; reason: string };
 }
 

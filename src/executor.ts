@@ -14,6 +14,7 @@ import {
   BrowserPlanSchema,
   HttpUrlSchema,
 } from './protocol.js';
+import { flattenSteps } from './workflow-structure.js';
 import { interpolateStep } from './workflow-variables.js';
 import type {
   BrowserPlan,
@@ -68,6 +69,8 @@ async function executeStep(
   uploads: UploadResolver | undefined,
 ): Promise<string | undefined> {
   switch (step.action) {
+    case 'branch':
+      return;
     case 'navigate':
       await browser.navigate(step.url, timeout);
       return;
@@ -223,6 +226,8 @@ export async function executePlan(
   deps: ExecutionDependencies,
 ): Promise<RunResult> {
   plan = BrowserPlanSchema.parse(plan);
+  const flatSteps = flattenSteps(plan.steps);
+  const indexes = new Map(flatSteps.map((step, index) => [step, index]));
   const variables = new Map(Object.entries(plan.parameters ?? {}));
   const runId = `run_${randomUUID().replaceAll('-', '')}`;
   const startedAt = Date.now();
@@ -257,7 +262,7 @@ export async function executePlan(
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
   let browserStarted = false;
-  const traceAllowed = !plan.steps.some(
+  const traceAllowed = !flatSteps.some(
     (step) =>
       step.action === 'fill' ||
       step.action === 'upload_file' ||
@@ -337,6 +342,7 @@ export async function executePlan(
       deps.browser.setSessionStep?.(index);
       const start = Date.now();
       let failure: StepResult['failure'];
+      let branch: boolean | undefined;
       try {
         if (deps.signal?.aborted)
           throw new RatatoskrError(
@@ -354,6 +360,21 @@ export async function executePlan(
           );
         const remaining = deadline - start;
         if (remaining <= 0) throw new StepTimeoutError(step.action);
+        if (step.action === 'branch') {
+          const condition = step.condition;
+          const answer =
+            condition.kind === 'visible'
+              ? await deps.browser.isVisible(
+                  condition.target,
+                  Math.min(250, remaining),
+                )
+              : condition.kind === 'url_contains'
+                ? (await deps.browser.currentUrl()).includes(condition.contains)
+                : condition.kind === 'variable_exists'
+                  ? variables.has(condition.variable)
+                  : variables.get(condition.variable) === condition.equals;
+          branch = condition.not ? !answer : answer;
+        }
         const value = await executeStep(
           step,
           deps.browser,
@@ -451,6 +472,7 @@ export async function executePlan(
         startedAt: start,
         endedAt: end,
         durationMs: end - start,
+        ...(branch !== undefined ? { branch } : {}),
         ...(actualUrl ? { actualUrl } : {}),
         ...(actualText !== undefined ? { actualText } : {}),
         ...(failure ? { failure } : {}),
@@ -465,17 +487,25 @@ export async function executePlan(
       firstFailure = initial;
       await captureFailure();
     } else {
-      for (const [index, step] of plan.steps.entries()) {
-        const result = await execute(step, index);
-        steps.push(result);
-        if (result.status === 'failed') {
-          if (!firstFailure) {
-            firstFailure = result;
-            await captureFailure();
-          }
-          if (!step.continueOnFailure) break;
+      const walk = async (items: BrowserStep[]): Promise<boolean> => {
+        for (const step of items) {
+          const result = await execute(step, indexes.get(step)!);
+          steps.push(result);
+          if (result.status === 'failed') {
+            if (!firstFailure) {
+              firstFailure = result;
+              await captureFailure();
+            }
+            if (!step.continueOnFailure) return false;
+          } else if (
+            step.action === 'branch' &&
+            !(await walk(result.branch ? step.then : (step.else ?? [])))
+          )
+            return false;
         }
-      }
+        return true;
+      };
+      await walk(plan.steps);
     }
     if (deps.signal?.aborted && !firstFailure)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
@@ -534,7 +564,7 @@ export async function executePlan(
   };
   for (let index = 0; index < steps.length; index++)
     steps[index] = sanitizeStep(steps[index]!);
-  for (const step of plan.steps) {
+  for (const step of flatSteps) {
     if (
       (step.action === 'extract_text' || step.action === 'extract_attribute') &&
       Object.hasOwn(extractions, step.saveAs)
@@ -630,7 +660,7 @@ export async function executePlan(
         ? 'aborted'
         : 'failed',
     metrics: buildMetrics(
-      plan.steps.length,
+      flatSteps.length,
       steps,
       evidence.events,
       endedAt - startedAt,
