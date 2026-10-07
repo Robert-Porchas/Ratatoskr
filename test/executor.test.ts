@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executePlan } from '../src/executor.js';
+import { RatatoskrError } from '../src/errors.js';
 import type { BrowserAdapter } from '../src/browser.js';
 import type { EvidenceInput } from '../src/evidence.js';
 import type {
@@ -75,6 +76,140 @@ class MissingTargetBrowser extends FakeBrowser {
     throw error;
   }
 }
+
+it('recovers a transient wait locally, without adding retry history to success', async () => {
+  const browser = new FakeBrowser();
+  const wait = vi
+    .spyOn(browser, 'waitFor')
+    .mockRejectedValueOnce(
+      Object.assign(new Error('timing'), { name: 'TimeoutError' }),
+    );
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 2,
+        },
+      ],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(true);
+  expect(wait).toHaveBeenCalledTimes(2);
+  expect(storage.saved.steps?.[0]).toMatchObject({
+    attempts: 2,
+    trace: expect.arrayContaining([
+      expect.objectContaining({ event: 'retry' }),
+    ]),
+  });
+  expect(Object.keys(result).sort()).toEqual(['runId', 'success']);
+});
+
+it('reloads once and caps retries while refusing HTTP failure and uncertain click replay', async () => {
+  const browser = new FakeBrowser();
+  const reload = vi.fn(async () => {});
+  const wait = vi
+    .spyOn(browser, 'waitFor')
+    .mockRejectedValueOnce(
+      Object.assign(new Error('timing'), { name: 'TimeoutError' }),
+    );
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 2,
+          recover: 'reloadOnce',
+        },
+      ],
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...storage,
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result.success).toBe(true);
+  expect(reload).toHaveBeenCalledTimes(1);
+  expect(wait).toHaveBeenCalledTimes(2);
+  const failure = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        { action: 'click', target: { kind: 'text', text: 'Save' } },
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 3,
+        },
+      ],
+    },
+    {
+      browser: new MissingTargetBrowser(),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(failure).toMatchObject({ success: false });
+  expect(failure).not.toHaveProperty('attempts');
+});
+
+it('does not retry uncertain side effects, or assertions', async () => {
+  const browser = new FakeBrowser();
+  const click = vi
+    .spyOn(browser, 'click')
+    .mockRejectedValue(
+      new RatatoskrError(
+        'side_effect_state_unknown',
+        'SIDE_EFFECT_STATE_UNKNOWN',
+      ),
+    );
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'text', text: 'Place order' },
+          retry: 3,
+        },
+      ],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({
+    success: false,
+    code: 'side_effect_state_unknown',
+  });
+  expect(click).toHaveBeenCalledTimes(1);
+});
+
+it('enforces the overall deadline even for a browser operation that never resolves', async () => {
+  const browser = new FakeBrowser();
+  vi.spyOn(browser, 'waitFor').mockImplementation(() => new Promise(() => {}));
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      timeoutMs: 1000,
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'text', text: 'Ready' },
+          retry: 3,
+        },
+      ],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+});
 
 it.each([true, false])(
   'chooses one local branch and retains decisions only in steps (%s)',

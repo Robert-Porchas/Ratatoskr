@@ -65,6 +65,17 @@ const wireStepJsonSchema = {
     optionLabel: string,
     optionIndex: { type: 'integer', minimum: 0 },
     fileName: string,
+    retry: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 3,
+      description: 'Total attempts; click retries only before side effect.',
+    },
+    recover: {
+      type: 'string',
+      enum: ['reloadOnce'],
+      description: 'Wait/extraction only, with retry:2.',
+    },
     popup: { type: 'boolean' },
     dialog: {
       type: 'object',
@@ -293,7 +304,9 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
       }
       if (
         Object.keys(step).some(
-          (key) => key !== 'do' && !fields[doAction].includes(key),
+          (key) =>
+            !['do', 'retry', 'recover'].includes(key) &&
+            !fields[doAction].includes(key),
         )
       )
         throw new InvalidWirePlan(
@@ -310,6 +323,8 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
         );
       const action = actions[doAction];
       const canonical: Record<string, unknown> = { action };
+      if (step.retry !== undefined) canonical.retry = step.retry;
+      if (step.recover !== undefined) canonical.recover = step.recover;
       if (doAction !== 'url' && doAction !== 'navigate')
         canonical.target = target(step, path);
       for (const field of [

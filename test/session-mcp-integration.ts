@@ -37,7 +37,7 @@ try {
   await client.connect(transport);
   const discovery = await client.listTools();
   assert.equal(discovery.tools.length, 3);
-  assert(Buffer.byteLength(JSON.stringify(discovery.tools)) < 4500);
+  assert(Buffer.byteLength(JSON.stringify(discovery.tools)) < 5500);
   const reply = await client.callTool({
     name: 'run_browser_workflow',
     arguments: {

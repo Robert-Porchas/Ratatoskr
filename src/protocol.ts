@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SessionFinding, SessionMetrics } from './session.js';
+import { retryPolicyError } from './workflow-retry.js';
 import { flattenSteps, structureError } from './workflow-structure.js';
 import { validateVariables } from './workflow-variables.js';
 
@@ -39,6 +40,8 @@ const targetSchema = z
 const options = {
   timeoutMs: z.number().int().positive().max(120_000).optional(),
   continueOnFailure: z.boolean().optional(),
+  retry: z.number().int().min(1).max(3).optional(),
+  recover: z.literal('reloadOnce').optional(),
 };
 
 export const BrowserOptionSchema = z.discriminatedUnion('kind', [
@@ -199,7 +202,8 @@ export const BrowserStepSchema: z.ZodType<BrowserStep> = z.lazy(() =>
       condition: WorkflowConditionSchema,
       then: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS),
       else: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS).optional(),
-      ...options,
+      timeoutMs: options.timeoutMs,
+      continueOnFailure: options.continueOnFailure,
     }),
   ]),
 );
@@ -223,6 +227,13 @@ const planSchema = z
       context.addIssue({ code: 'custom', path: ['steps'], message: issue });
     const names = new Map<string, number>();
     for (const [index, step] of flattenSteps(plan.steps).entries()) {
+      const retryError = retryPolicyError(step);
+      if (retryError)
+        context.addIssue({
+          code: 'custom',
+          path: ['steps', index],
+          message: retryError,
+        });
       if (step.action !== 'extract_text' && step.action !== 'extract_attribute')
         continue;
       if (names.has(step.saveAs))
@@ -347,7 +358,11 @@ export type FailureKind =
   | 'cancelled'
   | 'browser_execution'
   | 'undefined_variable'
-  | 'invalid_variable';
+  | 'invalid_variable'
+  | 'target_not_ready'
+  | 'navigation_transient'
+  | 'side_effect_state_unknown'
+  | 'budget_exhausted';
 export interface StepResult {
   index: number;
   action: BrowserStep['action'];
@@ -358,6 +373,13 @@ export interface StepResult {
   actualUrl?: string;
   actualText?: string;
   branch?: boolean;
+  attempts?: number;
+  trace?: Array<{
+    at: number;
+    event: 'attempt' | 'retry' | 'recovery' | 'variable';
+    reason?: FailureKind;
+    name?: string;
+  }>;
   failure?: { kind: FailureKind; reason: string };
 }
 
@@ -381,6 +403,8 @@ export type RunResult =
       reason: string;
       actualUrl?: string;
       relevantErrors: RelevantError[];
+      attempts?: number;
+      code?: FailureKind;
       outputs?: Record<string, string>;
       actualText?: string;
       artifacts?: { screenshot?: string; trace?: string };

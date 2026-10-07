@@ -214,7 +214,20 @@ export function buildMetrics(
     stepCount: plannedStepCount,
     durationMs,
     browserActionCount:
-      1 + steps.filter((step) => !step.action.startsWith('assert_')).length,
+      1 +
+      steps
+        .filter(
+          (step) =>
+            !step.action.startsWith('assert_') && step.action !== 'branch',
+        )
+        .reduce(
+          (sum, step) =>
+            sum +
+            (step.attempts ?? 1) +
+            (step.trace?.filter((event) => event.event === 'recovery').length ??
+              0),
+          0,
+        ),
     failureCount:
       steps.filter((step) => step.status === 'failed').length +
       Number(startupFailed),

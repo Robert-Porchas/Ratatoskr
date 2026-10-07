@@ -53,9 +53,11 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   private sensitiveSession = false;
   private tabId = 0;
   private readonly pendingResponses = new Set<Promise<void>>();
+  private readonly documentMethods = new WeakMap<Page, string>();
   private activeClick:
     | {
         dialog?: DialogExpectation & { value?: string };
+        safeRetry?: boolean;
         expectPopup?: boolean;
         dialogSeen: boolean;
         popupSeen: boolean;
@@ -93,6 +95,8 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     this.page = page;
     this.tabId++;
     page.on('request', (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame())
+        this.documentMethods.set(page, request.method());
       for (const name of ['authorization', 'proxy-authorization']) {
         const authorization = request.headers()[name];
         if (authorization) {
@@ -402,17 +406,53 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   }
 
   async navigate(url: string, timeoutMs: number): Promise<void> {
-    await this.getPage().goto(url, { timeout: timeoutMs });
+    try {
+      await this.getPage().goto(url, { timeout: timeoutMs });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /net::ERR_(CONNECTION_RESET|CONNECTION_CLOSED|TIMED_OUT|NETWORK_CHANGED)/.test(
+          error.message,
+        )
+      )
+        throw new RatatoskrError(
+          'navigation_transient',
+          'Transient navigation transport failure',
+        );
+      throw error;
+    }
+  }
+  async reload(timeoutMs: number): Promise<void> {
+    const page = this.getPage();
+    if (this.documentMethods.get(page) !== 'GET')
+      throw new RatatoskrError(
+        'side_effect_state_unknown',
+        'SIDE_EFFECT_STATE_UNKNOWN: refusing to reload a non-GET document',
+      );
+    await page.reload({ timeout: timeoutMs });
   }
   async click(
     target: BrowserTarget,
     timeoutMs: number,
     options?: {
+      safeRetry?: boolean;
       expectPopup?: boolean;
       dialog?: DialogExpectation & { value?: string };
     },
   ): Promise<void> {
     const page = this.getPage();
+    if (options?.safeRetry) {
+      try {
+        await this.locator(target).click({ trial: true, timeout: timeoutMs });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError')
+          throw new RatatoskrError(
+            'target_not_ready',
+            'Click target was not ready before dispatch',
+          );
+        throw error;
+      }
+    }
     this.activeClick = { ...options, dialogSeen: false, popupSeen: false };
     try {
       if (options?.expectPopup) {
@@ -432,6 +472,13 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
           'browser_execution',
           `Expected ${options.dialog.type} dialog did not open`,
         );
+    } catch (error) {
+      if (options?.safeRetry)
+        throw new RatatoskrError(
+          'side_effect_state_unknown',
+          'SIDE_EFFECT_STATE_UNKNOWN: click may have been dispatched',
+        );
+      throw error;
     } finally {
       this.activeClick = undefined;
     }
@@ -549,8 +596,9 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
         timeout: timeoutMs,
       });
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') return false;
+      throw error;
     }
   }
   async currentUrl(): Promise<string> {

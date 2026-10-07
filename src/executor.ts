@@ -12,8 +12,14 @@ import { EvidenceCollector, buildMetrics, relevantErrors } from './evidence.js';
 import {
   DEFAULT_WORKFLOW_TIMEOUT_MS,
   BrowserPlanSchema,
+  BrowserTargetSchema,
   HttpUrlSchema,
 } from './protocol.js';
+import {
+  retryable,
+  MAX_EXECUTED_STEPS,
+  MAX_WORKFLOW_RETRIES,
+} from './workflow-retry.js';
 import { flattenSteps } from './workflow-structure.js';
 import { interpolateStep } from './workflow-variables.js';
 import type {
@@ -80,6 +86,7 @@ async function executeStep(
         : undefined;
       if (dialogValue) evidence.protect(dialogValue);
       await browser.click(step.target, timeout, {
+        ...(step.retry && step.retry > 1 ? { safeRetry: true } : {}),
         ...(step.expectPopup ? { expectPopup: true } : {}),
         ...(step.dialog
           ? {
@@ -227,6 +234,8 @@ export async function executePlan(
 ): Promise<RunResult> {
   plan = BrowserPlanSchema.parse(plan);
   const flatSteps = flattenSteps(plan.steps);
+  let executed = 0,
+    retries = 0;
   const indexes = new Map(flatSteps.map((step, index) => [step, index]));
   const variables = new Map(Object.entries(plan.parameters ?? {}));
   const runId = `run_${randomUUID().replaceAll('-', '')}`;
@@ -269,6 +278,30 @@ export async function executePlan(
       (step.action === 'click' && Boolean(step.dialog?.valueRef)),
   );
   const deadline = startedAt + (plan.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS);
+  const withinBudget = async <T>(work: () => Promise<T>): Promise<T> => {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0)
+      throw new RatatoskrError('budget_exhausted', 'WORKFLOW_BUDGET_EXHAUSTED');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        work(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            void deps.browser.stop().catch(() => undefined);
+            reject(
+              new RatatoskrError(
+                'budget_exhausted',
+                'WORKFLOW_BUDGET_EXHAUSTED',
+              ),
+            );
+          }, remaining);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
   const captureFailure = async (): Promise<void> => {
     await captureSession(true, firstFailure?.index ?? null);
     failureSession = sanitizeSessionRecord(session.record, (value) =>
@@ -324,11 +357,13 @@ export async function executePlan(
   try {
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
-    await deps.browser.start((event) => evidence.record(event), traceAllowed, {
-      protect: (value) => evidence.protect(value),
-      fingerprint: (value) => session.fingerprint(value),
-      response: (response) => session.response(response),
-    });
+    await withinBudget(() =>
+      deps.browser.start((event) => evidence.record(event), traceAllowed, {
+        protect: (value) => evidence.protect(value),
+        fingerprint: (value) => session.fingerprint(value),
+        response: (response) => session.response(response),
+      }),
+    );
     browserStarted = true;
     await captureSession(true, -1);
     if (deps.signal?.aborted)
@@ -343,6 +378,8 @@ export async function executePlan(
       const start = Date.now();
       let failure: StepResult['failure'];
       let branch: boolean | undefined;
+      let attempts = 0;
+      const trace: NonNullable<StepResult['trace']> = [];
       try {
         if (deps.signal?.aborted)
           throw new RatatoskrError(
@@ -350,6 +387,22 @@ export async function executePlan(
             'Browser workflow was cancelled',
           );
         step = interpolateStep(template, variables);
+        const target =
+          'target' in step
+            ? step.target
+            : step.action === 'branch' && step.condition.kind === 'visible'
+              ? step.condition.target
+              : undefined;
+        if (target && !BrowserTargetSchema.safeParse(target).success)
+          throw new RatatoskrError(
+            'invalid_variable',
+            'Interpolated target is invalid',
+          );
+        if ('contains' in step && !step.contains.length)
+          throw new RatatoskrError(
+            'invalid_variable',
+            'Interpolated assertion cannot be empty',
+          );
         if (
           step.action === 'navigate' &&
           !HttpUrlSchema.safeParse(step.url).success
@@ -359,14 +412,25 @@ export async function executePlan(
             'Interpolated URL must be credential-free HTTP(S)',
           );
         const remaining = deadline - start;
-        if (remaining <= 0) throw new StepTimeoutError(step.action);
+        if (remaining <= 0)
+          throw new RatatoskrError(
+            'budget_exhausted',
+            'WORKFLOW_BUDGET_EXHAUSTED',
+          );
+        if (++executed > MAX_EXECUTED_STEPS)
+          throw new RatatoskrError(
+            'budget_exhausted',
+            'WORKFLOW_BUDGET_EXHAUSTED',
+          );
         if (step.action === 'branch') {
           const condition = step.condition;
           const answer =
             condition.kind === 'visible'
-              ? await deps.browser.isVisible(
-                  condition.target,
-                  Math.min(250, remaining),
+              ? await withinBudget(() =>
+                  deps.browser.isVisible(
+                    condition.target,
+                    Math.min(250, remaining),
+                  ),
                 )
               : condition.kind === 'url_contains'
                 ? (await deps.browser.currentUrl()).includes(condition.contains)
@@ -375,29 +439,89 @@ export async function executePlan(
                   : variables.get(condition.variable) === condition.equals;
           branch = condition.not ? !answer : answer;
         }
-        const value = await executeStep(
-          step,
-          deps.browser,
-          deps.values,
-          evidence,
-          Math.min(step.timeoutMs ?? 5000, remaining),
-          runId,
-          deps.artifacts,
-          artifacts,
-          deps.uploads,
-        );
+        let value: string | undefined;
+        const totalAttempts = step.action === 'branch' ? 1 : (step.retry ?? 1);
+        while (attempts < totalAttempts) {
+          attempts++;
+          if (totalAttempts > 1)
+            trace.push({ at: Date.now(), event: 'attempt' });
+          try {
+            value = await withinBudget(() =>
+              executeStep(
+                step,
+                deps.browser,
+                deps.values,
+                evidence,
+                Math.min(
+                  step.timeoutMs ?? 5000,
+                  Math.max(1, deadline - Date.now()),
+                ),
+                runId,
+                deps.artifacts,
+                artifacts,
+                deps.uploads,
+              ),
+            );
+            break;
+          } catch (error) {
+            const classified = failureFor(
+              error,
+              step.action,
+              deps.signal?.aborted,
+            );
+            if (
+              attempts >= totalAttempts ||
+              !retryable(step, classified.kind, evidence.events)
+            )
+              throw error;
+            if (
+              ++retries > MAX_WORKFLOW_RETRIES ||
+              ++executed > MAX_EXECUTED_STEPS
+            )
+              throw new RatatoskrError(
+                'budget_exhausted',
+                'WORKFLOW_BUDGET_EXHAUSTED',
+              );
+            trace.push({
+              at: Date.now(),
+              event: 'retry',
+              reason: classified.kind,
+            });
+            if (step.action !== 'branch' && step.recover === 'reloadOnce') {
+              if (!deps.browser.reload)
+                throw new RatatoskrError(
+                  'browser_execution',
+                  'Reload recovery is unavailable',
+                );
+              trace.push({ at: Date.now(), event: 'recovery' });
+              await withinBudget(() =>
+                deps.browser.reload!(
+                  Math.min(5000, Math.max(1, deadline - Date.now())),
+                ),
+              );
+              await captureSession(false, index);
+            } else
+              await withinBudget(
+                () =>
+                  new Promise<void>((resolve) =>
+                    setTimeout(resolve, 250 * attempts),
+                  ),
+              );
+          }
+        }
         if (
           value !== undefined &&
           (step.action === 'extract_text' ||
             step.action === 'extract_attribute')
         ) {
-          extractions[step.saveAs] = value;
           if (value.length > 1000)
             throw new RatatoskrError(
               'invalid_variable',
               'Variable exceeds 1000 characters',
             );
+          extractions[step.saveAs] = value;
           variables.set(step.saveAs, value);
+          trace.push({ at: Date.now(), event: 'variable', name: step.saveAs });
         }
       } catch (error) {
         failure = failureFor(error, step.action, deps.signal?.aborted);
@@ -472,6 +596,8 @@ export async function executePlan(
         startedAt: start,
         endedAt: end,
         durationMs: end - start,
+        ...(attempts > 1 ? { attempts } : {}),
+        ...(trace.length ? { trace } : {}),
         ...(branch !== undefined ? { branch } : {}),
         ...(actualUrl ? { actualUrl } : {}),
         ...(actualText !== undefined ? { actualText } : {}),
@@ -614,6 +740,15 @@ export async function executePlan(
         failedStep: firstFailure.index,
         action: firstFailure.action,
         reason: firstFailure.failure?.reason ?? 'Step failed',
+        ...(firstFailure.attempts ? { attempts: firstFailure.attempts } : {}),
+        ...([
+          'side_effect_state_unknown',
+          'budget_exhausted',
+          'undefined_variable',
+          'invalid_variable',
+        ].includes(firstFailure.failure?.kind ?? '')
+          ? { code: firstFailure.failure!.kind }
+          : {}),
         ...(firstFailure.actualUrl
           ? { actualUrl: firstFailure.actualUrl }
           : {}),
