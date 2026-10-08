@@ -27,6 +27,8 @@ interface CodexOptions {
   values?: Record<string, string>;
   baseline?: 'direct' | 'playwright';
   sessionDiagnostics?: 'on' | 'off';
+  workflowScope?: boolean;
+  toolMode?: 'baseline' | 'ratatoskr';
 }
 
 /** This launches a fresh task, never resumes this development conversation or a prior benchmark. */
@@ -45,7 +47,8 @@ export async function runCodex(options: CodexOptions): Promise<{
     command: process.execPath,
     args: [fileURLToPath(new URL('./codex-tools.js', import.meta.url))],
     env: {
-      BENCHMARK_MODE: options.mode,
+      BENCHMARK_MODE: options.toolMode ?? options.mode,
+      ...(options.workflowScope ? { BENCHMARK_WORKFLOW_SCOPE: '1' } : {}),
       BENCHMARK_FIXTURE_URL: options.url,
       BENCHMARK_DIRECTORY: options.directory,
       ...(options.baseline ? { BENCHMARK_BASELINE: options.baseline } : {}),
@@ -65,10 +68,11 @@ export async function runCodex(options: CodexOptions): Promise<{
     .join(',');
   // Unattended approval is scoped to this fixture-only server, not global tools.
   const mcp = `{benchmark={command=${JSON.stringify(config.command)},args=${JSON.stringify(config.args)},env={${envTable}},required=true,default_tools_approval_mode="approve",startup_timeout_sec=20,tool_timeout_sec=60}}`;
-  const verification = options.sessionDiagnostics
-    ? 'Verify the requested UI states rather than clicks alone. Passed workflow assertions count as verification. Use compact findings when sufficient; inspect only missing facts.'
-    : 'Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis.';
-  const instructions = `You are testing a local application. ${options.sessionDiagnostics ? 'Application page' : 'Profile page'}: ${options.url}. ${options.sessionDiagnostics ? '' : 'Desired name is available locally as valueRef BENCHMARK_NAME. '}Perform the task using only the benchmark MCP browser tools. ${verification} Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${options.sourceContext ?? ''}`;
+  const verification =
+    options.sessionDiagnostics || options.workflowScope
+      ? 'Verify the requested UI states rather than clicks alone. Passed workflow assertions count as verification. Stop on successful workflows; do not inspect them or request traces. On failure use compact evidence when sufficient; inspect only missing facts.'
+      : 'Use condition-based assertions; workflow completion alone does not prove persistence. Inspect only evidence needed for diagnosis.';
+  const instructions = `You are testing a local application. ${options.sessionDiagnostics || options.workflowScope ? 'Application page' : 'Profile page'}: ${options.url}. ${options.sessionDiagnostics ? '' : 'Desired name is available locally as valueRef BENCHMARK_NAME. '}Perform the task using only the benchmark MCP browser tools. ${verification} Do not run setup commands. Finish with the structured diagnosis requested by the output schema, supported by browser evidence. ${options.sourceContext ?? ''}`;
   const args = [
     'exec',
     '--json',

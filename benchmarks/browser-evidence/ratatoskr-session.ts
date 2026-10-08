@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { z } from 'zod';
 import { normalizeWirePlan } from '../../src/mcp/wire-plan.js';
+import { flattenSteps } from '../../src/workflow-structure.js';
 import { FilesystemRunStore } from '../../src/storage.js';
 import type { BrowserSession } from './tools.js';
 import { SessionJournal } from '../../src/session.js';
@@ -63,9 +64,15 @@ export async function startRatatoskrSession(
       if (name === 'run_browser_workflow') {
         const plan = normalizeWirePlan(args);
         if (
-          plan.startUrl !== url ||
-          plan.steps.some(
-            (step) => step.action === 'navigate' && step.url !== url,
+          (plan.startUrl !== url &&
+            (process.env.BENCHMARK_WORKFLOW_SCOPE !== '1' ||
+              new URL(plan.startUrl).origin !== new URL(url).origin)) ||
+          flattenSteps(plan.steps).some(
+            (step) =>
+              step.action === 'navigate' &&
+              step.url !== url &&
+              (process.env.BENCHMARK_WORKFLOW_SCOPE !== '1' ||
+                new URL(step.url).origin !== new URL(url).origin),
           )
         )
           throw new Error('Only the exact fixture URL is permitted');
@@ -110,7 +117,18 @@ export async function startRatatoskrSession(
           0,
         );
         // Count all attempted primitive steps, including assertions and initial navigation; production metrics omit assertions.
-        browserInteractions += 1 + run.steps.length;
+        browserInteractions +=
+          1 +
+          run.steps
+            .filter((step) => step.action !== 'branch')
+            .reduce(
+              (sum, step) =>
+                sum +
+                (step.attempts ?? 1) +
+                (step.trace?.filter((event) => event.event === 'recovery')
+                  .length ?? 0),
+              0,
+            );
         workflowDurationMs += run.record.metrics.durationMs;
         if (!run.result.success)
           compactFailureBytes += Buffer.byteLength(JSON.stringify(run.result));
