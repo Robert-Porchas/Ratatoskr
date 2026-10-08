@@ -33,6 +33,12 @@ const model = z.string().min(1).parse(process.env.BENCHMARK_MODEL);
 const reasoning = z
   .enum(['low', 'medium', 'high'])
   .parse(process.env.BENCHMARK_CODEX_REASONING_EFFORT ?? 'medium');
+const maxToolCalls = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(60)
+  .parse(process.env.BENCHMARK_MAX_TOOL_CALLS ?? 24);
 const scenarios = (
   process.env.BENCHMARK_SCENARIOS ??
   'tiny-http_failure,small-http_failure,medium-http_failure,large-http_failure,medium-success,large-success,medium-locator_failure'
@@ -53,6 +59,9 @@ const suite = z
   .regex(/^[a-zA-Z0-9_-]+$/)
   .parse(process.env.BENCHMARK_SUITE ?? randomUUID());
 const root = resolve('benchmarks/browser-evidence/results', suite);
+await mkdir(resolve('benchmarks/browser-evidence/results'), {
+  recursive: true,
+});
 await mkdir(root, { recursive: false });
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
   encoding: 'utf8',
@@ -74,7 +83,8 @@ const configuration = {
   codexVersion,
   browserVersion,
   timeoutMs: 180000,
-  maxToolCalls: 24,
+  maxToolCalls,
+  proxyMaxToolCalls: maxToolCalls,
   viewport: { width: 1280, height: 720 },
   dirty: Boolean(
     execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
@@ -111,6 +121,7 @@ async function task(
   const timer = setTimeout(() => signal.abort(), 180000);
   try {
     const native = await runCodex({
+      maxToolCalls,
       mode,
       url: fixture.url,
       directory,

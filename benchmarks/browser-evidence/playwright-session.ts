@@ -97,8 +97,16 @@ export async function startPlaywrightSession(
       signal.throwIfAborted();
       if (!allow.has(name))
         throw new Error('Tool is outside the benchmark scope');
-      if (name === 'browser_navigate' && args.url !== url)
-        throw new Error('Only the fixture URL is permitted');
+      if (name === 'browser_navigate' && args.url !== url) {
+        const destination = new URL(String(args.url));
+        if (
+          process.env.BENCHMARK_WORKFLOW_SCOPE !== '1' ||
+          destination.origin !== new URL(url).origin ||
+          destination.username ||
+          destination.password
+        )
+          throw new Error('Only fixture navigation is permitted');
+      }
       if (args.filename !== undefined)
         throw new Error('Benchmark calls may not specify filesystem paths');
       operations++;

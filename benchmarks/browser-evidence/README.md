@@ -1,5 +1,7 @@
 # Browser evidence benchmark
 
+The [workflow intelligence report](workflow-intelligence/README.md) measures variables, optional login, local recovery, deterministic failure and test conversion with fresh native Codex tasks. Use `BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=10 npm run benchmark:workflow`. `BENCHMARK_MAX_TOOL_CALLS=40` raises both the runner and MCP proxy cap for full-flow comparisons; each configuration records both limits. Preserved capped/unsuccessful tasks remain separate from the complete repeats.
+
 ## Session diagnostics experiment
 
 The [session-observability experiment](session-observability/README.md) compares automatic findings off/on and native Playwright MCP cookie/storage investigation. Run `npm run test:session` without model credentials, or `BENCHMARK_MODEL=gpt-6.1-sol BENCHMARK_RUNS=1 BENCHMARK_SESSION_SCENARIOS=missing BENCHMARK_SUITE=my-session-pilot npm run benchmark:session` for three isolated Codex tasks. Actual Codex tokens, safe local session bytes, inspection calls and capture timings are separate measurements. Default repeated coverage uses ten attempts per case, preserving unsuccessful diagnoses.

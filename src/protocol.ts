@@ -1,12 +1,18 @@
 import { z } from 'zod';
 import type { SessionFinding, SessionMetrics } from './session.js';
+import { retryPolicyError } from './workflow-retry.js';
+import { flattenSteps, structureError } from './workflow-structure.js';
+import { validateVariables } from './workflow-variables.js';
 
 export const MAX_WORKFLOW_STEPS = 300;
 export const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
 
 const nonEmpty = z.string().min(1);
-const valueName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
-const httpUrl = z
+const valueName = z
+  .string()
+  .max(64)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
+export const HttpUrlSchema = z
   .url()
   .refine((value) => /^https?:\/\//.test(value), 'Expected an HTTP(S) URL')
   .refine((value) => {
@@ -34,6 +40,8 @@ const targetSchema = z
 const options = {
   timeoutMs: z.number().int().positive().max(120_000).optional(),
   continueOnFailure: z.boolean().optional(),
+  retry: z.number().int().min(1).max(3).optional(),
+  recover: z.literal('reloadOnce').optional(),
 };
 
 export const BrowserOptionSchema = z.discriminatedUnion('kind', [
@@ -58,8 +66,12 @@ export type DialogExpectation = z.infer<typeof dialogExpectation>;
 export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
 
-export const BrowserStepSchema = z.discriminatedUnion('action', [
-  z.strictObject({ action: z.literal('navigate'), url: httpUrl, ...options }),
+export const BrowserActionSchema = z.discriminatedUnion('action', [
+  z.strictObject({
+    action: z.literal('navigate'),
+    url: HttpUrlSchema,
+    ...options,
+  }),
   z.strictObject({
     action: z.literal('click'),
     target: targetSchema,
@@ -70,7 +82,10 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('fill'),
     target: targetSchema,
-    valueRef: valueName,
+    valueRef: valueName.optional(),
+    value: nonEmpty
+      .refine((value) => value.includes('${'), 'Use interpolation or valueRef')
+      .optional(),
     ...options,
   }),
   z.strictObject({
@@ -144,18 +159,81 @@ export const BrowserStepSchema = z.discriminatedUnion('action', [
     ...options,
   }),
 ]);
-export type BrowserStep = z.infer<typeof BrowserStepSchema>;
+export type BrowserAction = z.infer<typeof BrowserActionSchema>;
+export const WorkflowConditionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('visible'),
+    target: targetSchema,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('url_contains'),
+    contains: nonEmpty,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('variable_exists'),
+    variable: valueName,
+    not: z.boolean().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('variable_equals'),
+    variable: valueName,
+    equals: z.string().max(1000),
+    not: z.boolean().optional(),
+  }),
+]);
+export type WorkflowCondition = z.infer<typeof WorkflowConditionSchema>;
+export type BrowserStep =
+  | BrowserAction
+  | {
+      action: 'branch';
+      condition: WorkflowCondition;
+      then: BrowserStep[];
+      else?: BrowserStep[] | undefined;
+      timeoutMs?: number | undefined;
+      continueOnFailure?: boolean | undefined;
+    };
+export const BrowserStepSchema: z.ZodType<BrowserStep> = z.lazy(() =>
+  z.union([
+    BrowserActionSchema,
+    z.strictObject({
+      action: z.literal('branch'),
+      condition: WorkflowConditionSchema,
+      then: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS),
+      else: z.array(BrowserStepSchema).max(MAX_WORKFLOW_STEPS).optional(),
+      timeoutMs: options.timeoutMs,
+      continueOnFailure: options.continueOnFailure,
+    }),
+  ]),
+);
 
-export const BrowserPlanSchema = z
+const planSchema = z
   .strictObject({
-    startUrl: httpUrl,
+    startUrl: HttpUrlSchema,
     steps: z.array(BrowserStepSchema).min(1).max(MAX_WORKFLOW_STEPS),
     outputs: z.array(valueName).max(5).optional(),
+    parameters: z
+      .record(valueName, z.string().max(1000))
+      .refine(
+        (values) => Object.keys(values).length <= 20,
+        'Maximum 20 variables',
+      )
+      .optional(),
     timeoutMs: z.number().int().min(1000).max(600_000).optional(),
   })
   .superRefine((plan, context) => {
+    for (const issue of validateVariables(plan))
+      context.addIssue({ code: 'custom', path: ['steps'], message: issue });
     const names = new Map<string, number>();
-    for (const [index, step] of plan.steps.entries()) {
+    for (const [index, step] of flattenSteps(plan.steps).entries()) {
+      const retryError = retryPolicyError(step);
+      if (retryError)
+        context.addIssue({
+          code: 'custom',
+          path: ['steps', index],
+          message: retryError,
+        });
       if (step.action !== 'extract_text' && step.action !== 'extract_attribute')
         continue;
       if (names.has(step.saveAs))
@@ -192,7 +270,15 @@ export const BrowserPlanSchema = z
         message: 'Output character budget exceeds 2000',
       });
   });
-export type BrowserPlan = z.infer<typeof BrowserPlanSchema>;
+export const BrowserPlanSchema = z.preprocess((input, context) => {
+  const error = structureError(input);
+  if (error) {
+    context.addIssue({ code: 'custom', message: error });
+    return z.NEVER;
+  }
+  return input;
+}, planSchema);
+export type BrowserPlan = z.infer<typeof planSchema>;
 
 export type RunIdentifier = string;
 export type ArtifactType =
@@ -270,7 +356,13 @@ export type FailureKind =
   | 'navigation'
   | 'secret_resolution'
   | 'cancelled'
-  | 'browser_execution';
+  | 'browser_execution'
+  | 'undefined_variable'
+  | 'invalid_variable'
+  | 'target_not_ready'
+  | 'navigation_transient'
+  | 'side_effect_state_unknown'
+  | 'budget_exhausted';
 export interface StepResult {
   index: number;
   action: BrowserStep['action'];
@@ -280,6 +372,14 @@ export interface StepResult {
   durationMs: number;
   actualUrl?: string;
   actualText?: string;
+  branch?: boolean;
+  attempts?: number;
+  trace?: Array<{
+    at: number;
+    event: 'attempt' | 'retry' | 'recovery' | 'variable';
+    reason?: FailureKind;
+    name?: string;
+  }>;
   failure?: { kind: FailureKind; reason: string };
 }
 
@@ -303,6 +403,8 @@ export type RunResult =
       reason: string;
       actualUrl?: string;
       relevantErrors: RelevantError[];
+      attempts?: number;
+      code?: FailureKind;
       outputs?: Record<string, string>;
       actualText?: string;
       artifacts?: { screenshot?: string; trace?: string };
@@ -334,4 +436,5 @@ export interface RunRecord {
   status: 'passed' | 'failed' | 'aborted';
   metrics: RunMetrics;
   artifacts: ArtifactReference[];
+  initialNavigation?: StepResult;
 }

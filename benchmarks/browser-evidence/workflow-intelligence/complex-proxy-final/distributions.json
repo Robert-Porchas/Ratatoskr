@@ -1,0 +1,248 @@
+[
+  {
+    "key": "complex/ratatoskr",
+    "metrics": {
+      "inputTokens": {
+        "median": 33195,
+        "min": 33172,
+        "max": 58528,
+        "mean": 35730.2,
+        "standardDeviation": 7599.291161680805
+      },
+      "cachedInputTokens": {
+        "median": 28672,
+        "min": 19072,
+        "max": 44928,
+        "mean": 28812.8,
+        "standardDeviation": 6094.05029188306
+      },
+      "uncachedInputTokens": {
+        "median": 4550,
+        "min": 4508,
+        "max": 14112,
+        "mean": 6917.4,
+        "standardDeviation": 3634.441283058511
+      },
+      "outputTokens": {
+        "median": 477,
+        "min": 450,
+        "max": 1100,
+        "mean": 542.2,
+        "standardDeviation": 187.67141497841382
+      },
+      "reasoningTokens": {
+        "median": 0,
+        "min": 0,
+        "max": 76,
+        "mean": 19.2,
+        "standardDeviation": 26.373471519691904
+      },
+      "totalTokens": {
+        "median": 33671,
+        "min": 33625,
+        "max": 59628,
+        "mean": 36272.4,
+        "standardDeviation": 7785.325724720836
+      },
+      "toolInteractions": {
+        "median": 1,
+        "min": 1,
+        "max": 3,
+        "mean": 1.2,
+        "standardDeviation": 0.6
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 18,
+        "min": 18,
+        "max": 27,
+        "mean": 18.9,
+        "standardDeviation": 2.7
+      },
+      "toolArgumentBytes": {
+        "median": 940,
+        "min": 933,
+        "max": 2707,
+        "mean": 1119.1,
+        "standardDeviation": 529.4486660668813
+      },
+      "toolResultBytes": {
+        "median": 145,
+        "min": 145,
+        "max": 824,
+        "mean": 212.9,
+        "standardDeviation": 203.70000000000002
+      },
+      "durationMs": {
+        "median": 22475,
+        "min": 20888,
+        "max": 35432,
+        "mean": 23691.8,
+        "standardDeviation": 4018.5038708454667
+      }
+    },
+    "callMetrics": {
+      "workflow": {
+        "median": 1,
+        "min": 1,
+        "max": 3,
+        "mean": 1.2,
+        "standardDeviation": 0.6
+      },
+      "inspection": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "artifact": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "direct": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "workflowDurationMs": {
+        "median": 5908,
+        "min": 5735,
+        "max": 11560,
+        "mean": 6466.6,
+        "standardDeviation": 1699.2117113532381
+      }
+    }
+  },
+  {
+    "key": "complex/baseline",
+    "metrics": {
+      "inputTokens": {
+        "median": 158417.5,
+        "min": 131945,
+        "max": 206120,
+        "mean": 167605.6,
+        "standardDeviation": 24528.38761190796
+      },
+      "cachedInputTokens": {
+        "median": 141184,
+        "min": 116608,
+        "max": 193792,
+        "mean": 151027.2,
+        "standardDeviation": 23349.91212317511
+      },
+      "uncachedInputTokens": {
+        "median": 16329.5,
+        "min": 9484,
+        "max": 26813,
+        "mean": 16578.4,
+        "standardDeviation": 5322.581670580546
+      },
+      "outputTokens": {
+        "median": 860.5,
+        "min": 751,
+        "max": 1107,
+        "mean": 886.7,
+        "standardDeviation": 107.76553252315881
+      },
+      "reasoningTokens": {
+        "median": 54.5,
+        "min": 16,
+        "max": 127,
+        "mean": 60.1,
+        "standardDeviation": 30.85595566499278
+      },
+      "totalTokens": {
+        "median": 159287.5,
+        "min": 132747,
+        "max": 207012,
+        "mean": 168492.3,
+        "standardDeviation": 24607.67469733782
+      },
+      "toolInteractions": {
+        "median": 23.5,
+        "min": 20,
+        "max": 30,
+        "mean": 23.9,
+        "standardDeviation": 2.981610303175115
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 23.5,
+        "min": 20,
+        "max": 30,
+        "mean": 23.9,
+        "standardDeviation": 2.981610303175115
+      },
+      "toolArgumentBytes": {
+        "median": 785,
+        "min": 678,
+        "max": 1011,
+        "mean": 799.1,
+        "standardDeviation": 103.74627704163655
+      },
+      "toolResultBytes": {
+        "median": 4621,
+        "min": 4111,
+        "max": 5434,
+        "mean": 4650.4,
+        "standardDeviation": 396.7551385930622
+      },
+      "durationMs": {
+        "median": 38977,
+        "min": 34714,
+        "max": 60507,
+        "mean": 40782.7,
+        "standardDeviation": 7035.103567823292
+      }
+    },
+    "callMetrics": {
+      "workflow": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "inspection": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "artifact": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "direct": {
+        "median": 23.5,
+        "min": 20,
+        "max": 30,
+        "mean": 23.9,
+        "standardDeviation": 2.981610303175115
+      },
+      "workflowDurationMs": null
+    }
+  }
+]

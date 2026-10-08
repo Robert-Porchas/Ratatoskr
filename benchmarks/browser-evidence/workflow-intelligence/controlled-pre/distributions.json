@@ -1,0 +1,180 @@
+[
+  {
+    "key": "medium-success/ratatoskr",
+    "metrics": {
+      "inputTokens": {
+        "median": 32217,
+        "min": 31455,
+        "max": 42754,
+        "mean": 34175.1,
+        "standardDeviation": 4327.574157654609
+      },
+      "cachedInputTokens": {
+        "median": 28032,
+        "min": 19072,
+        "max": 38912,
+        "mean": 27097.6,
+        "standardDeviation": 6924.090166946124
+      },
+      "uncachedInputTokens": {
+        "median": 4043,
+        "min": 3423,
+        "max": 13911,
+        "mean": 7077.5,
+        "standardDeviation": 4185.994535352382
+      },
+      "outputTokens": {
+        "median": 534.5,
+        "min": 459,
+        "max": 555,
+        "mean": 518.9,
+        "standardDeviation": 31.0433567772559
+      },
+      "reasoningTokens": {
+        "median": 60.5,
+        "min": 34,
+        "max": 102,
+        "mean": 63.3,
+        "standardDeviation": 23.160526764303096
+      },
+      "totalTokens": {
+        "median": 32757.5,
+        "min": 31914,
+        "max": 43288,
+        "mean": 34694,
+        "standardDeviation": 4338.010557847918
+      },
+      "toolInteractions": {
+        "median": 1,
+        "min": 1,
+        "max": 2,
+        "mean": 1.2,
+        "standardDeviation": 0.4
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 12,
+        "min": 12,
+        "max": 12,
+        "mean": 12,
+        "standardDeviation": 0
+      },
+      "toolArgumentBytes": {
+        "median": 715,
+        "min": 715,
+        "max": 785,
+        "mean": 729,
+        "standardDeviation": 28
+      },
+      "toolResultBytes": {
+        "median": 116,
+        "min": 116,
+        "max": 416,
+        "mean": 176,
+        "standardDeviation": 120
+      },
+      "durationMs": {
+        "median": 17643,
+        "min": 16010,
+        "max": 23305,
+        "mean": 18468.1,
+        "standardDeviation": 2168.8696802712698
+      }
+    }
+  },
+  {
+    "key": "medium-success/baseline",
+    "metrics": {
+      "inputTokens": {
+        "median": 76966.5,
+        "min": 62627,
+        "max": 93213,
+        "mean": 80090.3,
+        "standardDeviation": 9266.414118201279
+      },
+      "cachedInputTokens": {
+        "median": 65664,
+        "min": 55040,
+        "max": 84224,
+        "mean": 67686.4,
+        "standardDeviation": 11749.368146415363
+      },
+      "uncachedInputTokens": {
+        "median": 9525,
+        "min": 7109,
+        "max": 21671,
+        "mean": 12403.9,
+        "standardDeviation": 5872.833174031082
+      },
+      "outputTokens": {
+        "median": 749.5,
+        "min": 627,
+        "max": 1035,
+        "mean": 768.6,
+        "standardDeviation": 107.21492433425489
+      },
+      "reasoningTokens": {
+        "median": 115.5,
+        "min": 61,
+        "max": 235,
+        "mean": 124.5,
+        "standardDeviation": 51.119956963988145
+      },
+      "totalTokens": {
+        "median": 77712.5,
+        "min": 63254,
+        "max": 94248,
+        "mean": 80858.9,
+        "standardDeviation": 9317.711644497269
+      },
+      "toolInteractions": {
+        "median": 12,
+        "min": 11,
+        "max": 21,
+        "mean": 13.8,
+        "standardDeviation": 3.0265491900843116
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 12,
+        "min": 11,
+        "max": 21,
+        "mean": 13.8,
+        "standardDeviation": 3.0265491900843116
+      },
+      "toolArgumentBytes": {
+        "median": 840.5,
+        "min": 670,
+        "max": 1070,
+        "mean": 822.8,
+        "standardDeviation": 113.72493130356246
+      },
+      "toolResultBytes": {
+        "median": 3146,
+        "min": 1963,
+        "max": 3853,
+        "mean": 2790.8,
+        "standardDeviation": 640.6888168213958
+      },
+      "durationMs": {
+        "median": 29689.5,
+        "min": 25952,
+        "max": 40718,
+        "mean": 31296.5,
+        "standardDeviation": 4700.443537582384
+      }
+    }
+  }
+]

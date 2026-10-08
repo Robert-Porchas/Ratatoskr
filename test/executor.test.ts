@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executePlan } from '../src/executor.js';
+import { RatatoskrError } from '../src/errors.js';
 import type { BrowserAdapter } from '../src/browser.js';
 import type { EvidenceInput } from '../src/evidence.js';
 import type {
   ArtifactReference,
   BrowserPlan,
+  WorkflowCondition,
   Evidence,
   RunRecord,
   RunResult,
@@ -75,6 +77,401 @@ class MissingTargetBrowser extends FakeBrowser {
     throw error;
   }
 }
+
+it('recovers a transient wait locally, without adding retry history to success', async () => {
+  const browser = new FakeBrowser();
+  const wait = vi
+    .spyOn(browser, 'waitFor')
+    .mockRejectedValueOnce(
+      Object.assign(new Error('timing'), { name: 'TimeoutError' }),
+    );
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 2,
+        },
+      ],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(true);
+  expect(wait).toHaveBeenCalledTimes(2);
+  expect(storage.saved.steps?.[0]).toMatchObject({
+    attempts: 2,
+    trace: expect.arrayContaining([
+      expect.objectContaining({ event: 'retry' }),
+    ]),
+  });
+  expect(Object.keys(result).sort()).toEqual(['runId', 'success']);
+});
+
+it('reloads once and caps retries while refusing HTTP failure and uncertain click replay', async () => {
+  const browser = new FakeBrowser();
+  const reload = vi.fn(async () => {});
+  const wait = vi
+    .spyOn(browser, 'waitFor')
+    .mockRejectedValueOnce(
+      Object.assign(new Error('timing'), { name: 'TimeoutError' }),
+    );
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 2,
+          recover: 'reloadOnce',
+        },
+      ],
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...storage,
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result.success).toBe(true);
+  expect(reload).toHaveBeenCalledTimes(1);
+  expect(wait).toHaveBeenCalledTimes(2);
+  const failure = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        { action: 'click', target: { kind: 'text', text: 'Save' } },
+        {
+          action: 'wait_for',
+          target: { kind: 'testId', testId: 'ready' },
+          retry: 3,
+        },
+      ],
+    },
+    {
+      browser: new MissingTargetBrowser(),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(failure).toMatchObject({ success: false });
+  expect(failure).not.toHaveProperty('attempts');
+});
+
+it('does not retry uncertain side effects, or assertions', async () => {
+  const browser = new FakeBrowser();
+  const click = vi
+    .spyOn(browser, 'click')
+    .mockRejectedValue(
+      new RatatoskrError(
+        'side_effect_state_unknown',
+        'SIDE_EFFECT_STATE_UNKNOWN',
+      ),
+    );
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'click',
+          target: { kind: 'text', text: 'Place order' },
+          retry: 3,
+        },
+      ],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({
+    success: false,
+    code: 'side_effect_state_unknown',
+  });
+  expect(click).toHaveBeenCalledTimes(1);
+});
+
+it('enforces the overall deadline even for a browser operation that never resolves', async () => {
+  const browser = new FakeBrowser();
+  vi.spyOn(browser, 'waitFor').mockImplementation(() => new Promise(() => {}));
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      timeoutMs: 1000,
+      steps: [
+        {
+          action: 'wait_for',
+          target: { kind: 'text', text: 'Ready' },
+          retry: 3,
+        },
+      ],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+});
+
+it('retries an interrupted GET navigation once by default', async () => {
+  const browser = new FakeBrowser();
+  const navigate = vi
+    .spyOn(browser, 'navigate')
+    .mockRejectedValueOnce(
+      new RatatoskrError('navigation_transient', 'Interrupted navigation'),
+    );
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [{ action: 'assert_url', contains: 'localhost' }],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(true);
+  expect(navigate).toHaveBeenCalledTimes(2);
+  expect(storage.saved.record?.initialNavigation).toMatchObject({
+    index: -1,
+    attempts: 2,
+    trace: expect.arrayContaining([
+      expect.objectContaining({
+        event: 'retry',
+        reason: 'navigation_transient',
+      }),
+    ]),
+  });
+  expect(storage.saved.record?.metrics.browserActionCount).toBe(2);
+  expect(Object.keys(result).sort()).toEqual(['runId', 'success']);
+});
+
+it('closes a browser whose startup finishes after the execution deadline', async () => {
+  vi.useFakeTimers();
+  try {
+    const browser = new FakeBrowser();
+    let finish: (() => void) | undefined;
+    vi.spyOn(browser, 'start').mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const stop = vi.spyOn(browser, 'stop');
+    const running = executePlan(
+      {
+        startUrl: 'http://localhost',
+        timeoutMs: 1000,
+        steps: [{ action: 'assert_url', contains: 'localhost' }],
+      },
+      { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+    );
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(await running).toMatchObject({
+      success: false,
+      code: 'budget_exhausted',
+    });
+    finish!();
+    await vi.runAllTimersAsync();
+    expect(stop).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('rejects empty interpolated select values and URL predicates before the action', async () => {
+  for (const step of [
+    {
+      action: 'select_option' as const,
+      target: { kind: 'label' as const, label: 'Choice' },
+      option: { kind: 'value' as const, value: '${empty}' },
+    },
+    {
+      action: 'branch' as const,
+      condition: { kind: 'url_contains' as const, contains: '${empty}' },
+      then: [],
+    },
+  ]) {
+    const browser = new FakeBrowser();
+    const select = vi.spyOn(browser, 'selectOption');
+    const result = await executePlan(
+      {
+        startUrl: 'http://localhost',
+        parameters: { empty: '' },
+        steps: [step],
+      },
+      { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+    );
+    expect(result).toMatchObject({ success: false, code: 'invalid_variable' });
+    expect(select).not.toHaveBeenCalled();
+  }
+});
+
+it('counts recovery reloads toward the executed-step budget', async () => {
+  const browser = new FakeBrowser();
+  let calls = 0;
+  vi.spyOn(browser, 'waitFor').mockImplementation(async () => {
+    if (++calls <= 60 && calls % 2 === 1)
+      throw Object.assign(new Error('timing'), { name: 'TimeoutError' });
+  });
+  const reload = vi.fn(async () => {});
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: Array.from({ length: 300 }, () => ({
+        action: 'wait_for' as const,
+        target: { kind: 'testId' as const, testId: 'ready' },
+        retry: 2,
+        recover: 'reloadOnce' as const,
+      })),
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+  expect(reload).toHaveBeenCalledTimes(30);
+  expect(calls).toBe(329);
+});
+
+it('enforces the global retry cap across otherwise bounded steps', async () => {
+  const browser = new FakeBrowser();
+  let calls = 0;
+  vi.spyOn(browser, 'waitFor').mockImplementation(async () => {
+    if (++calls % 2 === 1)
+      throw Object.assign(new Error('timing'), { name: 'TimeoutError' });
+  });
+  const reload = vi.fn(async () => {});
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: Array.from({ length: 100 }, () => ({
+        action: 'wait_for' as const,
+        target: { kind: 'testId' as const, testId: 'ready' },
+        retry: 2,
+        recover: 'reloadOnce' as const,
+      })),
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+  expect(reload).toHaveBeenCalledTimes(60);
+  expect(calls).toBe(121);
+});
+
+it.each([
+  { kind: 'visible', target: { kind: 'testId', testId: 'ready' } },
+  { kind: 'url_contains', contains: 'localhost' },
+  { kind: 'variable_exists', variable: 'id' },
+  { kind: 'variable_equals', variable: 'id', equals: '42' },
+] satisfies WorkflowCondition[])(
+  'evaluates $kind and its negation locally',
+  async (condition) => {
+    for (const not of [false, true]) {
+      const browser = new FakeBrowser();
+      const result = await executePlan(
+        {
+          startUrl: 'http://localhost',
+          parameters: { id: '42' },
+          steps: [
+            {
+              action: 'branch',
+              condition: { ...condition, not },
+              then: [{ action: 'navigate', url: 'http://localhost/yes' }],
+              else: [{ action: 'navigate', url: 'http://localhost/no' }],
+            },
+          ],
+        },
+        { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+      );
+      expect(result.success).toBe(true);
+      expect(browser.url).toBe(`http://localhost/${not ? 'no' : 'yes'}`);
+    }
+  },
+);
+
+it.each([true, false])(
+  'chooses one local branch and retains decisions only in steps (%s)',
+  async (visible) => {
+    const browser = new FakeBrowser();
+    vi.spyOn(browser, 'isVisible').mockResolvedValue(visible);
+    const fill = vi.spyOn(browser, 'fill');
+    const storage = stores();
+    const result = await executePlan(
+      {
+        startUrl: 'http://localhost',
+        steps: [
+          {
+            action: 'branch',
+            condition: {
+              kind: 'visible',
+              target: { kind: 'testId', testId: 'dashboard' },
+            },
+            then: [],
+            else: [
+              {
+                action: 'fill',
+                target: { kind: 'label', label: 'Password' },
+                valueRef: 'TEST_PASSWORD',
+              },
+            ],
+          },
+          { action: 'assert_url', contains: 'localhost' },
+        ],
+      },
+      {
+        browser,
+        ...storage,
+        values: new EnvironmentValueResolver({ TEST_PASSWORD: 'secret' }),
+      },
+    );
+    expect(result.success).toBe(true);
+    expect(fill).toHaveBeenCalledTimes(visible ? 0 : 1);
+    expect(storage.saved.steps?.[0]?.branch).toBe(visible);
+    expect(JSON.stringify(result)).not.toContain('branch');
+    expect(browser.isVisible).toHaveBeenCalledWith(
+      { kind: 'testId', testId: 'dashboard' },
+      250,
+    );
+  },
+);
+
+it('propagates extracted data locally through fill, locator and navigation fields', async () => {
+  const browser = new FakeBrowser();
+  const fill = vi.spyOn(browser, 'fill');
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        {
+          action: 'extract_text',
+          target: { kind: 'testId', testId: 'id' },
+          saveAs: 'id',
+        },
+        {
+          action: 'fill',
+          target: { kind: 'label', label: '${id}' },
+          value: '${id}',
+        },
+        { action: 'navigate', url: 'http://localhost/projects/${id}' },
+        { action: 'assert_url', contains: '/projects/${id}' },
+      ],
+      outputs: ['id'],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result).toMatchObject({ success: true, outputs: { id: 'Welcome' } });
+  expect(fill).toHaveBeenCalledWith(
+    { kind: 'label', label: 'Welcome' },
+    'Welcome',
+    5000,
+  );
+  expect(browser.url).toBe('http://localhost/projects/Welcome');
+});
 
 function stores(): {
   runs: RunStore;

@@ -40,7 +40,7 @@
     "test:e2e": "tsx test/integration.ts",
     "test:mcp": "npm run build && node dist/test/mcp-integration.js",
     "test:session": "npm run build && node dist/test/session-integration.js && node dist/test/session-mcp-integration.js",
-    "test:benchmark": "npm run build && node dist/test/benchmark-integration.js",
+    "test:benchmark": "npm run build && node dist/test/benchmark-integration.js && node dist/test/benchmark-budget-integration.js",
     "cli": "node dist/src/cli.js",
     "mcp": "node dist/src/mcp/server.js",
     "fixture": "tsx test/fixture/server.ts",
@@ -54,12 +54,16 @@
     "benchmark:session": "npm run build && node dist/benchmarks/browser-evidence/session-matrix.js",
     "benchmark:session:summary": "tsx benchmarks/browser-evidence/session-summary.ts",
     "benchmark:session:audit": "tsx benchmarks/browser-evidence/audit-session.ts",
-    "benchmark:session:publish": "tsx benchmarks/browser-evidence/publish-session.ts"
+    "benchmark:session:publish": "tsx benchmarks/browser-evidence/publish-session.ts",
+    "test:workflow": "npm run build && node dist/test/workflow-integration.js && node dist/test/workflow-safety-integration.js",
+    "benchmark:workflow": "npm run build && node dist/benchmarks/browser-evidence/workflow-matrix.js",
+    "benchmark:workflow:publish": "tsx benchmarks/browser-evidence/publish-workflow.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",
     "playwright": "^1.55.0",
-    "zod": "^4.1.0"
+    "zod": "^4.1.0",
+    "typescript": "^5.9.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -69,7 +73,6 @@
     "eslint": "^9.36.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0",
     "vitest": "^4.1.11"
   }

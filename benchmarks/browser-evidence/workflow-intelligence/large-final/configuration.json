@@ -1,0 +1,27 @@
+{
+  "runs": 10,
+  "concurrency": 2,
+  "model": "gpt-6.1-sol",
+  "reasoning": "medium",
+  "scenarios": [
+    {
+      "size": "large",
+      "outcome": "success"
+    }
+  ],
+  "baselines": ["playwright"],
+  "commit": "9bf0b4affa955aec169401e173c4216a6132a932",
+  "codexVersion": "codex-cli 0.161.0",
+  "browserVersion": "153.0.8010.12",
+  "timeoutMs": 180000,
+  "maxToolCalls": 40,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "dirty": false,
+  "lockfileHash": "8d3e7d94f249df10a18698385c9c0897befe693d96adbed524218d37e23310c9",
+  "nodeVersion": "v24.19.0",
+  "tokenAccounting": "codex-json-events",
+  "standardBaselineVersion": "@playwright/mcp@0.0.83"
+}

@@ -1,0 +1,180 @@
+[
+  {
+    "key": "medium-success/baseline",
+    "metrics": {
+      "inputTokens": {
+        "median": 89275,
+        "min": 89275,
+        "max": 89275,
+        "mean": 89275,
+        "standardDeviation": 0
+      },
+      "cachedInputTokens": {
+        "median": 71552,
+        "min": 71552,
+        "max": 71552,
+        "mean": 71552,
+        "standardDeviation": 0
+      },
+      "uncachedInputTokens": {
+        "median": 17723,
+        "min": 17723,
+        "max": 17723,
+        "mean": 17723,
+        "standardDeviation": 0
+      },
+      "outputTokens": {
+        "median": 815,
+        "min": 815,
+        "max": 815,
+        "mean": 815,
+        "standardDeviation": 0
+      },
+      "reasoningTokens": {
+        "median": 141,
+        "min": 141,
+        "max": 141,
+        "mean": 141,
+        "standardDeviation": 0
+      },
+      "totalTokens": {
+        "median": 90090,
+        "min": 90090,
+        "max": 90090,
+        "mean": 90090,
+        "standardDeviation": 0
+      },
+      "toolInteractions": {
+        "median": 16,
+        "min": 16,
+        "max": 16,
+        "mean": 16,
+        "standardDeviation": 0
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 16,
+        "min": 16,
+        "max": 16,
+        "mean": 16,
+        "standardDeviation": 0
+      },
+      "toolArgumentBytes": {
+        "median": 850,
+        "min": 850,
+        "max": 850,
+        "mean": 850,
+        "standardDeviation": 0
+      },
+      "toolResultBytes": {
+        "median": 3214,
+        "min": 3214,
+        "max": 3214,
+        "mean": 3214,
+        "standardDeviation": 0
+      },
+      "durationMs": {
+        "median": 29458,
+        "min": 29458,
+        "max": 29458,
+        "mean": 29458,
+        "standardDeviation": 0
+      }
+    }
+  },
+  {
+    "key": "medium-success/ratatoskr",
+    "metrics": {
+      "inputTokens": {
+        "median": 32977,
+        "min": 32977,
+        "max": 32977,
+        "mean": 32977,
+        "standardDeviation": 0
+      },
+      "cachedInputTokens": {
+        "median": 11264,
+        "min": 11264,
+        "max": 11264,
+        "mean": 11264,
+        "standardDeviation": 0
+      },
+      "uncachedInputTokens": {
+        "median": 21713,
+        "min": 21713,
+        "max": 21713,
+        "mean": 21713,
+        "standardDeviation": 0
+      },
+      "outputTokens": {
+        "median": 529,
+        "min": 529,
+        "max": 529,
+        "mean": 529,
+        "standardDeviation": 0
+      },
+      "reasoningTokens": {
+        "median": 58,
+        "min": 58,
+        "max": 58,
+        "mean": 58,
+        "standardDeviation": 0
+      },
+      "totalTokens": {
+        "median": 33506,
+        "min": 33506,
+        "max": 33506,
+        "mean": 33506,
+        "standardDeviation": 0
+      },
+      "toolInteractions": {
+        "median": 1,
+        "min": 1,
+        "max": 1,
+        "mean": 1,
+        "standardDeviation": 0
+      },
+      "invalidToolCalls": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0
+      },
+      "browserInteractions": {
+        "median": 12,
+        "min": 12,
+        "max": 12,
+        "mean": 12,
+        "standardDeviation": 0
+      },
+      "toolArgumentBytes": {
+        "median": 715,
+        "min": 715,
+        "max": 715,
+        "mean": 715,
+        "standardDeviation": 0
+      },
+      "toolResultBytes": {
+        "median": 116,
+        "min": 116,
+        "max": 116,
+        "mean": 116,
+        "standardDeviation": 0
+      },
+      "durationMs": {
+        "median": 16254,
+        "min": 16254,
+        "max": 16254,
+        "mean": 16254,
+        "standardDeviation": 0
+      }
+    }
+  }
+]

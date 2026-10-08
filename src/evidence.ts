@@ -4,7 +4,7 @@ import type {
   RunMetrics,
   StepResult,
 } from './protocol.js';
-import { BrowserStepSchema } from './protocol.js';
+import { BrowserActionSchema } from './protocol.js';
 
 // Public protocol literals are not credentials, even if a short storage value
 // happens to equal one. Free-form messages/targets still undergo redaction.
@@ -39,13 +39,25 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
     'invalid_plan',
     'artifact_not_found',
     'cancelled',
+    'undefined_variable',
+    'invalid_variable',
+    'target_not_ready',
+    'navigation_transient',
+    'side_effect_state_unknown',
+    'budget_exhausted',
+    'visible',
+    'url_contains',
+    'variable_exists',
+    'variable_equals',
   ]),
   action: new Set([
-    ...BrowserStepSchema.options.map((schema) => schema.shape.action.value),
+    ...BrowserActionSchema.options.map((schema) => schema.shape.action.value),
+    'branch',
     'accept',
     'dismiss',
   ]),
   status: new Set(['passed', 'failed']),
+  event: new Set(['attempt', 'retry', 'recovery', 'variable']),
   level: new Set(['error', 'warning', 'info', 'debug', 'log']),
 };
 
@@ -213,7 +225,20 @@ export function buildMetrics(
     stepCount: plannedStepCount,
     durationMs,
     browserActionCount:
-      1 + steps.filter((step) => !step.action.startsWith('assert_')).length,
+      1 +
+      steps
+        .filter(
+          (step) =>
+            !step.action.startsWith('assert_') && step.action !== 'branch',
+        )
+        .reduce(
+          (sum, step) =>
+            sum +
+            (step.attempts ?? 1) +
+            (step.trace?.filter((event) => event.event === 'recovery').length ??
+              0),
+          0,
+        ),
     failureCount:
       steps.filter((step) => step.status === 'failed').length +
       Number(startupFailed),

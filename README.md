@@ -158,7 +158,7 @@ Plans contain an HTTP(S) `startUrl`, up to 300 typed steps, and a default 180-se
 
 Prefer targets by role/accessibility name, label, text, or test ID; CSS is an escape hatch. `select_option` chooses a typed value, label, or index. `click` can declare an expected alert/confirm/prompt policy or `expectPopup: true` to switch to a new page. Unexpected dialogs or popups fail clearly. `upload_file` accepts only a basename found directly in `RATATOSKR_UPLOAD_DIR`; symlinks escaping that directory are rejected. `expect_download` stores the file as an artifact and returns only its ID. No plan can enumerate files.
 
-`fill` uses `valueRef` (an environment variable name), never a plaintext value. The MCP server resolves only names listed in `RATATOSKR_ALLOWED_VALUE_REFS`; an unset list allows no MCP value references. The CLI retains its existing local resolver behavior. Canonical extraction actions require unique `saveAs` names and cap each value at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). Completed requested outputs return even when a later step fails. CLI example:
+`fill` uses `valueRef` (an environment variable name) for credentials, or `value` containing workflow interpolation for discovered data. Plaintext literal fills are rejected. The MCP server resolves only names listed in `RATATOSKR_ALLOWED_VALUE_REFS`; an unset list allows no MCP value references. The CLI retains its existing local resolver behavior. Canonical extraction actions require unique `saveAs` names and cap each variable at 1,000 characters. Extracted values remain local unless named in the plan's `outputs` array (at most five outputs and 2,000 total output characters). Completed requested outputs return even when a later step fails. CLI example:
 
 ```json
 {
@@ -201,7 +201,7 @@ Try asking Codex: “Use Ratatoskr to test the login flow with the test account,
 
 ### Compact MCP format
 
-The MCP input deliberately differs from CLI JSON. Locators are flat; exactly one of `label`, `text`, `testId`, `css`, or `role` identifies the target (`name` accompanies `role`). Actions use `do`:
+CLI accepts canonical or compact JSON; MCP uses compact JSON. Locators are flat; exactly one of `label`, `text`, `testId`, `css`, or `role` identifies the target (`name` accompanies `role`). Actions use `do`:
 
 `navigate`, `click`, `fill`, `press`, `wait`, `url`, `has`, `visible`, `select`, `check`, `uncheck`, `hover`, `upload`, `download`, `extractText`, `extractAttribute`.
 
@@ -223,13 +223,56 @@ MCP supports up to 300 steps with 5-second actions and a 180-second workflow dea
 
 Other normal requests: “Use Ratatoskr to reproduce the profile-save bug; update the display name, save, reload and verify persistence.” “Create a project, open it, rename it and verify the updated name.” “Test checkout; investigate source using compact failure evidence before requesting more browser data.” Only automate actions the user authorized.
 
+### Variables, conditions and recovery
+
+Describe the complete workflow once. Saved data can feed later navigation, semantic locators, text/URL assertions, fills and select values/labels using `${name}`. Missing variables fail locally; substitution never evaluates code. Variable names are unique, use letters/digits/underscores, and cannot shadow secret references used in the plan. `valueRef` remains a separate local credential mechanism. Canonical CLI plans also accept literal string `parameters` for non-secret data.
+
+```json
+{
+  "url": "http://127.0.0.1:3000/entry",
+  "steps": [
+    {
+      "if": "visible",
+      "testId": "dashboard",
+      "then": [],
+      "else": [
+        { "do": "fill", "label": "Email", "valueRef": "TEST_EMAIL" },
+        { "do": "fill", "label": "Password", "valueRef": "TEST_PASSWORD" },
+        { "do": "click", "name": "Sign in", "role": "button" }
+      ]
+    },
+    { "do": "fill", "label": "Project name", "valueRef": "TEST_PROJECT_NAME" },
+    { "do": "click", "role": "button", "name": "Create project" },
+    { "do": "extractText", "testId": "project-id", "save": "projectId" },
+    { "do": "navigate", "url": "http://127.0.0.1:3000/projects/${projectId}" },
+    { "do": "wait", "testId": "ready", "retry": 2, "recover": "reloadOnce" },
+    { "do": "url", "contains": "/projects/${projectId}" }
+  ]
+}
+```
+
+Branches support `if: "visible"` with a locator, `"url"` with `contains`, `"exists"` with `variable`, and `"equals"` with `variable`/literal `equals`. Optional `not: true` negates any predicate. `then` and optional `else` contain steps; nesting is capped at two branches. Visibility checks wait at most 250 ms, so use a required `wait` beforehand when readiness matters. Both branches count toward the 300-node plan limit.
+
+`retry` means **total attempts**, from one to three. Playwright auto-wait runs first. Explicit retries support navigation, waits, hover, extraction and pre-action click readiness; clicks are never replayed after dispatch becomes uncertain. Only recognized transient GET-navigation errors receive one retry by default. Assertions, observed HTTP 4xx/5xx, form mutations, uploads/downloads, and uncertain side effects are not retried. `reloadOnce` is limited to a wait/extraction with `retry: 2`, on a document reached by GET; it cannot resubmit a POST document. Other retries pause 250/500 ms. There is no arbitrary recovery workflow.
+
+Limits: 20 variables, 1,000 characters per variable, 2,048 per interpolated field, 360 executed nodes/attempts/reloads, 60 retries and the overall deadline. Success still returns only `success`, `runId`, and explicitly saved `values`; branch/retry history stays local. Request `steps` only when failure diagnosis needs it. No loops, expressions, scripting or autonomous planning.
+
+### Derive workflows from Playwright tests
+
+```sh
+npm run build
+npm run cli -- derive-workflow examples/project.spec.ts --base-url http://127.0.0.1:3000
+```
+
+This deterministic CLI reads one bounded test file without executing it. It emits validated compact plans with `convertedSteps`, `ready` and concise location/reason warnings. Reuse a `ready: true` plan or review the incomplete prefix when false. Supported: sequential literal `page.goto`, semantic locator `.click`, `.fill(process.env.NAME)`, `toBeVisible`, and `toContainText`. Literal `toHaveURL` becomes a contains assertion **with a warning and `ready: false`** because exact matching is stronger. Loops, hooks, arbitrary JavaScript, page objects, dynamic arguments and regex URL assertions are not converted. Use repository search for other source facts; no repository index or generation MCP tool is added.
+
 ## Storage, safety, and limits
 
 `RATATOSKR_DATA_DIR` defaults to `.ratatoskr/`. When upgrading, move a previous local data directory to this location or set `RATATOSKR_DATA_DIR` to its path; old environment-variable names are no longer read. Each run stores metadata, the reference-only workflow, step results, `evidence.jsonl`, extracted values, reduced result, and registered artifacts. Evidence includes request counts/failures, HTTP 4xx/5xx, console and page errors, navigation, dialogs/popups, URLs, and timing. The reducer chooses at most three errors from the failed step or a two-second margin, favoring nearby severe failures. The fixture's tiny HTTP 500 case yields 666 bytes of event evidence and about 421 bytes of reduced JSON; these are bytes, not token counts. Binary artifacts are excluded from the ratio.
 
 Resolved values and observed session values are redacted from ordinary persisted text and results, including messages captured before a value was discovered. Screenshots mask form controls and matching text; traces are disabled for secret-bearing plans and discarded when cookie/storage/authorization state is observed. This cannot reliably hide unknown secrets or secrets drawn into canvas/images, so avoid such pages. URL credentials, `file:` and `javascript:` navigation, arbitrary JavaScript, shell execution, unrestricted filesystem reads, loops, and natural-language plan execution are not supported. Ratatoskr has no domain policy or authentication yet; run it only for trusted local development workflows.
 
-The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. A timed-out click can report that its target is absent, without returning page content or choosing a replacement. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are now about 4 KB (previously 11.8 KB); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
+The reducer can miss long asynchronous causes or rank a nearby unrelated error. It captures event metadata, not full network bodies or accessibility trees. Failed text assertions also return at most 200 characters of redacted actual text when available. A timed-out click can report that its target is absent, without returning page content or choosing a replacement. The MCP server allows one active workflow at a time; a concurrent call gets an explicit tool error. Complete tool definitions are about 4.9 KB (4.1 KB before workflow control flow); schema size alone is not proof of token savings. See [architecture](docs/architecture.md).
 
 ## Session diagnostics
 
@@ -246,6 +289,10 @@ Observation is bounded and best effort: 200 cookies, 200 storage entries, 100 ac
 `RATATOSKR_SESSION_DIAGNOSTICS=off` disables automatic Level 1 findings only, retaining safe observation and explicit inspection; this is the benchmark control. The plugin forwards both configuration variable names after rebuilding/reinstalling; manual MCP users can add them to their `env_vars`. No secret values belong in config. See the [session methodology and results](benchmarks/browser-evidence/session-observability/README.md).
 
 ## Token-first browser benchmark
+
+The [workflow intelligence sprint](benchmarks/browser-evidence/workflow-intelligence/README.md) adds measured local variables, optional login and bounded recovery. Ten fresh pairs per case show median tokens falling from 86,603 to 33,155 for variable propagation, and from 60,974.5 to 33,025.5 for transient recovery; both execute in one Ratatoskr call. Test conversion is approximately token-neutral on the tested example. Added schema/control-flow support costs about 3.1% more Ratatoskr tokens on an unchanged medium workflow; the report preserves that overhead, diagnostic limitations, capped runs and complete full-flow repeats.
+
+The full login/create/extract/recover/save/verify workflow uses 33,671 versus 159,287.5 direct median tokens (78.9% lower). Ratatoskr completes 10/10 tasks, nine in one call; direct completes 8/10. All attempts, including plan repairs and failed direct tasks, are included in those token medians.
 
 The benchmark measures **actual Codex task tokens**, separately from browser evidence bytes. Ratatoskr is intended for source-known, multi-step software tests—not autonomous page discovery. Earlier live measurements showed a token regression despite smaller returned evidence; those unfavorable records remain available in the [original sample](benchmarks/browser-evidence/codex-sample/README.md) and [pre-optimization baseline](benchmarks/browser-evidence/optimization/pre.json).
 

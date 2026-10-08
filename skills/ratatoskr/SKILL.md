@@ -9,21 +9,13 @@ Use for deterministic app workflows (login, forms, CRUD, checkout, regressions).
 
 Before execution, derive routes, labels, accessible names, test IDs and expected behavior from source or existing tests when available. Construct the complete workflow; do not rediscover known facts through browser calls.
 
-Call `run_browser_workflow` once with `url` and `steps`. Steps use `do` plus one flat locator: `label`, `text`, `testId`, `css`, or `role` + optional `name`. Example:
+Call `run_browser_workflow` once with `url` and `steps`. Steps use `do` plus one flat locator: `label`, `text`, `testId`, `css`, or `role` + optional `name`.
 
-```json
-{
-  "url": "http://127.0.0.1:3000/login",
-  "steps": [
-    { "do": "fill", "label": "Email", "valueRef": "TEST_EMAIL" },
-    { "do": "fill", "label": "Password", "valueRef": "TEST_PASSWORD" },
-    { "do": "click", "role": "button", "name": "Sign in" },
-    { "do": "url", "contains": "/dashboard" }
-  ]
-}
-```
+Use configured local `valueRef` names, never plaintext secrets. `has` asserts target text with `contains`; `extractText`/`extractAttribute` + `save` requests a small output, including on later failure. Use `${savedName}` in later navigation, semantic locators, assertions, fills or selects to avoid another workflow call. Verify persisted state, not merely edited inputs.
 
-Use configured local `valueRef` names, never plaintext secrets. `has` asserts target text with `contains`; `extractText`/`extractAttribute` + `save` requests a small output, including on later failure. Verify persisted state, not merely edited inputs. Plans are bounded to 300 steps / 180 seconds; no JavaScript, shell, loops or AI planning.
+Use bounded branches for known runtime alternatives: `{ "if": "visible", "testId": "dashboard", "then": [], "else": [...] }`. Also supported: `if:"url"` + `contains`, `"exists"` + `variable`, `"equals"` + `variable`/`equals`, and `not:true`. Depth two; visibility observes at most 250 ms. Use `derive-workflow <test.ts> --base-url URL` when its validated sequential Playwright conversion reduces plan construction; review warnings before execution.
+
+`retry` is total attempts (max three), only for genuinely transient navigation/waits/hover/extraction or pre-action click readiness. `recover:"reloadOnce"` requires a wait/extraction with `retry:2`. Never retry destructive mutations or uncertain side effects. Plans are bounded to 300 nodes / 180 seconds, 360 executed nodes/attempts/reloads and 60 retries; no JavaScript, shell, loops, expressions or AI planning.
 
 On success, stop unless the user requested more. On failure, use compact errors to investigate source first. Call `inspect_browser_run` only for necessary categories; call `get_browser_artifact` only for one useful artifact. Never fetch screenshots, traces or full logs automatically.
 

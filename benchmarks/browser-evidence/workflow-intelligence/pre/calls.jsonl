@@ -1,0 +1,2 @@
+{"scenario":"medium-success","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":16,"workflowDurationMs":null}
+{"scenario":"medium-success","mode":"ratatoskr","run":1,"workflow":1,"inspection":0,"artifact":0,"direct":0,"workflowDurationMs":421}

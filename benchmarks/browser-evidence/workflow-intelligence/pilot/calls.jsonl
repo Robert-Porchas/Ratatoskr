@@ -1,0 +1,14 @@
+{"scenario":"variables","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":10,"workflowDurationMs":null}
+{"scenario":"login-required","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":10,"workflowDurationMs":null}
+{"scenario":"login-required","mode":"ratatoskr","run":1,"workflow":1,"inspection":1,"artifact":0,"direct":0,"workflowDurationMs":674}
+{"scenario":"variables","mode":"ratatoskr","run":1,"workflow":2,"inspection":2,"artifact":0,"direct":0,"workflowDurationMs":641}
+{"scenario":"login-existing","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":6,"workflowDurationMs":null}
+{"scenario":"transient","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":10,"workflowDurationMs":null}
+{"scenario":"login-existing","mode":"ratatoskr","run":1,"workflow":1,"inspection":1,"artifact":0,"direct":0,"workflowDurationMs":365}
+{"scenario":"transient","mode":"ratatoskr","run":1,"workflow":4,"inspection":0,"artifact":0,"direct":0,"workflowDurationMs":0}
+{"scenario":"server-failure","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":7,"workflowDurationMs":null}
+{"scenario":"generated","mode":"baseline","run":1,"workflow":3,"inspection":1,"artifact":0,"direct":0,"workflowDurationMs":404}
+{"scenario":"server-failure","mode":"ratatoskr","run":1,"workflow":1,"inspection":0,"artifact":0,"direct":0,"workflowDurationMs":5427}
+{"scenario":"generated","mode":"ratatoskr","run":1,"workflow":2,"inspection":1,"artifact":0,"direct":0,"workflowDurationMs":412}
+{"scenario":"complex","mode":"baseline","run":1,"workflow":0,"inspection":0,"artifact":0,"direct":23,"workflowDurationMs":null}
+{"scenario":"complex","mode":"ratatoskr","run":1,"workflow":4,"inspection":3,"artifact":1,"direct":0,"workflowDurationMs":5720}

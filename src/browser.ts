@@ -23,11 +23,13 @@ export interface BrowserAdapter {
     session?: SessionObservation,
   ): Promise<void>;
   stop(tracePath?: string): Promise<void>;
+  reload?(timeoutMs: number): Promise<void>;
   navigate(url: string, timeoutMs: number): Promise<void>;
   click(
     target: BrowserTarget,
     timeoutMs: number,
     options?: {
+      safeRetry?: boolean;
       expectPopup?: boolean;
       dialog?: DialogExpectation & { value?: string };
     },

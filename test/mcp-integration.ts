@@ -289,7 +289,8 @@ try {
   assert(sizes.inspectionBytes < 3500);
   assert(sizes.artifactMetadataBytes < 500);
   // Allow a little maintenance headroom over the measured ~4 KB compact interface.
-  assert(sizes.toolDefinitionsBytes < 4_500);
+  // The recursive workflow schema adds four bounded predicates without another tool.
+  assert(sizes.toolDefinitionsBytes < 5_500);
   assert.equal(
     transportErrors.length,
     0,
