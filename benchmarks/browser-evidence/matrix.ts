@@ -84,6 +84,7 @@ const configuration = {
   browserVersion,
   timeoutMs: 180000,
   maxToolCalls,
+  proxyMaxToolCalls: maxToolCalls,
   viewport: { width: 1280, height: 720 },
   dirty: Boolean(
     execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),

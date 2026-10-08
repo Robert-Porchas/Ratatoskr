@@ -71,6 +71,9 @@ async function publish(root: string, label: string, legacy: boolean) {
   const rows = parseResults(
     await readFile(join(root, 'results.jsonl'), 'utf8'),
   );
+  const configuration = JSON.parse(
+    await readFile(join(root, 'configuration.json'), 'utf8'),
+  ) as Record<string, unknown>;
   const usage = [];
   const calls: Array<{
     scenario: string | undefined;
@@ -117,6 +120,13 @@ async function publish(root: string, label: string, legacy: boolean) {
     const metrics = JSON.parse(
       await readFile(join(directory, 'codex-browser-metrics.json'), 'utf8'),
     ) as Record<string, unknown>;
+    if (
+      typeof configuration.proxyMaxToolCalls === 'number' &&
+      metrics.maxToolCalls !== configuration.proxyMaxToolCalls
+    )
+      throw new Error(
+        'Recorded proxy call budget does not match configuration',
+      );
     if (typeof metrics.workflowDurationMs === 'number')
       calls.at(-1)!.workflowDurationMs = metrics.workflowDurationMs;
   }

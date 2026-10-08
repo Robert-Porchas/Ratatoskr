@@ -52,6 +52,7 @@ export async function runCodex(options: CodexOptions): Promise<{
       ...(options.workflowScope ? { BENCHMARK_WORKFLOW_SCOPE: '1' } : {}),
       BENCHMARK_FIXTURE_URL: options.url,
       BENCHMARK_DIRECTORY: options.directory,
+      BENCHMARK_MAX_TOOL_CALLS: String(options.maxToolCalls ?? 24),
       ...(options.baseline ? { BENCHMARK_BASELINE: options.baseline } : {}),
       ...(options.sessionDiagnostics
         ? {

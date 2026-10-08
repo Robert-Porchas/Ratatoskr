@@ -20,6 +20,12 @@ const mode = z
   .parse(process.env.BENCHMARK_MODE);
 const url = z.url().parse(process.env.BENCHMARK_FIXTURE_URL);
 const directory = z.string().min(1).parse(process.env.BENCHMARK_DIRECTORY);
+const maxToolCalls = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(60)
+  .parse(process.env.BENCHMARK_MAX_TOOL_CALLS ?? 24);
 const controller = new AbortController();
 if (process.env.BENCHMARK_VALUES) {
   const values = z
@@ -41,6 +47,7 @@ const persistMetrics = async () =>
     JSON.stringify({
       ...(await session.metrics()),
       toolInteractions: interactions,
+      maxToolCalls,
       returnedEvidenceBytes,
       toolDefinitionsBytes: bytes(session.tools),
       schemaByTool: measureSchemas(session.tools),
@@ -66,7 +73,7 @@ for (const tool of session.tools) {
     async (args) => {
       const start = Date.now();
       let reply: ToolReply;
-      if (interactions >= 24)
+      if (interactions >= maxToolCalls)
         throw new Error('Maximum browser tool calls exceeded');
       try {
         reply = await session.call(tool.name, args as Record<string, unknown>);

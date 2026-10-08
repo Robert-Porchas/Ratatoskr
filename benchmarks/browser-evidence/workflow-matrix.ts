@@ -90,6 +90,7 @@ const configuration = {
     .digest('hex'),
   timeoutMs: 180000,
   maxToolCalls,
+  proxyMaxToolCalls: maxToolCalls,
   viewport: { width: 1280, height: 720 },
   tokenAccounting: 'codex-json-events',
   baseline: '@playwright/mcp@0.0.83',
