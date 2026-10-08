@@ -290,6 +290,10 @@ Observation is bounded and best effort: 200 cookies, 200 storage entries, 100 ac
 
 ## Token-first browser benchmark
 
+The [workflow intelligence sprint](benchmarks/browser-evidence/workflow-intelligence/README.md) adds measured local variables, optional login and bounded recovery. Ten fresh pairs per case show median tokens falling from 86,603 to 33,155 for variable propagation, and from 60,974.5 to 33,025.5 for transient recovery; both execute in one Ratatoskr call. Test conversion is approximately token-neutral on the tested example. Added schema/control-flow support costs about 3.1% more Ratatoskr tokens on an unchanged medium workflow; the report preserves that overhead, diagnostic limitations, capped runs and complete full-flow repeats.
+
+The full login/create/extract/recover/save/verify workflow uses 33,671 versus 159,287.5 direct median tokens (78.9% lower). Ratatoskr completes 10/10 tasks, nine in one call; direct completes 8/10. All attempts, including plan repairs and failed direct tasks, are included in those token medians.
+
 The benchmark measures **actual Codex task tokens**, separately from browser evidence bytes. Ratatoskr is intended for source-known, multi-step software tests—not autonomous page discovery. Earlier live measurements showed a token regression despite smaller returned evidence; those unfavorable records remain available in the [original sample](benchmarks/browser-evidence/codex-sample/README.md) and [pre-optimization baseline](benchmarks/browser-evidence/optimization/pre.json).
 
 The optimization harness compares fresh Codex tasks on identical local fixtures. Its primary direct baseline is pinned official Playwright MCP, including bulk form fill and normal observations; a second `direct` baseline uses the original individual-action adapter. Each mode receives identical task/source facts. No byte-to-token conversion is used.

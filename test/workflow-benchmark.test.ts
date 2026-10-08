@@ -41,6 +41,7 @@ it.each([
   ['final', 140],
   ['legacy-final', 80],
   ['complex-final', 20],
+  ['complex-proxy-final', 20],
   ['large-final', 20],
 ])(
   'audits all published %s tasks, including unsuccessful tasks',

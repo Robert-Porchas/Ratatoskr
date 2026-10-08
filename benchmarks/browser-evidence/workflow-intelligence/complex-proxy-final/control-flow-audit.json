@@ -1,0 +1,111 @@
+[
+  {
+    "run": 1,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 2,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 3,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 4,
+    "steps": 16,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 5,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 6,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 7,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 8,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 9,
+    "steps": 23,
+    "branches": 2,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  },
+  {
+    "run": 10,
+    "steps": 15,
+    "branches": 1,
+    "variableCreations": 1,
+    "retryReasons": {
+      "element_not_found": 1,
+      "navigation_transient": 1
+    },
+    "reloadRecoveries": 1
+  }
+]

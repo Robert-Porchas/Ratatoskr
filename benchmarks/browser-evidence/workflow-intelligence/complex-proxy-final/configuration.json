@@ -1,0 +1,25 @@
+{
+  "runs": 10,
+  "concurrency": 2,
+  "model": "gpt-6.1-sol",
+  "reasoning": "medium",
+  "scenarios": ["complex"],
+  "commit": "75118445232e783208fa12946b315d7407e513b2",
+  "codexVersion": "codex-cli 0.161.0",
+  "browserVersion": "153.0.8010.12",
+  "dirty": false,
+  "nodeVersion": "v24.19.0",
+  "lockfileHash": "8d3e7d94f249df10a18698385c9c0897befe693d96adbed524218d37e23310c9",
+  "timeoutMs": 180000,
+  "maxToolCalls": 40,
+  "proxyMaxToolCalls": 40,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "tokenAccounting": "codex-json-events",
+  "baseline": "@playwright/mcp@0.0.83",
+  "generatedComparison": "manual translation vs CLI-derived plan; both use actual Ratatoskr MCP",
+  "fixtureHash": "1300e9ed69a3f16674df3e9422a648d39bf169b535e481965b94e6b51d6b27df",
+  "sourceHash": "1a6cac3b73d8a8d0df24cccf67564de1942e1e74dad58d0d9734d4ed540c4ae3"
+}
