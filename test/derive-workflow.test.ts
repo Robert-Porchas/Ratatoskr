@@ -66,3 +66,14 @@ it('warns about weakened URL assertions, complex locators, hooks and source boun
   ).toBe(true);
   expect(() => deriveWorkflows('x'.repeat(256001), 'x.ts')).toThrow('bytes');
 });
+
+it('does not mark parser-recovered malformed source as ready', () => {
+  const results = deriveWorkflows(
+    `test('broken', async ({page}) => { await page.goto('http://localhost'); await page.getByTestId('ready').click();`,
+    'broken.spec.ts',
+  );
+  expect(results).toHaveLength(1);
+  expect(results[0]).toMatchObject({ ready: false, convertedSteps: 0 });
+  expect(results[0]?.plan).toBeUndefined();
+  expect(results[0]?.unsupported[0]?.reason).toContain('syntax');
+});

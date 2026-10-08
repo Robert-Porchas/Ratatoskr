@@ -13,6 +13,14 @@ export interface DerivedWorkflow {
   plan?: { url: string; steps: Record<string, unknown>[] };
 }
 
+function boundedOutput(workflows: DerivedWorkflow[]): DerivedWorkflow[] {
+  if (Buffer.byteLength(JSON.stringify(workflows)) > 64_000)
+    throw new Error(
+      'Converted output exceeds 64000 bytes; use a smaller test file',
+    );
+  return workflows;
+}
+
 /** Syntax conversion only. Never imports, executes, follows imports or evaluates test code. */
 export function deriveWorkflows(
   source: string,
@@ -28,6 +36,32 @@ export function deriveWorkflows(
     true,
     ts.ScriptKind.TS,
   );
+  // The compiler reports parser recovery; malformed source must never be marked ready.
+  // Transpilation stays in memory: no imports are resolved and nothing is executed.
+  const syntax = (
+    ts.transpileModule(source, {
+      fileName,
+      compilerOptions: { target: ts.ScriptTarget.Latest },
+      reportDiagnostics: true,
+    }).diagnostics ?? []
+  ).filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error);
+  if (syntax.length)
+    return boundedOutput([
+      {
+        name: 'invalid test source',
+        ready: false,
+        convertedSteps: 0,
+        unsupported: syntax.slice(0, 25).map((diagnostic) => {
+          const position = file.getLineAndCharacterOfPosition(
+            diagnostic.start ?? 0,
+          );
+          return {
+            location: `${fileName}:${position.line + 1}:${position.character + 1}`,
+            reason: 'Invalid TypeScript syntax requires manual review',
+          };
+        }),
+      },
+    ]);
   const workflows: DerivedWorkflow[] = [];
   const literal = (node: ts.Node | undefined): string | undefined =>
     node &&
@@ -296,9 +330,5 @@ export function deriveWorkflows(
           'Unsupported top-level setup may affect this test; review the converted prefix',
         );
     }
-  if (Buffer.byteLength(JSON.stringify(workflows)) > 64_000)
-    throw new Error(
-      'Converted output exceeds 64000 bytes; use a smaller test file',
-    );
-  return workflows;
+  return boundedOutput(workflows);
 }
