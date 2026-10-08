@@ -1,0 +1,2 @@
+{"scenario":"medium-success","mode":"baseline","run":1,"events":[{"type":"thread.started"},{"type":"turn.started"},{"type":"turn.completed","usage":{"input_tokens":89275,"cached_input_tokens":71552,"output_tokens":815,"reasoning_output_tokens":141}}]}
+{"scenario":"medium-success","mode":"ratatoskr","run":1,"events":[{"type":"thread.started"},{"type":"turn.started"},{"type":"turn.completed","usage":{"input_tokens":32977,"cached_input_tokens":11264,"output_tokens":529,"reasoning_output_tokens":58}}]}

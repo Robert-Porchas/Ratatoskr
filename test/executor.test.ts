@@ -6,6 +6,7 @@ import type { EvidenceInput } from '../src/evidence.js';
 import type {
   ArtifactReference,
   BrowserPlan,
+  WorkflowCondition,
   Evidence,
   RunRecord,
   RunResult,
@@ -257,6 +258,66 @@ it('counts recovery reloads toward the executed-step budget', async () => {
   expect(reload).toHaveBeenCalledTimes(30);
   expect(calls).toBe(329);
 });
+
+it('enforces the global retry cap across otherwise bounded steps', async () => {
+  const browser = new FakeBrowser();
+  let calls = 0;
+  vi.spyOn(browser, 'waitFor').mockImplementation(async () => {
+    if (++calls % 2 === 1)
+      throw Object.assign(new Error('timing'), { name: 'TimeoutError' });
+  });
+  const reload = vi.fn(async () => {});
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: Array.from({ length: 100 }, () => ({
+        action: 'wait_for' as const,
+        target: { kind: 'testId' as const, testId: 'ready' },
+        retry: 2,
+        recover: 'reloadOnce' as const,
+      })),
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+  expect(reload).toHaveBeenCalledTimes(60);
+  expect(calls).toBe(121);
+});
+
+it.each([
+  { kind: 'visible', target: { kind: 'testId', testId: 'ready' } },
+  { kind: 'url_contains', contains: 'localhost' },
+  { kind: 'variable_exists', variable: 'id' },
+  { kind: 'variable_equals', variable: 'id', equals: '42' },
+] satisfies WorkflowCondition[])(
+  'evaluates $kind and its negation locally',
+  async (condition) => {
+    for (const not of [false, true]) {
+      const browser = new FakeBrowser();
+      const result = await executePlan(
+        {
+          startUrl: 'http://localhost',
+          parameters: { id: '42' },
+          steps: [
+            {
+              action: 'branch',
+              condition: { ...condition, not },
+              then: [{ action: 'navigate', url: 'http://localhost/yes' }],
+              else: [{ action: 'navigate', url: 'http://localhost/no' }],
+            },
+          ],
+        },
+        { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+      );
+      expect(result.success).toBe(true);
+      expect(browser.url).toBe(`http://localhost/${not ? 'no' : 'yes'}`);
+    }
+  },
+);
 
 it.each([true, false])(
   'chooses one local branch and retains decisions only in steps (%s)',

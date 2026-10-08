@@ -9,19 +9,7 @@ Use for deterministic app workflows (login, forms, CRUD, checkout, regressions).
 
 Before execution, derive routes, labels, accessible names, test IDs and expected behavior from source or existing tests when available. Construct the complete workflow; do not rediscover known facts through browser calls.
 
-Call `run_browser_workflow` once with `url` and `steps`. Steps use `do` plus one flat locator: `label`, `text`, `testId`, `css`, or `role` + optional `name`. Example:
-
-```json
-{
-  "url": "http://127.0.0.1:3000/login",
-  "steps": [
-    { "do": "fill", "label": "Email", "valueRef": "TEST_EMAIL" },
-    { "do": "fill", "label": "Password", "valueRef": "TEST_PASSWORD" },
-    { "do": "click", "role": "button", "name": "Sign in" },
-    { "do": "url", "contains": "/dashboard" }
-  ]
-}
-```
+Call `run_browser_workflow` once with `url` and `steps`. Steps use `do` plus one flat locator: `label`, `text`, `testId`, `css`, or `role` + optional `name`.
 
 Use configured local `valueRef` names, never plaintext secrets. `has` asserts target text with `contains`; `extractText`/`extractAttribute` + `save` requests a small output, including on later failure. Use `${savedName}` in later navigation, semantic locators, assertions, fills or selects to avoid another workflow call. Verify persisted state, not merely edited inputs.
 

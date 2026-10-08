@@ -55,8 +55,9 @@
     "benchmark:session:summary": "tsx benchmarks/browser-evidence/session-summary.ts",
     "benchmark:session:audit": "tsx benchmarks/browser-evidence/audit-session.ts",
     "benchmark:session:publish": "tsx benchmarks/browser-evidence/publish-session.ts",
-    "test:workflow": "npm run build && node dist/test/workflow-integration.js",
-    "benchmark:workflow": "npm run build && node dist/benchmarks/browser-evidence/workflow-matrix.js"
+    "test:workflow": "npm run build && node dist/test/workflow-integration.js && node dist/test/workflow-safety-integration.js",
+    "benchmark:workflow": "npm run build && node dist/benchmarks/browser-evidence/workflow-matrix.js",
+    "benchmark:workflow:publish": "tsx benchmarks/browser-evidence/publish-workflow.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",
