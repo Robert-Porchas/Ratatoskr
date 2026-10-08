@@ -42,6 +42,12 @@ const model = z.string().min(1).parse(process.env.BENCHMARK_MODEL);
 const reasoning = z
   .enum(['low', 'medium', 'high'])
   .parse(process.env.BENCHMARK_CODEX_REASONING_EFFORT ?? 'medium');
+const maxToolCalls = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(60)
+  .parse(process.env.BENCHMARK_MAX_TOOL_CALLS ?? 24);
 const scenarios = (
   process.env.BENCHMARK_WORKFLOWS ?? scenarioSchema.options.join(',')
 )
@@ -52,6 +58,9 @@ const suite = z
   .regex(/^[a-zA-Z0-9_-]+$/)
   .parse(process.env.BENCHMARK_SUITE ?? randomUUID());
 const root = resolve('benchmarks/browser-evidence/results', suite);
+await mkdir(resolve('benchmarks/browser-evidence/results'), {
+  recursive: true,
+});
 await mkdir(root, { recursive: false });
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
   encoding: 'utf8',
@@ -80,7 +89,7 @@ const configuration = {
     .update(await readFile('package-lock.json'))
     .digest('hex'),
   timeoutMs: 180000,
-  maxToolCalls: 24,
+  maxToolCalls,
   viewport: { width: 1280, height: 720 },
   tokenAccounting: 'codex-json-events',
   baseline: '@playwright/mcp@0.0.83',
@@ -158,6 +167,7 @@ async function run(
       signal: controller.signal,
       reasoningEffort: reasoning,
       workflowScope: true,
+      maxToolCalls,
       ...(scenario === 'generated' ? { toolMode: 'ratatoskr' as const } : {}),
     });
     const tools = measureCodexTools(native.events);
@@ -202,6 +212,12 @@ async function run(
         : scenario === 'transient'
           ? created.length === 0
           : created.length === 1,
+      detailsCount:
+        scenario !== 'complex' ||
+        fixture.requests.filter(
+          (request) =>
+            request.method === 'POST' && request.path === '/api/projects/P-1',
+        ).length === 1,
       persisted:
         scenario === 'server-failure'
           ? fixture.projects.size === 0

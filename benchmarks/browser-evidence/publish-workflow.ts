@@ -71,8 +71,17 @@ async function publish(root: string, label: string, legacy: boolean) {
   const rows = parseResults(
     await readFile(join(root, 'results.jsonl'), 'utf8'),
   );
-  const usage = [],
-    calls = [];
+  const usage = [];
+  const calls: Array<{
+    scenario: string | undefined;
+    mode: 'baseline' | 'ratatoskr';
+    run: number;
+    workflow: number;
+    inspection: number;
+    artifact: number;
+    direct: number;
+    workflowDurationMs: number | null;
+  }> = [];
   for (const row of rows) {
     const directory = join(
       root,
@@ -133,12 +142,35 @@ async function publish(root: string, label: string, legacy: boolean) {
           'durationMs',
         ].map((metric) => [
           metric,
-          distribution(
-            group
-              .map((row) => row[metric as keyof BenchmarkResult])
-              .filter((value): value is number => typeof value === 'number'),
-          ),
+          group.every(
+            (row) => typeof row[metric as keyof BenchmarkResult] === 'number',
+          )
+            ? distribution(
+                group.map(
+                  (row) => row[metric as keyof BenchmarkResult] as number,
+                ),
+              )
+            : null,
         ]),
+      ),
+      callMetrics: Object.fromEntries(
+        [
+          'workflow',
+          'inspection',
+          'artifact',
+          'direct',
+          'workflowDurationMs',
+        ].map((metric) => {
+          const values = calls
+            .filter((row) => `${row.scenario}/${row.mode}` === key)
+            .map((row) => row[metric as keyof typeof row]);
+          return [
+            metric,
+            values.every((value) => typeof value === 'number')
+              ? distribution(values as number[])
+              : null,
+          ];
+        }),
       ),
     };
   });

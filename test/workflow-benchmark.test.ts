@@ -37,6 +37,9 @@ it('publishes native accounting without tool bodies, credentials or thread IDs',
 it.each([
   ['pre', 2],
   ['pilot', 14],
+  ['controlled-pre', 20],
+  ['final', 140],
+  ['legacy-final', 80],
 ])(
   'audits all published %s tasks, including unsuccessful tasks',
   async (label, count) => {
@@ -71,5 +74,9 @@ it.each([
     }
     if (label === 'pilot')
       expect(rows.filter((row) => !row.success)).toHaveLength(2);
+    if (label === 'legacy-final')
+      expect(rows.filter((row) => !row.tokenAuthoritative)).toHaveLength(3);
+    if (label === 'final')
+      expect(rows.filter((row) => !row.tokenAuthoritative)).toHaveLength(5);
   },
 );

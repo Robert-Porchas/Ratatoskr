@@ -29,6 +29,7 @@ interface CodexOptions {
   sessionDiagnostics?: 'on' | 'off';
   workflowScope?: boolean;
   toolMode?: 'baseline' | 'ratatoskr';
+  maxToolCalls?: number;
 }
 
 /** This launches a fresh task, never resumes this development conversation or a prior benchmark. */
@@ -167,7 +168,7 @@ export async function runCodex(options: CodexOptions): Promise<{
           event.type === 'item.started' &&
           item.success &&
           item.data.type === 'mcp_tool_call' &&
-          ++startedToolCalls > 24
+          ++startedToolCalls > (options.maxToolCalls ?? 24)
         ) {
           error ??= 'Maximum browser tool calls exceeded';
           terminate();
