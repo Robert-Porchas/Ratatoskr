@@ -411,7 +411,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     } catch (error) {
       if (
         error instanceof Error &&
-        /net::ERR_(CONNECTION_RESET|CONNECTION_CLOSED|TIMED_OUT|NETWORK_CHANGED)/.test(
+        /net::ERR_(CONNECTION_RESET|CONNECTION_CLOSED|TIMED_OUT|NETWORK_CHANGED|ABORTED)/.test(
           error.message,
         )
       )

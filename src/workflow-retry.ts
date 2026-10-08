@@ -32,7 +32,7 @@ export function retryPolicyError(step: BrowserStep): string | undefined {
     return 'Retry is incompatible with dialog or popup clicks';
 }
 
-/** Explicit policies only. HTTP errors and uncertain side effects always stop replay. */
+/** Default GET navigation recovery is narrow; HTTP errors and uncertain effects stop replay. */
 export function retryable(
   step: BrowserStep,
   kind: FailureKind,
@@ -41,6 +41,8 @@ export function retryable(
   if (events.some((event) => event.type === 'http' && event.status >= 400))
     return false;
   if (step.action === 'click') return kind === 'target_not_ready';
+  if (step.action === 'navigate' && step.retry === undefined)
+    return kind === 'navigation_transient';
   return (
     readActions.has(step.action) &&
     ['timeout', 'element_not_found', 'navigation_transient'].includes(kind)

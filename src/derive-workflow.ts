@@ -184,6 +184,10 @@ export function deriveWorkflows(
         }
       }
       const target = locator(member.receiver);
+      if (!url) {
+        warn(workflow, line, 'The first action must be a literal page.goto');
+        break;
+      }
       if (
         target &&
         member.method === 'click' &&

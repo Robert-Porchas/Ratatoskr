@@ -81,7 +81,7 @@ export function createMcpServer(): McpServer {
     'run_browser_workflow',
     {
       description:
-        'Batch a complete app workflow. Flat locators: label/text/testId/css/role+name. fill: valueRef or value with ${savedName}; extractText/Attribute: save. if: visible/url/exists/equals + then/else; not negates. retry: total attempts 1–3; reloadOnce: wait/extraction + retry:2. No JS/loops. Inspect only missing evidence.',
+        'Batch a complete app workflow. Locator: label/text/testId/css/role+name. fill: valueRef or value with ${savedName}; has: text contains; url: URL contains; wait: visible. extractText/Attribute: save. if: visible/url/exists/equals + then/else; not negates. retry: total attempts 1–3; reloadOnce: wait/extraction + retry:2. No JS/loops. Stop on success; inspect only missing failure evidence.',
       inputSchema: applicationValidatedSchema(wirePlanJsonSchema),
       outputSchema: runOutput,
       annotations: { readOnlyHint: false, destructiveHint: true },

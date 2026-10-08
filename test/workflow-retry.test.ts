@@ -30,6 +30,9 @@ it('uses a narrow transient whitelist and vetoes all observed HTTP errors', () =
   };
   expect(retryable(navigate, 'navigation_transient', [])).toBe(true);
   expect(retryable(navigate, 'navigation', [])).toBe(false);
+  expect(
+    retryable({ action: 'navigate', url: 'http://localhost' }, 'timeout', []),
+  ).toBe(false);
   expect(retryable(navigate, 'assertion', [])).toBe(false);
   for (const status of [400, 401, 403, 500])
     expect(

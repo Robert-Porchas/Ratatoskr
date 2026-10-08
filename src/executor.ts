@@ -433,14 +433,19 @@ export async function executePlan(
                   ),
                 )
               : condition.kind === 'url_contains'
-                ? (await deps.browser.currentUrl()).includes(condition.contains)
+                ? (
+                    await withinBudget(() => deps.browser.currentUrl())
+                  ).includes(condition.contains)
                 : condition.kind === 'variable_exists'
                   ? variables.has(condition.variable)
                   : variables.get(condition.variable) === condition.equals;
           branch = condition.not ? !answer : answer;
         }
         let value: string | undefined;
-        const totalAttempts = step.action === 'branch' ? 1 : (step.retry ?? 1);
+        const totalAttempts =
+          step.action === 'branch'
+            ? 1
+            : (step.retry ?? (step.action === 'navigate' ? 2 : 1));
         while (attempts < totalAttempts) {
           attempts++;
           if (totalAttempts > 1)
@@ -488,6 +493,11 @@ export async function executePlan(
               reason: classified.kind,
             });
             if (step.action !== 'branch' && step.recover === 'reloadOnce') {
+              if (++executed > MAX_EXECUTED_STEPS)
+                throw new RatatoskrError(
+                  'budget_exhausted',
+                  'WORKFLOW_BUDGET_EXHAUSTED',
+                );
               if (!deps.browser.reload)
                 throw new RatatoskrError(
                   'browser_execution',

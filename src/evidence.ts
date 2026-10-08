@@ -39,6 +39,12 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
     'invalid_plan',
     'artifact_not_found',
     'cancelled',
+    'undefined_variable',
+    'invalid_variable',
+    'target_not_ready',
+    'navigation_transient',
+    'side_effect_state_unknown',
+    'budget_exhausted',
   ]),
   action: new Set([
     ...BrowserActionSchema.options.map((schema) => schema.shape.action.value),

@@ -38,6 +38,12 @@ for (;;) { process.exit(1); }
 });
 
 it('warns about weakened URL assertions, complex locators, hooks and source bounds', () => {
+  expect(
+    deriveWorkflows(
+      `test('x',async ({page}) => {await page.getByTestId('ready').click();await page.goto('http://localhost');});`,
+      'x.ts',
+    )[0]?.ready,
+  ).toBe(false);
   for (const statement of [
     `await expect(page).toHaveURL('http://localhost/done');`,
     `await expect(page).toHaveURL(/done/);`,

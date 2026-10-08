@@ -211,6 +211,53 @@ it('enforces the overall deadline even for a browser operation that never resolv
   expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
 });
 
+it('retries an interrupted GET navigation once by default', async () => {
+  const browser = new FakeBrowser();
+  const navigate = vi
+    .spyOn(browser, 'navigate')
+    .mockRejectedValueOnce(
+      new RatatoskrError('navigation_transient', 'Interrupted navigation'),
+    );
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [{ action: 'assert_url', contains: 'localhost' }],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(true);
+  expect(navigate).toHaveBeenCalledTimes(2);
+});
+
+it('counts recovery reloads toward the executed-step budget', async () => {
+  const browser = new FakeBrowser();
+  let calls = 0;
+  vi.spyOn(browser, 'waitFor').mockImplementation(async () => {
+    if (++calls <= 60 && calls % 2 === 1)
+      throw Object.assign(new Error('timing'), { name: 'TimeoutError' });
+  });
+  const reload = vi.fn(async () => {});
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: Array.from({ length: 300 }, () => ({
+        action: 'wait_for' as const,
+        target: { kind: 'testId' as const, testId: 'ready' },
+        retry: 2,
+        recover: 'reloadOnce' as const,
+      })),
+    },
+    {
+      browser: Object.assign(browser, { reload }),
+      ...stores(),
+      values: new EnvironmentValueResolver({}),
+    },
+  );
+  expect(result).toMatchObject({ success: false, code: 'budget_exhausted' });
+  expect(reload).toHaveBeenCalledTimes(30);
+  expect(calls).toBe(329);
+});
+
 it.each([true, false])(
   'chooses one local branch and retains decisions only in steps (%s)',
   async (visible) => {
