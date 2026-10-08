@@ -329,7 +329,7 @@ it('propagates extracted data locally through fill, locator and navigation field
     },
     { browser, ...storage, values: new EnvironmentValueResolver({}) },
   );
-  expect(result).toMatchObject({ success: true });
+  expect(result).toMatchObject({ success: true, outputs: { id: 'Welcome' } });
   expect(fill).toHaveBeenCalledWith(
     { kind: 'label', label: 'Welcome' },
     'Welcome',

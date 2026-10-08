@@ -101,7 +101,7 @@ async function executeStep(
     }
     case 'fill': {
       const value = step.valueRef ? values.resolve(step.valueRef) : step.value!;
-      evidence.protect(value);
+      if (step.valueRef) evidence.protect(value);
       await browser.fill(step.target, value, timeout);
       return;
     }
