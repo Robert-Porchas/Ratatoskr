@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { normalizeWirePlan } from '../src/mcp/wire-plan.js';
-import { retryable } from '../src/workflow-retry.js';
+import { retryable, transientNavigationError } from '../src/workflow-retry.js';
 
 it('validates retry and recovery compatibility before browser startup', () => {
   for (const step of [
@@ -40,4 +40,24 @@ it('uses a narrow transient whitelist and vetoes all observed HTTP errors', () =
         { type: 'http', status, method: 'GET', path: '/', at: 0, stepIndex: 0 },
       ]),
     ).toBe(false);
+});
+
+it('recognizes overlapping GET navigation without broadening other browser errors', () => {
+  expect(
+    transientNavigationError(
+      new Error(
+        'page.goto: Navigation to "http://localhost/project" is interrupted by another navigation to "http://localhost/project"',
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    transientNavigationError(new Error('page.goto: net::ERR_ABORTED')),
+  ).toBe(true);
+  for (const message of [
+    'Timeout 5000ms exceeded',
+    'Target page closed',
+    'HTTP 500',
+    'Navigation failed',
+  ])
+    expect(transientNavigationError(new Error(message))).toBe(false);
 });

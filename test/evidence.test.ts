@@ -17,6 +17,26 @@ const failed: StepResult = {
 };
 
 describe('evidence reduction', () => {
+  it('preserves workflow trace and condition vocabulary while redacting matching data', () => {
+    const collector = new EvidenceCollector();
+    collector.protect('retry');
+    collector.protect('visible');
+    expect(
+      collector.sanitize({
+        trace: [{ event: 'retry', name: 'retry' }],
+        condition: {
+          kind: 'visible',
+          target: { kind: 'testId', testId: 'visible' },
+        },
+      }),
+    ).toEqual({
+      trace: [{ event: 'retry', name: '[REDACTED]' }],
+      condition: {
+        kind: 'visible',
+        target: { kind: 'testId', testId: '[REDACTED]' },
+      },
+    });
+  });
   it('prefers nearby HTTP failures over old errors', () => {
     const events: Evidence[] = [
       {

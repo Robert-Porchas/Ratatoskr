@@ -118,7 +118,7 @@ export async function startRatatoskrSession(
         );
         // Count all attempted primitive steps, including assertions and initial navigation; production metrics omit assertions.
         browserInteractions +=
-          1 +
+          (run.record.initialNavigation?.attempts ?? 1) +
           run.steps
             .filter((step) => step.action !== 'branch')
             .reduce(

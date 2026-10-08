@@ -140,7 +140,11 @@ function section(
     case 'metrics':
       return { ...record.metrics };
     case 'steps':
-      return page(steps, offset, limit);
+      return page(
+        record.initialNavigation ? [record.initialNavigation, ...steps] : steps,
+        offset,
+        limit,
+      );
     case 'failed_requests':
       return page(
         evidence

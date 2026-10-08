@@ -436,4 +436,5 @@ export interface RunRecord {
   status: 'passed' | 'failed' | 'aborted';
   metrics: RunMetrics;
   artifacts: ArtifactReference[];
+  initialNavigation?: StepResult;
 }

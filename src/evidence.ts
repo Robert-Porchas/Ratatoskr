@@ -45,6 +45,10 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
     'navigation_transient',
     'side_effect_state_unknown',
     'budget_exhausted',
+    'visible',
+    'url_contains',
+    'variable_exists',
+    'variable_equals',
   ]),
   action: new Set([
     ...BrowserActionSchema.options.map((schema) => schema.shape.action.value),
@@ -53,6 +57,7 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
     'dismiss',
   ]),
   status: new Set(['passed', 'failed']),
+  event: new Set(['attempt', 'retry', 'recovery', 'variable']),
   level: new Set(['error', 'warning', 'info', 'debug', 'log']),
 };
 

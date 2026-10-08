@@ -219,15 +219,89 @@ it('retries an interrupted GET navigation once by default', async () => {
     .mockRejectedValueOnce(
       new RatatoskrError('navigation_transient', 'Interrupted navigation'),
     );
+  const storage = stores();
   const result = await executePlan(
     {
       startUrl: 'http://localhost',
       steps: [{ action: 'assert_url', contains: 'localhost' }],
     },
-    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
   );
   expect(result.success).toBe(true);
   expect(navigate).toHaveBeenCalledTimes(2);
+  expect(storage.saved.record?.initialNavigation).toMatchObject({
+    index: -1,
+    attempts: 2,
+    trace: expect.arrayContaining([
+      expect.objectContaining({
+        event: 'retry',
+        reason: 'navigation_transient',
+      }),
+    ]),
+  });
+  expect(storage.saved.record?.metrics.browserActionCount).toBe(2);
+  expect(Object.keys(result).sort()).toEqual(['runId', 'success']);
+});
+
+it('closes a browser whose startup finishes after the execution deadline', async () => {
+  vi.useFakeTimers();
+  try {
+    const browser = new FakeBrowser();
+    let finish: (() => void) | undefined;
+    vi.spyOn(browser, 'start').mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const stop = vi.spyOn(browser, 'stop');
+    const running = executePlan(
+      {
+        startUrl: 'http://localhost',
+        timeoutMs: 1000,
+        steps: [{ action: 'assert_url', contains: 'localhost' }],
+      },
+      { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+    );
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(await running).toMatchObject({
+      success: false,
+      code: 'budget_exhausted',
+    });
+    finish!();
+    await vi.runAllTimersAsync();
+    expect(stop).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('rejects empty interpolated select values and URL predicates before the action', async () => {
+  for (const step of [
+    {
+      action: 'select_option' as const,
+      target: { kind: 'label' as const, label: 'Choice' },
+      option: { kind: 'value' as const, value: '${empty}' },
+    },
+    {
+      action: 'branch' as const,
+      condition: { kind: 'url_contains' as const, contains: '${empty}' },
+      then: [],
+    },
+  ]) {
+    const browser = new FakeBrowser();
+    const select = vi.spyOn(browser, 'selectOption');
+    const result = await executePlan(
+      {
+        startUrl: 'http://localhost',
+        parameters: { empty: '' },
+        steps: [step],
+      },
+      { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+    );
+    expect(result).toMatchObject({ success: false, code: 'invalid_variable' });
+    expect(select).not.toHaveBeenCalled();
+  }
 });
 
 it('counts recovery reloads toward the executed-step budget', async () => {

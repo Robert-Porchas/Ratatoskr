@@ -13,6 +13,8 @@ import {
   DEFAULT_WORKFLOW_TIMEOUT_MS,
   BrowserPlanSchema,
   BrowserTargetSchema,
+  BrowserOptionSchema,
+  WorkflowConditionSchema,
   HttpUrlSchema,
 } from './protocol.js';
 import {
@@ -270,6 +272,7 @@ export async function executePlan(
   const extractions = Object.create(null) as Record<string, string>;
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
+  let initialNavigation: StepResult | undefined;
   let browserStarted = false;
   const traceAllowed = !flatSteps.some(
     (step) =>
@@ -357,14 +360,27 @@ export async function executePlan(
   try {
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
-    await withinBudget(() =>
-      deps.browser.start((event) => evidence.record(event), traceAllowed, {
-        protect: (value) => evidence.protect(value),
-        fingerprint: (value) => session.fingerprint(value),
-        response: (response) => session.response(response),
-      }),
-    );
-    browserStarted = true;
+    await withinBudget(async () => {
+      await deps.browser.start(
+        (event) => evidence.record(event),
+        traceAllowed,
+        {
+          protect: (value) => evidence.protect(value),
+          fingerprint: (value) => session.fingerprint(value),
+          response: (response) => session.response(response),
+        },
+      );
+      if (deps.signal?.aborted || Date.now() >= deadline) {
+        await deps.browser.stop().catch(() => undefined);
+        throw new RatatoskrError(
+          deps.signal?.aborted ? 'cancelled' : 'budget_exhausted',
+          deps.signal?.aborted
+            ? 'Browser workflow was cancelled'
+            : 'WORKFLOW_BUDGET_EXHAUSTED',
+        );
+      }
+      browserStarted = true;
+    });
     await captureSession(true, -1);
     if (deps.signal?.aborted)
       throw new RatatoskrError('cancelled', 'Browser workflow was cancelled');
@@ -387,6 +403,16 @@ export async function executePlan(
             'Browser workflow was cancelled',
           );
         step = interpolateStep(template, variables);
+        if (
+          (step.action === 'select_option' &&
+            !BrowserOptionSchema.safeParse(step.option).success) ||
+          (step.action === 'branch' &&
+            !WorkflowConditionSchema.safeParse(step.condition).success)
+        )
+          throw new RatatoskrError(
+            'invalid_variable',
+            'Interpolated option or condition is invalid',
+          );
         const target =
           'target' in step
             ? step.target
@@ -619,6 +645,7 @@ export async function executePlan(
       { action: 'navigate', url: plan.startUrl },
       -1,
     );
+    initialNavigation = initial;
     if (initial.status === 'failed') {
       firstFailure = initial;
       await captureFailure();
@@ -814,7 +841,11 @@ export async function executePlan(
       firstFailure?.index === -1,
     ),
     artifacts,
+    ...(initialNavigation?.attempts && initialNavigation.attempts > 1
+      ? { initialNavigation: sanitizeStep(initialNavigation) }
+      : {}),
   };
+  record.metrics.browserActionCount += (initialNavigation?.attempts ?? 1) - 1;
   if (deps.browser.sessionSnapshot) record.metrics.session = session.metrics;
   await deps.runs.save(
     record,

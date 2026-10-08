@@ -10,6 +10,18 @@ const readActions = new Set([
   'extract_attribute',
 ]);
 
+export function transientNavigationError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (/net::ERR_(CONNECTION_RESET|CONNECTION_CLOSED|TIMED_OUT|NETWORK_CHANGED|ABORTED)/.test(
+      error.message,
+    ) ||
+      /Navigation to .+ is interrupted by another navigation to /.test(
+        error.message,
+      ))
+  );
+}
+
 export function retryPolicyError(step: BrowserStep): string | undefined {
   if (step.action === 'branch') return;
   if (

@@ -20,6 +20,7 @@ import {
 import type { EvidenceInput } from './evidence.js';
 import { basename, extname } from 'node:path';
 import { RatatoskrError } from './errors.js';
+import { transientNavigationError } from './workflow-retry.js';
 
 function safeUrl(value: string): string {
   try {
@@ -409,12 +410,7 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     try {
       await this.getPage().goto(url, { timeout: timeoutMs });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        /net::ERR_(CONNECTION_RESET|CONNECTION_CLOSED|TIMED_OUT|NETWORK_CHANGED|ABORTED)/.test(
-          error.message,
-        )
-      )
+      if (transientNavigationError(error))
         throw new RatatoskrError(
           'navigation_transient',
           'Transient navigation transport failure',
