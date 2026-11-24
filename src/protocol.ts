@@ -3,6 +3,7 @@ import type { SessionFinding, SessionMetrics } from './session.js';
 import { retryPolicyError } from './workflow-retry.js';
 import { flattenSteps, structureError } from './workflow-structure.js';
 import { validateVariables } from './workflow-variables.js';
+import { DiscoveryOptionsSchema, type DiscoveryResult } from './discovery.js';
 
 export const MAX_WORKFLOW_STEPS = 300;
 export const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
@@ -67,6 +68,11 @@ export const BrowserTargetSchema = targetSchema;
 export type BrowserTarget = z.infer<typeof BrowserTargetSchema>;
 
 export const BrowserActionSchema = z.discriminatedUnion('action', [
+  z.strictObject({
+    action: z.literal('discover'),
+    options: DiscoveryOptionsSchema,
+    ...options,
+  }),
   z.strictObject({
     action: z.literal('navigate'),
     url: HttpUrlSchema,
@@ -223,6 +229,15 @@ const planSchema = z
     timeoutMs: z.number().int().min(1000).max(600_000).optional(),
   })
   .superRefine((plan, context) => {
+    if (
+      flattenSteps(plan.steps).filter((step) => step.action === 'discover')
+        .length > 1
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['steps'],
+        message: 'Maximum one discovery per workflow',
+      });
     for (const issue of validateVariables(plan))
       context.addIssue({ code: 'custom', path: ['steps'], message: issue });
     const names = new Map<string, number>();
@@ -303,6 +318,8 @@ export type Evidence =
       stepIndex: number | null;
       method: string;
       path: string;
+      url?: string;
+      urlQueryOmitted?: boolean;
     }
   | {
       type: 'http';
@@ -311,6 +328,9 @@ export type Evidence =
       method: string;
       path: string;
       status: number;
+      url?: string;
+      urlQueryOmitted?: boolean;
+      correlationIds?: Record<string, string>;
     }
   | {
       type: 'request_failed';
@@ -319,6 +339,8 @@ export type Evidence =
       method: string;
       path: string;
       error: string;
+      url?: string;
+      urlQueryOmitted?: boolean;
     }
   | {
       type: 'console';
@@ -333,7 +355,13 @@ export type Evidence =
       stepIndex: number | null;
       message: string;
     }
-  | { type: 'navigation'; at: number; stepIndex: number | null; url: string }
+  | {
+      type: 'navigation';
+      at: number;
+      stepIndex: number | null;
+      url: string;
+      urlQueryOmitted?: boolean;
+    }
   | {
       type: 'dialog';
       at: number;
@@ -394,6 +422,7 @@ export type RunResult =
       runId: RunIdentifier;
       outputs?: Record<string, string>;
       downloads?: string[];
+      discovery?: DiscoveryResult;
     }
   | {
       success: false;
@@ -409,6 +438,7 @@ export type RunResult =
       actualText?: string;
       artifacts?: { screenshot?: string; trace?: string };
       session?: { findings: SessionFinding[] };
+      discovery?: DiscoveryResult;
     };
 
 export interface RunMetrics {
@@ -430,6 +460,19 @@ export interface RunMetrics {
 }
 
 export interface RunRecord {
+  verification?: {
+    schemaVersion: 1;
+    ratatoskrVersion: string;
+    workflowFingerprint: string;
+    targetOrigin: string;
+    browser: 'chromium';
+    headless: true;
+    viewport: { width: 1280; height: 720 };
+    evidencePolicy: 'bounded-responses-v1';
+    droppedEvents: number;
+    pendingRequests: number;
+    completed: boolean;
+  };
   id: RunIdentifier;
   startedAt: string;
   endedAt: string;

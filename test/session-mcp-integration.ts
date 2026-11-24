@@ -36,8 +36,21 @@ try {
   assert(address && typeof address !== 'string');
   await client.connect(transport);
   const discovery = await client.listTools();
-  assert.equal(discovery.tools.length, 3);
-  assert(Buffer.byteLength(JSON.stringify(discovery.tools)) < 5500);
+  assert.equal(discovery.tools.length, 6);
+  assert(Buffer.byteLength(JSON.stringify(discovery.tools)) < 10000);
+  assert(
+    Buffer.byteLength(
+      JSON.stringify(
+        discovery.tools.filter((tool) =>
+          [
+            'run_browser_workflow',
+            'inspect_browser_run',
+            'get_browser_artifact',
+          ].includes(tool.name),
+        ),
+      ),
+    ) < 5500,
+  );
   const reply = await client.callTool({
     name: 'run_browser_workflow',
     arguments: {

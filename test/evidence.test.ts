@@ -17,6 +17,32 @@ const failed: StepResult = {
 };
 
 describe('evidence reduction', () => {
+  it('retains bounded successful HTTP observations without reporting them as errors', () => {
+    const collector = new EvidenceCollector();
+    collector.setStep(4);
+    collector.record({
+      type: 'http',
+      method: 'GET',
+      path: '/',
+      status: 200,
+      observedStepIndex: 1,
+    });
+    expect(collector.events[0]?.stepIndex).toBe(1);
+    expect(relevantErrors(collector.events, failed)).toEqual([]);
+    expect(
+      buildMetrics(1, [], collector.events, 1, 10, 0).failedRequestCount,
+    ).toBe(0);
+    for (let index = 0; index < 4001; index++)
+      collector.record({ type: 'console', level: 'log', message: 'bounded' });
+    expect(collector.events.length).toBe(4000);
+    expect(collector.droppedEvents).toBe(2);
+    collector.record({
+      type: 'console',
+      level: 'log',
+      message: 'x'.repeat(8193),
+    });
+    expect(collector.droppedEvents).toBe(3);
+  });
   it('preserves workflow trace and condition vocabulary while redacting matching data', () => {
     const collector = new EvidenceCollector();
     collector.protect('retry');

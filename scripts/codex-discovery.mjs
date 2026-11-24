@@ -51,10 +51,10 @@ try {
   assert(skill, 'Ratatoskr skill not discovered');
   const servers = await request('mcpServerStatus/list', {});
   const rat = servers.data.find((entry) => entry.name.includes('ratatoskr'));
-  if (!rat || Object.keys(rat.tools).length !== 3)
+  if (!rat || Object.keys(rat.tools).length !== 6)
     process.stderr.write(JSON.stringify(servers) + '\n');
   assert(
-    rat && Object.keys(rat.tools).length === 3,
+    rat && Object.keys(rat.tools).length === 6,
     'Ratatoskr MCP tools not discovered',
   );
   process.stdout.write(

@@ -78,6 +78,67 @@ class MissingTargetBrowser extends FakeBrowser {
   }
 }
 
+it('persists browser startup failure as infrastructure evidence', async () => {
+  const browser = new FakeBrowser();
+  vi.spyOn(browser, 'start').mockRejectedValue(new Error('browser missing'));
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [{ action: 'assert_url', contains: '/' }],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(false);
+  expect(storage.saved.record?.initialNavigation?.failure?.kind).toBe(
+    'browser_execution',
+  );
+  expect(storage.saved.record?.verification?.completed).toBe(false);
+});
+
+it('withholds discovery locators changed by late credential observation', async () => {
+  const browser: BrowserAdapter = new FakeBrowser();
+  let protect: ((value: string) => void) | undefined;
+  vi.spyOn(browser, 'start').mockImplementation(
+    async (_emit, _trace, observation) => {
+      protect = observation?.protect;
+    },
+  );
+  browser.discover = async () => ({
+    matches: [
+      {
+        role: 'button',
+        name: 'Save PRIVATE',
+        visible: true,
+        enabled: true,
+        locator: { kind: 'role', role: 'button', name: 'Save PRIVATE' },
+        matchCount: 1,
+      },
+    ],
+    scanned: 1,
+    truncated: false,
+    limitations: [],
+  });
+  vi.spyOn(browser, 'waitFor').mockImplementation(async () => {
+    protect?.('PRIVATE');
+  });
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [
+        { action: 'discover', options: { maxResults: 1, visibleOnly: true } },
+        { action: 'wait_for', target: { kind: 'text', text: 'Ready' } },
+      ],
+    },
+    { browser, ...stores(), values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(true);
+  expect(result.discovery?.matches[0]?.name).toBe('Save [REDACTED]');
+  expect(result.discovery?.matches[0]).not.toHaveProperty('locator');
+  expect(result.discovery?.matches[0]?.matchCount).toBe(0);
+  expect(JSON.stringify(result)).not.toContain('PRIVATE');
+});
+
 it('recovers a transient wait locally, without adding retry history to success', async () => {
   const browser = new FakeBrowser();
   const wait = vi

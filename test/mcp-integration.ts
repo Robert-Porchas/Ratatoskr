@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +19,31 @@ try {
   const address = fixture.address();
   assert(address && typeof address !== 'string');
   const base = `http://127.0.0.1:${address.port}`;
+  await writeFile(join(root, 'source.ts'), '// diagnostic fixture');
+  await writeFile(
+    join(root, 'app.js.map'),
+    JSON.stringify({
+      version: 3,
+      sources: ['source.ts'],
+      names: [],
+      mappings: 'AAAA',
+    }),
+  );
+  await writeFile(
+    join(root, 'application.json'),
+    JSON.stringify({
+      workspaceRoot: '.',
+      routes: [
+        {
+          method: 'POST',
+          path: '/api/login',
+          source: 'source.ts',
+          symbol: 'login',
+        },
+      ],
+      sourceMaps: [{ generatedUrl: `${base}/app.js`, mapPath: 'app.js.map' }],
+    }),
+  );
   const stderr: string[] = [];
   const transportErrors: Error[] = [];
   transport = new StdioClientTransport({
@@ -27,6 +52,7 @@ try {
     cwd: process.cwd(),
     env: {
       RATATOSKR_DATA_DIR: root,
+      RATATOSKR_APPLICATION_CONFIG: join(root, 'application.json'),
       RATATOSKR_ALLOWED_VALUE_REFS: 'TEST_EMAIL,TEST_PASSWORD',
       TEST_EMAIL: 'demo@example.test',
       TEST_PASSWORD: 'secret-mcp-password',
@@ -41,6 +67,9 @@ try {
   await client.connect(transport);
   const discovered = await client.listTools();
   assert.deepEqual(discovered.tools.map((tool) => tool.name).sort(), [
+    'compare_browser_runs',
+    'diagnose_browser_run',
+    'export_browser_workflow',
     'get_browser_artifact',
     'inspect_browser_run',
     'run_browser_workflow',
@@ -48,6 +77,21 @@ try {
   for (const tool of discovered.tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert(tool.inputSchema.properties);
+  }
+  const schemaBytes = Buffer.byteLength(JSON.stringify(discovered.tools));
+  assert(schemaBytes < 14000, `Unexpected tool metadata size: ${schemaBytes}`);
+  for (const name of [
+    'compare_browser_runs',
+    'export_browser_workflow',
+    'diagnose_browser_run',
+  ]) {
+    const invalid = await client.callTool({
+      name,
+      arguments: { payload: 'PRIVATE_INVALID_ARGUMENT'.repeat(500) },
+    });
+    assert(invalid.isError);
+    assert(Buffer.byteLength(JSON.stringify(invalid)) < 750);
+    assert(!JSON.stringify(invalid).includes('PRIVATE_INVALID_ARGUMENT'));
   }
   const workflowTool = discovered.tools.find(
     (tool) => tool.name === 'run_browser_workflow',
@@ -108,6 +152,47 @@ try {
     name: 'run_browser_workflow',
     arguments: successPlan,
   });
+  const structured = (result: { structuredContent?: unknown }) =>
+    result.structuredContent as Record<string, unknown> | undefined;
+  const successId = structured(successCall)?.runId;
+  assert.equal(typeof successId, 'string');
+  const compared = await client.callTool({
+    name: 'compare_browser_runs',
+    arguments: { baselineRunId: successId, candidateRunId: successId },
+  });
+  assert.equal(structured(compared)?.status, 'unchanged');
+  const exported = await client.callTool({
+    name: 'export_browser_workflow',
+    arguments: { runId: successId, testName: 'Login regression' },
+  });
+  assert.equal(structured(exported)?.ready, true);
+  assert(structured(exported)?.artifact);
+  assert(!('source' in (structured(exported) ?? {})));
+  assert(!JSON.stringify(exported).includes('secret-mcp-password'));
+  const source = await client.callTool({
+    name: 'diagnose_browser_run',
+    arguments: {
+      runId: successId,
+      sourceFrame: { url: `${base}/app.js`, line: 1, column: 1 },
+    },
+  });
+  assert(!source.isError);
+  const sourceMapping = structured(source)?.mapping as
+    { sourceReference?: { path: string } } | undefined;
+  assert.equal(sourceMapping?.sourceReference?.path, 'source.ts');
+  const discovery = await client.callTool({
+    name: 'run_browser_workflow',
+    arguments: {
+      url: `${base}/login`,
+      steps: [
+        { do: 'discover', query: 'Sign in', roles: ['button'], maxResults: 3 },
+      ],
+    },
+  });
+  assert.equal(structured(discovery)?.success, true);
+  const candidates = structured(discovery)?.discovery as
+    { matches?: Array<{ name: string }> } | undefined;
+  assert(candidates?.matches?.some((match) => match.name === 'Sign in'));
   assert(!successCall.isError);
   const success = successCall.structuredContent as {
     success: boolean;
@@ -288,9 +373,22 @@ try {
   assert(sizes.mcpResultBytes < 2200);
   assert(sizes.inspectionBytes < 3500);
   assert(sizes.artifactMetadataBytes < 500);
-  // Allow a little maintenance headroom over the measured ~4 KB compact interface.
-  // The recursive workflow schema adds four bounded predicates without another tool.
-  assert(sizes.toolDefinitionsBytes < 5_500);
+  // Preserve the original tools' budget; three opt-in verification interfaces
+  // have a separate total cap so schema growth stays visible.
+  assert(
+    Buffer.byteLength(
+      JSON.stringify(
+        discovered.tools.filter((tool) =>
+          [
+            'run_browser_workflow',
+            'inspect_browser_run',
+            'get_browser_artifact',
+          ].includes(tool.name),
+        ),
+      ),
+    ) < 5_500,
+  );
+  assert(sizes.toolDefinitionsBytes < 10_000);
   assert.equal(
     transportErrors.length,
     0,

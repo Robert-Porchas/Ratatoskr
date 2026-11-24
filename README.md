@@ -2,6 +2,22 @@
 
 Ratatoskr is a local browser tool for Codex. It batches known multi-step application tests and returns compact diagnostic evidence instead of repeated browser dumps. This reduces model/browser round trips and has measured token savings on the [tested E2E scenarios](#token-first-browser-benchmark); it is not an autonomous browsing agent.
 
+## Verification and developer tooling
+
+Ratatoskr can now help you reproduce an application failure, compare browser evidence after a fix, and turn supported workflows into Playwright regression tests. These capabilities build on the existing browser workflows, variables, branching, retry safety, session diagnostics and evidence inspection documented below.
+
+| Feature                                                                                  | What you can do                                                                                                                                             |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Before-and-after verification](docs/developer-tooling.md#before-and-after-verification) | Compare saved runs for resolved, introduced and persistent failures, with explicit warnings when evidence is incomplete or runs differ.                     |
+| [Playwright Test export](docs/developer-tooling.md#playwright-regression-export)         | Export supported workflows as regression tests with preserved assertions and environment-backed credentials. Unsupported semantics are reported explicitly. |
+| [Application-aware diagnostics](docs/developer-tooling.md#application-diagnostics)       | Connect failing requests to configured source files, capture configured request IDs and resolve supplied source positions through local source maps.        |
+| [Standalone CLI and CI reports](docs/developer-tooling.md#cli-ci-and-doctor)             | Validate and run workflows, compare runs, export tests and produce JSON or JUnit reports with documented exit codes and cancellation handling.              |
+| [Doctor JSON diagnostics](docs/developer-tooling.md#cli-ci-and-doctor)                   | Check installation, browser launch, configuration and storage permissions through a diagnostic command with machine-readable output.                        |
+| [Updated Codex skill](docs/developer-tooling.md#codex-skill)                             | Guide Codex through compact evidence retrieval, fix verification, test export and safe discovery using the existing plugin or a manually installed skill.   |
+| [Bounded semantic discovery](docs/developer-tooling.md#bounded-semantic-discovery)       | Find relevant controls on the current page, inspect ambiguity and receive verified locator suggestions without automatically acting on them.                |
+
+See the [developer tooling guide](docs/developer-tooling.md) for commands, examples, supported operations and current limitations. Execution and evidence remain local and deterministic; source diagnostics use explicit configuration, and discovery is limited to the main frame.
+
 ## Install with Codex
 
 ### Prerequisites
@@ -36,7 +52,7 @@ npm run doctor
 npm run smoke
 ```
 
-The list should show `ratatoskr@ratatoskr-local` installed/enabled. Doctor checks the runtime, writable data directory and Chromium. Smoke connects through stdio, discovers **three tools** and runs a local workflow; expect `"success":true`. Neither needs a model account. Start a **new Codex session**, then `/skills` should include Ratatoskr and `/mcp` should show its browser tools. For a structured discovery check: `node scripts/codex-discovery.mjs`.
+The list should show `ratatoskr@ratatoskr-local` installed/enabled. Doctor checks the runtime, writable data directory and Chromium. Smoke connects through stdio, discovers **six tools** and runs a local workflow; expect `"success":true`. Neither needs a model account. Start a **new Codex session**, then `/skills` should include Ratatoskr and `/mcp` should show its browser tools. For a structured discovery check: `node scripts/codex-discovery.mjs`.
 
 ### Try it
 
@@ -150,11 +166,13 @@ npm run cli -- artifact run_ID artifact_ID --out ./failure.png
 
 Inspection categories are `summary`, `steps`, `failed_requests`, `console_errors`, `page_errors`, `navigation`, `artifacts`, `extracted_values`, and `metrics`. Inspection is bounded and paged: default 10 items, hard maximum 25 per category, messages shortened to 300 characters. The CLI's legacy `network`, `console`, and `all` aliases still work.
 
+Validation, comparison, Playwright export, JUnit reporting, Doctor JSON, application diagnostics and read-only discovery are described in [Developer tooling](docs/developer-tooling.md). Run `npm run cli -- --help` for the complete command reference.
+
 ## Canonical BrowserPlan capabilities (CLI)
 
 Plans contain an HTTP(S) `startUrl`, up to 300 typed steps, and a default 180-second workflow deadline. The CLI's optional `timeoutMs` can override that deadline (maximum 10 minutes). Each step can override the default 5-second timeout (maximum 2 minutes). Playwright auto-waits for actionability; assertions wait for their conditions. Supported actions:
 
-`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_url`, `assert_text`, `assert_visible`, `select_option`, `check`, `uncheck`, `hover`, `upload_file`, `expect_download`, `extract_text`, and `extract_attribute`.
+`navigate`, `click`, `fill`, `press`, `wait_for`, `assert_url`, `assert_text`, `assert_visible`, `select_option`, `check`, `uncheck`, `hover`, `upload_file`, `expect_download`, `extract_text`, `extract_attribute`, and bounded `discover`.
 
 Prefer targets by role/accessibility name, label, text, or test ID; CSS is an escape hatch. `select_option` chooses a typed value, label, or index. `click` can declare an expected alert/confirm/prompt policy or `expectPopup: true` to switch to a new page. Unexpected dialogs or popups fail clearly. `upload_file` accepts only a basename found directly in `RATATOSKR_UPLOAD_DIR`; symlinks escaping that directory are rejected. `expect_download` stores the file as an artifact and returns only its ID. No plan can enumerate files.
 
@@ -191,10 +209,13 @@ Prefer targets by role/accessibility name, label, text, or test ID; CSS is an es
 
 ## MCP tools and compact workflows
 
-The three tools are:
+The six tools are:
 
 - `run_browser_workflow`: accepts the compact MCP format below, normalizes it into the strict canonical BrowserPlan, and returns a compact structured result.
 - `inspect_browser_run`: returns only requested, bounded categories for one run.
+- `compare_browser_runs`: compares observed before/after behavior with completeness warnings.
+- `export_browser_workflow`: exports supported persisted workflows to Playwright Test artifacts.
+- `diagnose_browser_run`: reads explicit local route/source-map diagnostics when configured.
 - `get_browser_artifact`: returns one registered screenshot as MCP image content, a small text artifact as text, or metadata plus a local path for a trace/large binary.
 
 Try asking Codex: “Use Ratatoskr to test the login flow with the test account, verify the dashboard, and investigate source code using the compact failure result. Request more browser evidence only if needed.” Codex derives routes and locators from source/tests, then constructs one workflow. It should not automatically fetch screenshots or traces after every run.
@@ -203,7 +224,7 @@ Try asking Codex: “Use Ratatoskr to test the login flow with the test account,
 
 CLI accepts canonical or compact JSON; MCP uses compact JSON. Locators are flat; exactly one of `label`, `text`, `testId`, `css`, or `role` identifies the target (`name` accompanies `role`). Actions use `do`:
 
-`navigate`, `click`, `fill`, `press`, `wait`, `url`, `has`, `visible`, `select`, `check`, `uncheck`, `hover`, `upload`, `download`, `extractText`, `extractAttribute`.
+`navigate`, `click`, `fill`, `press`, `wait`, `url`, `has`, `visible`, `select`, `check`, `uncheck`, `hover`, `upload`, `download`, `extractText`, `extractAttribute`, `discover`.
 
 ```json
 {

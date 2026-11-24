@@ -149,7 +149,9 @@ function section(
       return page(
         evidence
           .filter(
-            (event) => event.type === 'http' || event.type === 'request_failed',
+            (event) =>
+              (event.type === 'http' && event.status >= 400) ||
+              event.type === 'request_failed',
           )
           .map((event) =>
             event.type === 'request_failed'

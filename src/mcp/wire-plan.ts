@@ -11,6 +11,7 @@ import {
 } from '../protocol.js';
 
 const actions = {
+  discover: 'discover',
   navigate: 'navigate',
   click: 'click',
   fill: 'fill',
@@ -35,6 +36,10 @@ const wireStepJsonSchema = {
   additionalProperties: false,
   properties: {
     do: { type: 'string', enum: Object.keys(actions) },
+    query: { type: 'string', maxLength: 120 },
+    roles: { type: 'array', items: string, maxItems: 10 },
+    visibleOnly: { type: 'boolean' },
+    maxResults: { type: 'integer', minimum: 1, maximum: 20 },
     if: { type: 'string', enum: ['visible', 'url', 'exists', 'equals'] },
     not: { type: 'boolean' },
     variable: string,
@@ -136,6 +141,7 @@ const record = z.record(z.string(), z.unknown());
 const locatorKeys = ['role', 'label', 'text', 'testId', 'css'] as const;
 const common = [...locatorKeys, 'name'];
 const fields: Record<keyof typeof actions, string[]> = {
+  discover: ['query', 'roles', 'visibleOnly', 'maxResults'],
   navigate: ['url'],
   click: [...common, 'popup', 'dialog'],
   fill: [...common, 'valueRef', 'value'],
@@ -325,7 +331,17 @@ export function normalizeWirePlan(input: unknown): BrowserPlan {
       const canonical: Record<string, unknown> = { action };
       if (step.retry !== undefined) canonical.retry = step.retry;
       if (step.recover !== undefined) canonical.recover = step.recover;
-      if (doAction !== 'url' && doAction !== 'navigate')
+      if (doAction === 'discover')
+        canonical.options = Object.fromEntries(
+          fields.discover
+            .filter((key) => step[key] !== undefined)
+            .map((key) => [key, step[key]]),
+        );
+      if (
+        doAction !== 'url' &&
+        doAction !== 'navigate' &&
+        doAction !== 'discover'
+      )
         canonical.target = target(step, path);
       for (const field of [
         'url',

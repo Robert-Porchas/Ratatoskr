@@ -4,6 +4,7 @@ import type {
   DialogExpectation,
 } from './protocol.js';
 import type { EvidenceInput } from './evidence.js';
+import type { DiscoveryOptions, DiscoveryResult } from './discovery.js';
 import type {
   SessionSnapshot,
   SessionResponse,
@@ -74,6 +75,8 @@ export interface BrowserAdapter {
   currentUrl(): Promise<string>;
   /** Optional diagnostic probe; never returns page content or chooses another target. */
   targetExists?(target: BrowserTarget): Promise<boolean>;
+  /** Read-only bounded semantic candidates from the active main frame. */
+  discover?(options: DiscoveryOptions): Promise<DiscoveryResult>;
   screenshot(): Promise<Buffer>;
   /** Internal observation only; unavailable in BrowserPlan. */
   setSessionStep?(stepIndex: number | null): void;

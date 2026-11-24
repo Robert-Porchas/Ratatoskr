@@ -57,18 +57,20 @@
     "benchmark:session:publish": "tsx benchmarks/browser-evidence/publish-session.ts",
     "test:workflow": "npm run build && node dist/test/workflow-integration.js && node dist/test/workflow-safety-integration.js",
     "benchmark:workflow": "npm run build && node dist/benchmarks/browser-evidence/workflow-matrix.js",
-    "benchmark:workflow:publish": "tsx benchmarks/browser-evidence/publish-workflow.ts"
+    "benchmark:workflow:publish": "tsx benchmarks/browser-evidence/publish-workflow.ts",
+    "test:developer-tooling": "npm run build && node dist/test/developer-tooling-integration.js && node dist/test/discovery-integration.js"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.2.0",
     "playwright": "^1.55.0",
-    "zod": "^4.1.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@modelcontextprotocol/client": "^2.2.0",
     "@playwright/mcp": "0.0.83",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.5.0",
     "eslint": "^9.36.0",
     "prettier": "^3.6.2",

@@ -21,10 +21,17 @@ import type { EvidenceInput } from './evidence.js';
 import { basename, extname } from 'node:path';
 import { RatatoskrError } from './errors.js';
 import { transientNavigationError } from './workflow-retry.js';
+import {
+  DiscoveryOptionsSchema,
+  rankDiscoveryCandidates,
+  type DiscoveryOptions,
+  type DiscoveryResult,
+} from './discovery.js';
 
 function safeUrl(value: string): string {
   try {
     const url = new URL(value);
+    if (!/^https?:$/.test(url.protocol)) return '[non-HTTP URL]';
     return `${url.origin}${url.pathname}`;
   } catch {
     return '[invalid URL]';
@@ -33,13 +40,27 @@ function safeUrl(value: string): string {
 
 function safePath(value: string): string {
   try {
-    return new URL(value).pathname;
+    const url = new URL(value);
+    return /^https?:$/.test(url.protocol) ? url.pathname : '[non-HTTP URL]';
   } catch {
     return '[invalid URL]';
   }
 }
 
 export class PlaywrightBrowserAdapter implements BrowserAdapter {
+  private readonly correlationHeaders: readonly string[];
+
+  constructor(options: { correlationHeaders?: readonly string[] } = {}) {
+    const allowed = new Set([
+      'x-request-id',
+      'x-correlation-id',
+      'traceparent',
+    ]);
+    this.correlationHeaders = [...new Set(options.correlationHeaders ?? [])]
+      .filter((name) => allowed.has(name))
+      .slice(0, 3);
+  }
+
   private browser: Browser | undefined;
   private context: BrowserContext | undefined;
   private page: Page | undefined;
@@ -132,6 +153,8 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
         type: 'request',
         method: request.method(),
         path: safePath(request.url()),
+        url: safeUrl(request.url()),
+        ...(new URL(request.url()).search ? { urlQueryOmitted: true } : {}),
       });
     });
     page.on('response', (response) => {
@@ -140,13 +163,37 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
       const mime = response.headers()['content-type'];
       if (mime)
         this.responseMime.set(response.url(), mime.split(';', 1)[0] ?? mime);
-      if (response.status() >= 400)
-        emit({
-          type: 'http',
-          method: response.request().method(),
-          path: safePath(response.url()),
-          status: response.status(),
-        });
+      const correlationIds: Record<string, string> = {};
+      const responseHeaders = response.headers();
+      for (const name of this.correlationHeaders) {
+        const value = responseHeaders[name];
+        if (!value || value.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(value))
+          continue;
+        if (name === 'traceparent') {
+          const parsed =
+            /^([a-f0-9]{2})-([a-f0-9]{32})-([a-f0-9]{16})-([a-f0-9]{2})$/.exec(
+              value,
+            );
+          if (
+            !parsed ||
+            parsed[1] === 'ff' ||
+            /^0+$/.test(parsed[2]!) ||
+            /^0+$/.test(parsed[3]!)
+          )
+            continue;
+        }
+        correlationIds[name] = value;
+      }
+      emit({
+        type: 'http',
+        observedStepIndex: stepIndex,
+        method: response.request().method(),
+        path: safePath(response.url()),
+        url: safeUrl(response.url()),
+        ...(new URL(response.url()).search ? { urlQueryOmitted: true } : {}),
+        status: response.status(),
+        ...(Object.keys(correlationIds).length ? { correlationIds } : {}),
+      });
       const observation = (async () => {
         const headers = await response.headerValues('set-cookie');
         const cookies = headers.flatMap((header) => {
@@ -183,6 +230,8 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
         type: 'request_failed',
         method: request.method(),
         path: safePath(request.url()),
+        url: safeUrl(request.url()),
+        ...(new URL(request.url()).search ? { urlQueryOmitted: true } : {}),
         error: request.failure()?.errorText ?? 'request failed',
       }),
     );
@@ -194,7 +243,11 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
     );
     page.on('framenavigated', (frame) => {
       if (frame === page.mainFrame())
-        emit({ type: 'navigation', url: safeUrl(frame.url()) });
+        emit({
+          type: 'navigation',
+          url: safeUrl(frame.url()),
+          ...(frame.url().includes('?') ? { urlQueryOmitted: true } : {}),
+        });
     });
     page.on('dialog', (dialog) => {
       const expected = this.activeClick?.dialog?.type === dialog.type();
@@ -599,6 +652,289 @@ export class PlaywrightBrowserAdapter implements BrowserAdapter {
   }
   async currentUrl(): Promise<string> {
     return safeUrl(this.getPage().url());
+  }
+  async discover(options: DiscoveryOptions): Promise<DiscoveryResult> {
+    const parsed = DiscoveryOptionsSchema.parse(options);
+    const page = this.getPage();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const work = async (): Promise<DiscoveryResult> => {
+      // Fixed read-only code: no user supplied expression, values or frame traversal.
+      const scan = await page.evaluate(() => {
+        const startedAt = Date.now();
+        const candidates: Array<{
+          role: string;
+          name: string;
+          visible: boolean;
+          enabled: boolean;
+          nameIncomplete: boolean;
+        }> = [];
+        let nameIncomplete = false;
+        const helpers = {
+          text(element: Element): string {
+            const walker = document.createTreeWalker(
+              element,
+              NodeFilter.SHOW_TEXT,
+            );
+            let result = '';
+            let node: Node | null;
+            let visited = 0;
+            while (
+              (node = walker.nextNode()) &&
+              visited++ < 100 &&
+              result.length < 180
+            ) {
+              if (
+                node.parentElement?.closest(
+                  'input,textarea,select,[contenteditable],script,style,[hidden],[aria-hidden="true"]',
+                )
+              )
+                continue;
+              result += ` ${node.textContent?.slice(0, 180) ?? ''}`;
+            }
+            const normalized = result.replace(/\s+/g, ' ').trim();
+            nameIncomplete ||=
+              visited >= 100 || result.length >= 180 || normalized.length > 160;
+            return normalized.slice(0, 160);
+          },
+          nameOf(element: Element, role: string): string {
+            const labelIds = element.getAttribute('aria-labelledby');
+            nameIncomplete ||= (labelIds?.length ?? 0) > 1024;
+            const labelledBy = labelIds?.slice(0, 1024);
+            if (labelledBy) {
+              const label = labelledBy
+                .split(/\s+/)
+                .slice(0, 5)
+                .map((id) => document.getElementById(id))
+                .filter((item): item is HTMLElement => item !== null)
+                .map(helpers.text)
+                .join(' ')
+                .trim();
+              nameIncomplete ||= label.length > 160;
+              if (label) return label.slice(0, 160);
+            }
+            const aria = element.getAttribute('aria-label');
+            if (aria) {
+              nameIncomplete ||= aria.length > 160;
+              return aria.slice(0, 160);
+            }
+            if (
+              element instanceof HTMLInputElement ||
+              element instanceof HTMLTextAreaElement ||
+              element instanceof HTMLSelectElement
+            ) {
+              const labels = [...[0, 1, 2]]
+                .map((index) => element.labels?.[index])
+                .filter(
+                  (label): label is HTMLLabelElement => label !== undefined,
+                )
+                .map(helpers.text)
+                .join(' ');
+              nameIncomplete ||= labels.length > 160;
+              return labels.slice(0, 160);
+            }
+            if (element instanceof HTMLImageElement) {
+              nameIncomplete ||= element.alt.length > 160;
+              return element.alt.slice(0, 160);
+            }
+            if (
+              [
+                'button',
+                'link',
+                'heading',
+                'option',
+                'tab',
+                'menuitem',
+                'checkbox',
+                'radio',
+                'switch',
+              ].includes(role)
+            )
+              return helpers.text(element);
+            return '';
+          },
+          roleOf(element: Element): string {
+            const roleAttribute = element.getAttribute('role');
+            if (roleAttribute && roleAttribute.length > 32) return '';
+            const explicit = roleAttribute?.split(/\s+/, 1)[0];
+            if (explicit)
+              return [
+                'button',
+                'link',
+                'textbox',
+                'searchbox',
+                'checkbox',
+                'radio',
+                'combobox',
+                'listbox',
+                'option',
+                'heading',
+                'tab',
+                'menuitem',
+                'switch',
+                'slider',
+                'spinbutton',
+                'img',
+                'region',
+                'dialog',
+                'alert',
+                'status',
+                'navigation',
+                'main',
+                'form',
+              ].includes(explicit)
+                ? explicit
+                : '';
+            if (
+              element instanceof HTMLButtonElement ||
+              element.tagName === 'SUMMARY'
+            )
+              return 'button';
+            if (
+              element instanceof HTMLAnchorElement &&
+              element.hasAttribute('href')
+            )
+              return 'link';
+            if (/^H[1-6]$/.test(element.tagName)) return 'heading';
+            if (element instanceof HTMLInputElement) {
+              if (element.type === 'checkbox' || element.type === 'radio')
+                return element.type;
+              if (['button', 'submit', 'reset', 'image'].includes(element.type))
+                return 'button';
+              if (element.type === 'number') return 'spinbutton';
+              if (element.type === 'range') return 'slider';
+              if (element.type === 'search') return 'searchbox';
+              if (['text', 'email', 'tel', 'url'].includes(element.type))
+                return 'textbox';
+            }
+            if (element instanceof HTMLTextAreaElement) return 'textbox';
+            if (element instanceof HTMLSelectElement)
+              return element.multiple || element.size > 1
+                ? 'listbox'
+                : 'combobox';
+            if (element instanceof HTMLOptionElement) return 'option';
+            if (element instanceof HTMLImageElement && element.alt)
+              return 'img';
+            if (element.tagName === 'NAV') return 'navigation';
+            if (element.tagName === 'MAIN') return 'main';
+            if (element.tagName === 'DIALOG') return 'dialog';
+            return '';
+          },
+        };
+        const walker = document.createTreeWalker(
+          document.documentElement,
+          NodeFilter.SHOW_ELEMENT,
+        );
+        let scanned = 0;
+        let element: Element | null = document.documentElement;
+        while (element && scanned < 1000 && Date.now() - startedAt < 100) {
+          scanned++;
+          if (!(
+            element instanceof HTMLInputElement &&
+            ['password', 'hidden'].includes(element.type)
+          )) {
+            const role = helpers.roleOf(element);
+            if (role) {
+              const style = getComputedStyle(element);
+              const visible =
+                element.getClientRects().length > 0 &&
+                style.visibility !== 'hidden' &&
+                style.visibility !== 'collapse' &&
+                !element.closest('[aria-hidden="true"],[hidden]');
+              const enabled =
+                !element.matches(':disabled') &&
+                !element.closest('[aria-disabled="true"]');
+              nameIncomplete = false;
+              const name = helpers.nameOf(element, role);
+              candidates.push({ role, name, visible, enabled, nameIncomplete });
+            }
+          }
+          element = walker.nextNode() as Element | null;
+        }
+        return { candidates, scanned, truncated: element !== null };
+      });
+      const ranked = rankDiscoveryCandidates(scan.candidates, parsed);
+      const unique = ranked.filter(
+        (candidate, index) =>
+          ranked.findIndex(
+            (other) =>
+              other.role === candidate.role &&
+              other.name === candidate.name &&
+              other.visible === candidate.visible &&
+              other.enabled === candidate.enabled,
+          ) === index,
+      );
+      const result: DiscoveryResult = {
+        matches: [],
+        scanned: scan.scanned,
+        truncated: scan.truncated || unique.length > parsed.maxResults,
+        limitations: [
+          'Main frame only; names use a bounded subset of accessible-name rules.',
+        ],
+      };
+      for (const rawCandidate of unique.slice(0, parsed.maxResults)) {
+        const { nameIncomplete, ...candidate } = rawCandidate;
+        const target: BrowserTarget = {
+          kind: 'role',
+          role: candidate.role,
+          ...(candidate.name ? { name: candidate.name } : {}),
+        };
+        let matchCount = 0;
+        if (candidate.visible) {
+          try {
+            matchCount = await this.locator(target).count();
+          } catch {
+            // An unsupported/changed role gets no fabricated locator.
+          }
+        }
+        let name = candidate.name;
+        for (const secret of this.filledValues) {
+          name = name.replaceAll(secret, '[REDACTED]');
+          const normalized = secret.replace(/\s+/g, ' ').trim();
+          if (normalized) name = name.replaceAll(normalized, '[REDACTED]');
+        }
+        // A truncated name may contain only a credential prefix; do not expose it.
+        if (nameIncomplete) name = '[omitted: incomplete accessible name]';
+        const safe = name === candidate.name;
+        const match = {
+          ...candidate,
+          name,
+          matchCount,
+          ...(matchCount > 0 && safe ? { locator: target } : {}),
+        };
+        result.matches.push(match);
+        if (Buffer.byteLength(JSON.stringify(result)) > 7_800) {
+          result.matches.pop();
+          result.truncated = true;
+          break;
+        }
+      }
+      if (result.matches.some((match) => !match.locator))
+        result.limitations.push(
+          'Some candidates have no verified visible semantic locator.',
+        );
+      return result;
+    };
+    try {
+      return await Promise.race([
+        work(),
+        new Promise<DiscoveryResult>((resolve) => {
+          timer = setTimeout(
+            () =>
+              resolve({
+                matches: [],
+                scanned: 0,
+                truncated: true,
+                limitations: [
+                  'Discovery exceeded its 1500 ms observation budget.',
+                ],
+              }),
+            1500,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
   async screenshot(): Promise<Buffer> {
     const page = this.getPage();

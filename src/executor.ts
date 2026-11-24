@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { workflowFingerprint } from './run-metadata.js';
+import { VERSION } from './version.js';
+import type { DiscoveryResult } from './discovery.js';
 import type { BrowserAdapter } from './browser.js';
 import {
   RatatoskrError,
@@ -75,8 +78,14 @@ async function executeStep(
   artifacts: ArtifactStore,
   createdArtifacts: ArtifactReference[],
   uploads: UploadResolver | undefined,
+  discoveries: DiscoveryResult[],
 ): Promise<string | undefined> {
   switch (step.action) {
+    case 'discover':
+      if (!browser.discover)
+        throw new BrowserExecutionError('Discovery unavailable');
+      discoveries.push(await browser.discover(step.options));
+      return;
     case 'branch':
       return;
     case 'navigate':
@@ -269,6 +278,7 @@ export async function executePlan(
     }
   };
   const steps: StepResult[] = [];
+  const discoveries: DiscoveryResult[] = [];
   const extractions = Object.create(null) as Record<string, string>;
   const artifacts: ArtifactReference[] = [];
   let firstFailure: StepResult | undefined;
@@ -491,6 +501,7 @@ export async function executePlan(
                 deps.artifacts,
                 artifacts,
                 deps.uploads,
+                discoveries,
               ),
             );
             break;
@@ -682,8 +693,17 @@ export async function executePlan(
         startedAt,
         endedAt: now,
         durationMs: now - startedAt,
-        failure: failureFor(error, 'navigate', deps.signal?.aborted),
+        failure:
+          !browserStarted &&
+          !deps.signal?.aborted &&
+          !(error instanceof RatatoskrError)
+            ? {
+                kind: 'browser_execution',
+                reason: 'Browser startup failed; run Ratatoskr doctor',
+              }
+            : failureFor(error, 'navigate', deps.signal?.aborted),
       };
+      initialNavigation ??= firstFailure;
       if (browserStarted && !deps.signal?.aborted) await captureFailure();
     }
   } finally {
@@ -764,6 +784,36 @@ export async function executePlan(
   const screenshot = artifacts.find(
     (artifact) => artifact.type === 'screenshot',
   );
+  const discovery = discoveries[0]
+    ? evidence.sanitize(discoveries[0])
+    : undefined;
+  if (discovery) {
+    for (const [index, match] of discovery.matches.entries()) {
+      if (
+        match.locator &&
+        JSON.stringify(match.locator) !==
+          JSON.stringify(discoveries[0]?.matches[index]?.locator)
+      ) {
+        delete match.locator;
+        match.matchCount = 0;
+        if (
+          !discovery.limitations.includes(
+            'A locator was withheld after late credential redaction.',
+          )
+        )
+          discovery.limitations.push(
+            'A locator was withheld after late credential redaction.',
+          );
+      }
+    }
+    while (
+      discovery.matches.length &&
+      Buffer.byteLength(JSON.stringify(discovery)) > 8000
+    ) {
+      discovery.matches.pop();
+      discovery.truncated = true;
+    }
+  }
   const trace = artifacts.find((artifact) => artifact.type === 'trace');
   const requestedOutputs = Object.fromEntries(
     (plan.outputs ?? [])
@@ -775,6 +825,7 @@ export async function executePlan(
         success: false,
         runId,
         failedStep: firstFailure.index,
+        ...(discovery ? { discovery } : {}),
         action: firstFailure.action,
         reason: firstFailure.failure?.reason ?? 'Step failed',
         ...(firstFailure.attempts ? { attempts: firstFailure.attempts } : {}),
@@ -809,6 +860,7 @@ export async function executePlan(
     : {
         success: true,
         runId,
+        ...(discovery ? { discovery } : {}),
         ...(Object.keys(requestedOutputs).length
           ? { outputs: requestedOutputs }
           : {}),
@@ -823,6 +875,28 @@ export async function executePlan(
   const endedAt = Date.now();
   const responseBytes = Buffer.byteLength(JSON.stringify(result));
   const record: RunRecord = {
+    verification: {
+      schemaVersion: 1,
+      ratatoskrVersion: VERSION,
+      workflowFingerprint: workflowFingerprint(plan),
+      targetOrigin: new URL(plan.startUrl).origin,
+      browser: 'chromium',
+      headless: true,
+      viewport: { width: 1280, height: 720 },
+      evidencePolicy: 'bounded-responses-v1',
+      droppedEvents: evidence.droppedEvents,
+      pendingRequests: Math.max(
+        0,
+        evidence.events.filter((event) => event.type === 'request').length -
+          evidence.events.filter(
+            (event) => event.type === 'http' || event.type === 'request_failed',
+          ).length,
+      ),
+      completed:
+        !deps.signal?.aborted &&
+        firstFailure?.failure?.kind !== 'budget_exhausted' &&
+        firstFailure?.index !== -1,
+    },
     id: runId,
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),
@@ -841,7 +915,7 @@ export async function executePlan(
       firstFailure?.index === -1,
     ),
     artifacts,
-    ...(initialNavigation?.attempts && initialNavigation.attempts > 1
+    ...(initialNavigation
       ? { initialNavigation: sanitizeStep(initialNavigation) }
       : {}),
   };

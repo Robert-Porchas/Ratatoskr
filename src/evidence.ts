@@ -63,12 +63,14 @@ const protocolLiterals: Record<string, ReadonlySet<string>> = {
 
 export type EvidenceInput = Evidence extends infer E
   ? E extends Evidence
-    ? Omit<E, 'at' | 'stepIndex'>
+    ? Omit<E, 'at' | 'stepIndex'> & { observedStepIndex?: number | null }
     : never
   : never;
 
 export class EvidenceCollector {
   readonly events: Evidence[] = [];
+  droppedEvents = 0;
+  private bytes = 0;
   private stepIndex: number | null = null;
   private readonly secrets = new Set<string>();
 
@@ -80,8 +82,24 @@ export class EvidenceCollector {
     if (value.length === 0 || this.secrets.has(value)) return;
     this.secrets.add(value);
     // Console events can precede the asynchronous storage/header snapshot.
-    for (let index = 0; index < this.events.length; index++)
-      this.events[index] = this.sanitize(this.events[index]!);
+    this.bytes = 0;
+    let kept = 0;
+    for (const previous of this.events) {
+      const event = this.sanitize(previous);
+      const size = Buffer.byteLength(JSON.stringify(event));
+      if (
+        this.bytes + size > 2_000_000 ||
+        Object.values(event).some(
+          (value) => typeof value === 'string' && value.length > 8192,
+        )
+      ) {
+        this.droppedEvents++;
+        continue;
+      }
+      this.bytes += size;
+      this.events[kept++] = event;
+    }
+    this.events.length = kept;
   }
 
   redact(value: string): string {
@@ -108,12 +126,38 @@ export class EvidenceCollector {
   }
 
   record(input: EvidenceInput): void {
-    const fields = this.sanitize(input);
+    const { observedStepIndex, ...raw } = input;
+    if (
+      Object.values(raw).some(
+        (value) => typeof value === 'string' && value.length > 8192,
+      )
+    ) {
+      this.droppedEvents++;
+      return;
+    }
+    const fields = this.sanitize(raw);
+    // Oversized fields are omitted as a whole: truncating before a delayed
+    // credential observation could persist a partial secret.
+    if (
+      Object.values(fields).some(
+        (value) => typeof value === 'string' && value.length > 8192,
+      )
+    ) {
+      this.droppedEvents++;
+      return;
+    }
     const event = {
       ...fields,
       at: Date.now(),
-      stepIndex: this.stepIndex,
+      stepIndex:
+        observedStepIndex === undefined ? this.stepIndex : observedStepIndex,
     } as Evidence;
+    const bytes = Buffer.byteLength(JSON.stringify(event));
+    if (this.events.length >= 4000 || this.bytes + bytes > 2_000_000) {
+      this.droppedEvents++;
+      return;
+    }
+    this.bytes += bytes;
     this.events.push(event);
   }
 }
@@ -121,6 +165,7 @@ export class EvidenceCollector {
 function compact(event: Evidence): RelevantError | null {
   switch (event.type) {
     case 'http':
+      if (event.status < 400) return null;
       return {
         type: 'http',
         method: event.method,
@@ -162,6 +207,7 @@ export function relevantErrors(
   const nearbyHttp = events.some(
     (event) =>
       event.type === 'http' &&
+      event.status >= 400 &&
       event.at >= failedStep.startedAt - 2000 &&
       event.at <= failedStep.endedAt + 2000,
   );
@@ -245,7 +291,9 @@ export function buildMetrics(
     networkRequestCount: events.filter((event) => event.type === 'request')
       .length,
     failedRequestCount: events.filter(
-      (event) => event.type === 'request_failed' || event.type === 'http',
+      (event) =>
+        event.type === 'request_failed' ||
+        (event.type === 'http' && event.status >= 400),
     ).length,
     consoleMessageCount: events.filter((event) => event.type === 'console')
       .length,

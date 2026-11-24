@@ -2,13 +2,14 @@ import { constants } from 'node:fs';
 import {
   copyFile,
   mkdir,
+  open,
   readFile,
   realpath,
   stat,
   unlink,
   writeFile,
 } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ArtifactNotFoundError } from './errors.js';
 import type { SessionRecord } from './session.js';
@@ -82,6 +83,35 @@ export class FilesystemRunStore implements RunStore {
     safeId(runId);
     return join(this.root, 'runs', runId);
   }
+  private async readRunFile(runId: string, name: string): Promise<string> {
+    const boundary = await realpath(join(this.root, 'runs'));
+    const file = await realpath(join(this.directory(runId), name));
+    if (!file.startsWith(`${boundary}${sep}`))
+      throw new Error('Run path escapes storage');
+    const handle = await open(
+      file,
+      constants.O_RDONLY | constants.O_NONBLOCK | (constants.O_NOFOLLOW ?? 0),
+    );
+    try {
+      if (!(await handle.stat()).isFile()) throw new Error('Invalid run file');
+      const buffer = Buffer.alloc(4_000_001);
+      let size = 0;
+      while (size < buffer.length) {
+        const { bytesRead } = await handle.read(
+          buffer,
+          size,
+          buffer.length - size,
+          null,
+        );
+        if (!bytesRead) break;
+        size += bytesRead;
+      }
+      if (size > 4_000_000) throw new Error('Run file exceeds read budget');
+      return buffer.subarray(0, size).toString('utf8');
+    } finally {
+      await handle.close();
+    }
+  }
   async prepare(runId: string): Promise<void> {
     await mkdir(join(this.directory(runId), 'artifacts'), {
       recursive: true,
@@ -140,28 +170,25 @@ export class FilesystemRunStore implements RunStore {
     extractions: Record<string, string>;
     session?: SessionRecord;
   }> {
-    const directory = this.directory(runId);
     const [metadata, workflow, steps, evidence, result, extractions] =
       await Promise.all([
-        readFile(join(directory, 'metadata.json'), 'utf8'),
-        readFile(join(directory, 'workflow.json'), 'utf8'),
-        readFile(join(directory, 'steps.json'), 'utf8'),
-        readFile(join(directory, 'evidence.jsonl'), 'utf8'),
-        readFile(join(directory, 'reduced-result.json'), 'utf8'),
-        readFile(join(directory, 'extractions.json'), 'utf8').catch(
-          (error: unknown) => {
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '{}';
-            throw error;
-          },
-        ),
+        this.readRunFile(runId, 'metadata.json'),
+        this.readRunFile(runId, 'workflow.json'),
+        this.readRunFile(runId, 'steps.json'),
+        this.readRunFile(runId, 'evidence.jsonl'),
+        this.readRunFile(runId, 'reduced-result.json'),
+        this.readRunFile(runId, 'extractions.json').catch((error: unknown) => {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '{}';
+          throw error;
+        }),
       ]);
-    const session = await readFile(
-      join(directory, 'session.json'),
-      'utf8',
-    ).catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-      throw error;
-    });
+    const session = await this.readRunFile(runId, 'session.json').catch(
+      (error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+          return undefined;
+        throw error;
+      },
+    );
     return {
       record: JSON.parse(metadata) as RunRecord,
       plan: JSON.parse(workflow) as BrowserPlan,
