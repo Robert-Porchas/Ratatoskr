@@ -68,6 +68,12 @@ function toolError(error: unknown) {
   };
 }
 
+// Bound small diagnostic inputs before collection validation, including when
+// the client bypasses the advertised guiding schema.
+function oversizedArguments(input: unknown): boolean {
+  return Buffer.byteLength(JSON.stringify(input) ?? '') > 8000;
+}
+
 export function createMcpServer(): McpServer {
   const allowedRefs = new Set(
     (process.env.RATATOSKR_ALLOWED_VALUE_REFS ?? '')
@@ -93,6 +99,13 @@ export function createMcpServer(): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (input) => {
+      if (oversizedArguments(input))
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Diagnostic arguments exceed the 8000-byte budget',
+          ),
+        );
       const parsed = comparisonInput.safeParse(input);
       if (!parsed.success)
         return invalidPlanResult(
@@ -130,6 +143,13 @@ export function createMcpServer(): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
+      if (oversizedArguments(input))
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Export arguments exceed the 8000-byte budget',
+          ),
+        );
       const parsed = exportInput.safeParse(input);
       if (!parsed.success)
         return invalidPlanResult(
@@ -184,6 +204,13 @@ export function createMcpServer(): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (input) => {
+      if (oversizedArguments(input))
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Diagnostic arguments exceed the 8000-byte budget',
+          ),
+        );
       const parsed = diagnosticInput.safeParse(input);
       if (!parsed.success)
         return invalidPlanResult(

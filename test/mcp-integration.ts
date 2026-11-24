@@ -80,6 +80,19 @@ try {
   }
   const schemaBytes = Buffer.byteLength(JSON.stringify(discovered.tools));
   assert(schemaBytes < 14000, `Unexpected tool metadata size: ${schemaBytes}`);
+  for (const name of [
+    'compare_browser_runs',
+    'export_browser_workflow',
+    'diagnose_browser_run',
+  ]) {
+    const invalid = await client.callTool({
+      name,
+      arguments: { payload: 'PRIVATE_INVALID_ARGUMENT'.repeat(500) },
+    });
+    assert(invalid.isError);
+    assert(Buffer.byteLength(JSON.stringify(invalid)) < 750);
+    assert(!JSON.stringify(invalid).includes('PRIVATE_INVALID_ARGUMENT'));
+  }
   const workflowTool = discovered.tools.find(
     (tool) => tool.name === 'run_browser_workflow',
   );

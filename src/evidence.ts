@@ -127,6 +127,14 @@ export class EvidenceCollector {
 
   record(input: EvidenceInput): void {
     const { observedStepIndex, ...raw } = input;
+    if (
+      Object.values(raw).some(
+        (value) => typeof value === 'string' && value.length > 8192,
+      )
+    ) {
+      this.droppedEvents++;
+      return;
+    }
     const fields = this.sanitize(raw);
     // Oversized fields are omitted as a whole: truncating before a delayed
     // credential observation could persist a partial secret.
