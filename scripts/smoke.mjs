@@ -37,6 +37,9 @@ try {
   await client.connect(transport);
   const discovery = await client.listTools();
   assert.deepEqual(discovery.tools.map((tool) => tool.name).sort(), [
+    'compare_browser_runs',
+    'diagnose_browser_run',
+    'export_browser_workflow',
     'get_browser_artifact',
     'inspect_browser_run',
     'run_browser_workflow',

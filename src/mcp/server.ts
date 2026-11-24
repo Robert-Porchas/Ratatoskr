@@ -13,6 +13,8 @@ import { InspectionCategorySchema } from '../inspection.js';
 import { ArtifactNotFoundError } from '../errors.js';
 import { pathToFileURL } from 'node:url';
 import { VERSION } from '../version.js';
+import { ComparisonOptionsSchema } from '../compare-runs.js';
+import { HttpUrlSchema } from '../protocol.js';
 
 const runId = z.string().regex(/^run_[a-f0-9]{32}$/);
 const artifactId = z.string().regex(/^artifact_[a-f0-9]{32}$/);
@@ -77,11 +79,145 @@ export function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'ratatoskr', version: VERSION });
   let active = false;
 
+  const comparisonInput = z.strictObject({
+    baselineRunId: runId,
+    candidateRunId: runId,
+    ...ComparisonOptionsSchema.shape,
+  });
+  server.registerTool(
+    'compare_browser_runs',
+    {
+      description:
+        'Compare before/after evidence. Reports observed changes and completeness limits; success alone is not proof of a fix.',
+      inputSchema: applicationValidatedSchema(z.toJSONSchema(comparisonInput)),
+      annotations: { readOnlyHint: true },
+    },
+    async (input) => {
+      const parsed = comparisonInput.safeParse(input);
+      if (!parsed.success)
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Use baselineRunId, candidateRunId, optional include and maxDifferences (1–50)',
+          ),
+        );
+      try {
+        const { baselineRunId, candidateRunId, ...options } = parsed.data;
+        const result = await app.compare(
+          baselineRunId,
+          candidateRunId,
+          options,
+        );
+        return {
+          content: [{ type: 'text', text: `Comparison: ${result.status}` }],
+          structuredContent: { ...result },
+        };
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+  const exportInput = z.strictObject({
+    runId,
+    testName: z.string().min(1).max(200).optional(),
+  });
+  server.registerTool(
+    'export_browser_workflow',
+    {
+      description:
+        'Strictly export a persisted workflow to a Playwright Test artifact. Unsupported semantics prevent export. Environment setup is explicit; no assertions are invented.',
+      inputSchema: applicationValidatedSchema(z.toJSONSchema(exportInput)),
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async (input) => {
+      const parsed = exportInput.safeParse(input);
+      if (!parsed.success)
+        return invalidPlanResult(
+          new InvalidWirePlan('arguments', 'Use runId and optional testName'),
+        );
+      try {
+        const run = await app.runs.load(parsed.data.runId);
+        if (JSON.stringify(run.plan).includes('[REDACTED]'))
+          return invalidPlanResult(
+            new InvalidWirePlan(
+              'runId',
+              'Workflow contains redacted data; export the reviewed original definition through CLI',
+            ),
+          );
+        const result = await app.export(
+          run.plan,
+          parsed.data.testName ? { testName: parsed.data.testName } : {},
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: result.ready
+                ? 'Workflow exported; retrieve the artifact only if needed'
+                : 'Unsupported workflow semantics; inspect unsupported operations',
+            },
+          ],
+          structuredContent: result,
+          ...(!result.ready ? { isError: true } : {}),
+        };
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+  const diagnosticInput = z.strictObject({
+    runId,
+    sourceFrame: z
+      .strictObject({
+        url: HttpUrlSchema.max(2048),
+        line: z.number().int().positive().max(10_000_000),
+        column: z.number().int().positive().max(10_000_000),
+      })
+      .optional(),
+  });
+  server.registerTool(
+    'diagnose_browser_run',
+    {
+      description:
+        'Read explicitly configured local route/request diagnostics. Optional generated source frame uses a configured local map. Set RATATOSKR_APPLICATION_CONFIG; source pointers do not prove cause.',
+      inputSchema: applicationValidatedSchema(z.toJSONSchema(diagnosticInput)),
+      annotations: { readOnlyHint: true },
+    },
+    async (input) => {
+      const parsed = diagnosticInput.safeParse(input);
+      if (!parsed.success)
+        return invalidPlanResult(
+          new InvalidWirePlan(
+            'arguments',
+            'Use runId and optional sourceFrame {url,line,column} (one-indexed)',
+          ),
+        );
+      try {
+        const result = await app.diagnose(parsed.data.runId);
+        const frame = parsed.data.sourceFrame;
+        const mapping = frame
+          ? await app.source(frame.url, frame.line, frame.column)
+          : undefined;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Explicit application diagnostics; backend logs unavailable',
+            },
+          ],
+          structuredContent: { ...result, ...(mapping ? { mapping } : {}) },
+        };
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
   server.registerTool(
     'run_browser_workflow',
     {
       description:
-        'Batch a complete app workflow. Locator: label/text/testId/css/role+name. fill: valueRef or value with ${savedName}; has: text contains; url: URL contains; wait: visible. extractText/Attribute: save. if: visible/url/exists/equals + then/else; not negates. retry: total attempts 1–3; reloadOnce: wait/extraction + retry:2. No JS/loops. Stop on success; inspect only missing failure evidence.',
+        'Batch a complete app workflow. Locator: label/text/testId/css/role+name. fill: valueRef or value with ${savedName}; has: text contains; url: URL contains; wait: visible. extractText/Attribute: save. discover: bounded read-only candidates (query/roles/maxResults) on current page, once/run. if: visible/url/exists/equals + then/else; not negates. retry: total attempts 1–3; reloadOnce: wait/extraction + retry:2. No JS/loops. Stop on success; inspect only missing failure evidence.',
       inputSchema: applicationValidatedSchema(wirePlanJsonSchema),
       outputSchema: runOutput,
       annotations: { readOnlyHint: false, destructiveHint: true },
