@@ -788,6 +788,24 @@ export async function executePlan(
     ? evidence.sanitize(discoveries[0])
     : undefined;
   if (discovery) {
+    for (const [index, match] of discovery.matches.entries()) {
+      if (
+        match.locator &&
+        JSON.stringify(match.locator) !==
+          JSON.stringify(discoveries[0]?.matches[index]?.locator)
+      ) {
+        delete match.locator;
+        match.matchCount = 0;
+        if (
+          !discovery.limitations.includes(
+            'A locator was withheld after late credential redaction.',
+          )
+        )
+          discovery.limitations.push(
+            'A locator was withheld after late credential redaction.',
+          );
+      }
+    }
     while (
       discovery.matches.length &&
       Buffer.byteLength(JSON.stringify(discovery)) > 8000
