@@ -2,6 +2,22 @@
 
 Ratatoskr is a local browser tool for Codex. It batches known multi-step application tests and returns compact diagnostic evidence instead of repeated browser dumps. This reduces model/browser round trips and has measured token savings on the [tested E2E scenarios](#token-first-browser-benchmark); it is not an autonomous browsing agent.
 
+## Verification and developer tooling
+
+Ratatoskr can now help you reproduce an application failure, compare browser evidence after a fix, and turn supported workflows into Playwright regression tests. These capabilities build on the existing browser workflows, variables, branching, retry safety, session diagnostics and evidence inspection documented below.
+
+| Feature                                                                                  | What you can do                                                                                                                                             |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Before-and-after verification](docs/developer-tooling.md#before-and-after-verification) | Compare saved runs for resolved, introduced and persistent failures, with explicit warnings when evidence is incomplete or runs differ.                     |
+| [Playwright Test export](docs/developer-tooling.md#playwright-regression-export)         | Export supported workflows as regression tests with preserved assertions and environment-backed credentials. Unsupported semantics are reported explicitly. |
+| [Application-aware diagnostics](docs/developer-tooling.md#application-diagnostics)       | Connect failing requests to configured source files, capture configured request IDs and resolve supplied source positions through local source maps.        |
+| [Standalone CLI and CI reports](docs/developer-tooling.md#cli-ci-and-doctor)             | Validate and run workflows, compare runs, export tests and produce JSON or JUnit reports with documented exit codes and cancellation handling.              |
+| [Doctor JSON diagnostics](docs/developer-tooling.md#cli-ci-and-doctor)                   | Check installation, browser launch, configuration and storage permissions through a diagnostic command with machine-readable output.                        |
+| [Updated Codex skill](docs/developer-tooling.md#codex-skill)                             | Guide Codex through compact evidence retrieval, fix verification, test export and safe discovery using the existing plugin or a manually installed skill.   |
+| [Bounded semantic discovery](docs/developer-tooling.md#bounded-semantic-discovery)       | Find relevant controls on the current page, inspect ambiguity and receive verified locator suggestions without automatically acting on them.                |
+
+See the [developer tooling guide](docs/developer-tooling.md) for commands, examples, supported operations and current limitations. Execution and evidence remain local and deterministic; source diagnostics use explicit configuration, and discovery is limited to the main frame.
+
 ## Install with Codex
 
 ### Prerequisites
