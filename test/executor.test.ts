@@ -78,6 +78,24 @@ class MissingTargetBrowser extends FakeBrowser {
   }
 }
 
+it('persists browser startup failure as infrastructure evidence', async () => {
+  const browser = new FakeBrowser();
+  vi.spyOn(browser, 'start').mockRejectedValue(new Error('browser missing'));
+  const storage = stores();
+  const result = await executePlan(
+    {
+      startUrl: 'http://localhost',
+      steps: [{ action: 'assert_url', contains: '/' }],
+    },
+    { browser, ...storage, values: new EnvironmentValueResolver({}) },
+  );
+  expect(result.success).toBe(false);
+  expect(storage.saved.record?.initialNavigation?.failure?.kind).toBe(
+    'browser_execution',
+  );
+  expect(storage.saved.record?.verification?.completed).toBe(false);
+});
+
 it('recovers a transient wait locally, without adding retry history to success', async () => {
   const browser = new FakeBrowser();
   const wait = vi
